@@ -1,6 +1,12 @@
 import { TERMINAL } from "@oh-my-pi/pi-tui";
 import { isNativeRendering } from "@oh-my-pi/pi-tui/native/state";
-import { SETTING_TABS, type SettingsDisplayEntry, type SettingsHost } from "@oh-my-pi/pi-tui/overlays/settings-defs";
+import {
+	SETTING_TABS,
+	type SettingsDisplayEntry,
+	type SettingsHost,
+	type SubmenuOption,
+} from "@oh-my-pi/pi-tui/overlays/settings-defs";
+import { t } from "../i18n";
 import { isSettingsInitialized, Settings, settings } from "./settings";
 import { orderedSettings } from "./all-settings";
 import { type AnySetting, lookup } from "./registry";
@@ -46,8 +52,32 @@ const CONDITIONS: Record<string, () => boolean> = {
 function envNote(setting: AnySetting): string {
 	if (!setting.envName || setting.envValue() === undefined) return "";
 	return setting.envFallback
-		? ` Unset, it falls back to $${setting.envName}.`
-		: ` $${setting.envName} overrides this setting while it is set.`;
+		? t("omp.setting.env.fallback", " Unset, it falls back to ${name}.", { name: setting.envName })
+		: t("omp.setting.env.overrides", " ${name} overrides this setting while it is set.", {
+				name: setting.envName,
+			});
+}
+
+/**
+ * Localize submenu choices at read time. Values stay verbatim — they are the
+ * persisted setting value; only the displayed label/description translate.
+ */
+function localizeOptions(
+	settingId: string,
+	options: ReadonlyArray<SubmenuOption> | "runtime" | undefined,
+): ReadonlyArray<SubmenuOption> | "runtime" | undefined {
+	if (!options || options === "runtime") return options;
+	return options.map(option => ({
+		...option,
+		get label() {
+			return t(`omp.setting.${settingId}.option.${option.value}.label`, option.label);
+		},
+		get description() {
+			return option.description
+				? t(`omp.setting.${settingId}.option.${option.value}.description`, option.description)
+				: undefined;
+		},
+	}));
 }
 
 /**
@@ -62,11 +92,29 @@ export function createSettingsHost(): SettingsHost {
 			const ui = setting.ui;
 			if (ui?.tab !== tab) continue;
 			const note = envNote(setting);
+			const warning = ui.warning;
 			entries.push({
 				path: setting.id,
 				type: setting.type,
 				defaultValue: setting.default,
-				ui: note ? { ...ui, description: `${ui.description}${note}` } : ui,
+				ui: {
+					...ui,
+					// Getters: the panel may outlive a locale change.
+					get label() {
+						return t(`omp.setting.${setting.id}.label`, ui.label);
+					},
+					get description() {
+						return `${t(`omp.setting.${setting.id}.description`, ui.description)}${note}`;
+					},
+					...(warning
+						? {
+								get warning() {
+									return t(`omp.setting.${setting.id}.warning`, warning);
+								},
+							}
+						: {}),
+					options: localizeOptions(setting.id, ui.options as ReadonlyArray<SubmenuOption> | "runtime" | undefined),
+				},
 				enumValues: setting.enumValues,
 				credential: setting.isCredential,
 				condition: ui.condition ? CONDITIONS[ui.condition] : undefined,

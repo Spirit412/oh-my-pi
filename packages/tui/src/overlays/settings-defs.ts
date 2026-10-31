@@ -1,5 +1,6 @@
 /** Schema-independent display definitions for the settings overlay. */
 import type { SymbolKey } from "../theme/symbols";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 export type SettingTab =
 	| "appearance"
@@ -32,31 +33,113 @@ export const SETTING_TABS: SettingTab[] = [
 
 /** Tab display metadata - icon is a symbol key from theme.ts (tab.*) */
 export const TAB_METADATA: Record<SettingTab, TabMetadata> = {
-	appearance: { label: "Appearance", icon: "tab.appearance" },
-	model: { label: "Model", icon: "tab.model" },
-	interaction: { label: "Interaction", icon: "tab.interaction" },
-	context: { label: "Context", icon: "tab.context" },
-	memory: { label: "Memory", icon: "tab.memory" },
-	files: { label: "Files", icon: "tab.files" },
-	shell: { label: "Shell", icon: "tab.shell" },
-	tools: { label: "Tools", icon: "tab.tools" },
-	tasks: { label: "Tasks", icon: "tab.tasks" },
-	providers: { label: "Providers", icon: "tab.providers" },
+	appearance: {
+		get label() {
+			return t("tui.settings.tab.appearance", "Appearance");
+		},
+		icon: "tab.appearance",
+	},
+	model: {
+		get label() {
+			return t("tui.settings.tab.model", "Model");
+		},
+		icon: "tab.model",
+	},
+	interaction: {
+		get label() {
+			return t("tui.settings.tab.interaction", "Interaction");
+		},
+		icon: "tab.interaction",
+	},
+	context: {
+		get label() {
+			return t("tui.settings.tab.context", "Context");
+		},
+		icon: "tab.context",
+	},
+	memory: {
+		get label() {
+			return t("tui.settings.tab.memory", "Memory");
+		},
+		icon: "tab.memory",
+	},
+	files: {
+		get label() {
+			return t("tui.settings.tab.files", "Files");
+		},
+		icon: "tab.files",
+	},
+	shell: {
+		get label() {
+			return t("tui.settings.tab.shell", "Shell");
+		},
+		icon: "tab.shell",
+	},
+	tools: {
+		get label() {
+			return t("tui.settings.tab.tools", "Tools");
+		},
+		icon: "tab.tools",
+	},
+	tasks: {
+		get label() {
+			return t("tui.settings.tab.tasks", "Tasks");
+		},
+		icon: "tab.tasks",
+	},
+	providers: {
+		get label() {
+			return t("tui.settings.tab.providers", "Providers");
+		},
+		icon: "tab.providers",
+	},
 };
 
 /** One-sentence lead per tab, under the page title of the native settings page. */
 export const TAB_LEADS: Record<SettingTab, string> = {
-	appearance: "Theme, composer, status line and how the transcript renders.",
-	model: "Thinking, sampling, the system prompt, retries and the helper models.",
-	interaction: "Input, approvals, notifications, speech and what happens at startup.",
-	context: "What the model sees, and when and how the conversation compacts.",
-	memory: "What omp remembers across sessions and where it keeps it.",
-	files: "How files are read, summarized and edited, and the language servers.",
-	shell: "The bash tool and the eval runtimes.",
-	tools: "Which tools the model has, their limits and the external integrations.",
-	tasks: "Modes, subagents, isolation and custom commands.",
-	providers: "Services, provider protocols, timeouts and privacy.",
+	get appearance() {
+		return t("tui.settings.lead.appearance", "Theme, composer, status line and how the transcript renders.");
+	},
+	get model() {
+		return t("tui.settings.lead.model", "Thinking, sampling, the system prompt, retries and the helper models.");
+	},
+	get interaction() {
+		return t("tui.settings.lead.interaction", "Input, approvals, notifications, speech and what happens at startup.");
+	},
+	get context() {
+		return t("tui.settings.lead.context", "What the model sees, and when and how the conversation compacts.");
+	},
+	get memory() {
+		return t("tui.settings.lead.memory", "What omp remembers across sessions and where it keeps it.");
+	},
+	get files() {
+		return t("tui.settings.lead.files", "How files are read, summarized and edited, and the language servers.");
+	},
+	get shell() {
+		return t("tui.settings.lead.shell", "The bash tool and the eval runtimes.");
+	},
+	get tools() {
+		return t("tui.settings.lead.tools", "Which tools the model has, their limits and the external integrations.");
+	},
+	get tasks() {
+		return t("tui.settings.lead.tasks", "Modes, subagents, isolation and custom commands.");
+	},
+	get providers() {
+		return t("tui.settings.lead.providers", "Services, provider protocols, timeouts and privacy.");
+	},
 };
+
+/**
+ * Localized heading for a settings section group. The raw group name stays the
+ * stable id used for ordering (`TAB_GROUPS`); only the displayed copy translates.
+ */
+export function settingsGroupLabel(group: string): string {
+	const key = group
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-|-$/g, "");
+	return t(`tui.settings.group.${key}`, group);
+}
 
 /**
  * Ordered section groups per tab. Settings declare their section via `ui.group`;
