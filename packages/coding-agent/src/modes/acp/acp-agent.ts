@@ -2436,10 +2436,14 @@ export class AcpAgent implements Agent {
 		// inline and a multi-thousand-line plan blows out the dialog.
 		const previewLines = planContent.split("\n").slice(0, 12).join("\n");
 		const ellipsis = planContent.split("\n").length > 12 ? "\n…" : "";
-		const message = t("omp.acp.plan.approvalMessage", 'Approve plan "{title}" and start implementation?\n\n{preview}', {
-			title,
-			preview: `${previewLines}${ellipsis}`,
-		});
+		const message = t(
+			"omp.acp.plan.approvalMessage",
+			'Approve plan "{title}" and start implementation?\n\n{preview}',
+			{
+				title,
+				preview: `${previewLines}${ellipsis}`,
+			},
+		);
 		const value = await elicitFromAcpClient(
 			this.#connection,
 			sessionId,

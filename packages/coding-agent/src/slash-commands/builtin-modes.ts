@@ -904,7 +904,8 @@ export const BUILTIN_MODE_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> = [
 		})),
 		getTuiAutocompleteDescription: runtime =>
 			t("omp.slash.effort.tui", "Thinking: {level}", {
-				level: runtime.ctx.viewSession.configuredThinkingLevel() ?? t("omp.slash.effort.tui.default", "model default"),
+				level:
+					runtime.ctx.viewSession.configuredThinkingLevel() ?? t("omp.slash.effort.tui.default", "model default"),
 			}),
 		handle: async (command, runtime) => {
 			const session = runtime.session;

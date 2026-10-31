@@ -124,8 +124,7 @@ export const ru: TranslationCatalog = {
 	"omp.slash.leave.description": "Покинуть совместную сессию",
 	"omp.slash.browser.description": "Переключить режим прелюда eval браузера: headless или видимый",
 	"omp.slash.copy.description": "Выбрать текст или код из беседы для копирования",
-	"omp.slash.open.description":
-		"Открыть последнюю ссылку из беседы в браузере (или выберите её через /copy)",
+	"omp.slash.open.description": "Открыть последнюю ссылку из беседы в браузере (или выберите её через /copy)",
 	"omp.slash.todo.description": "Просмотреть или изменить список задач агента",
 	"omp.slash.todo.acpDescription": "Управление задачами",
 	"omp.slash.session.description": "Команды управления сессиями",
@@ -162,8 +161,7 @@ export const ru: TranslationCatalog = {
 	"omp.slash.delete.description": "Удалить текущую сессию и начать новую",
 	"omp.slash.compact.description": "Вручную сжать контекст сессии",
 	"omp.slash.compact.acpDescription": "Сжать беседу",
-	"omp.slash.shake.description":
-		"Убрать тяжёлое содержимое из контекста (результаты инструментов, крупные блоки)",
+	"omp.slash.shake.description": "Убрать тяжёлое содержимое из контекста (результаты инструментов, крупные блоки)",
 	"omp.slash.shake.acpDescription": "Вытряхнуть тяжёлое содержимое из контекста беседы",
 	"omp.slash.handoff.description": "Суммировать сессию в документ передачи и сжать на месте",
 	"omp.slash.handoff.acpDescription": "Суммировать сессию в документ передачи и сжать на месте",
@@ -202,8 +200,7 @@ export const ru: TranslationCatalog = {
 	"omp.slash.skills.description": "Искать, устанавливать и обновлять навыки из реестра skills.omp.sh",
 	"omp.slash.force.description": "Принудительно использовать конкретный инструмент в следующем ходе",
 	"omp.slash.live.description": "Запустить голосовой режим реального времени на базе Codex",
-	"omp.slash.record.description":
-		"Начать или остановить запись экрана в воспроизводимый файл (omp play)",
+	"omp.slash.record.description": "Начать или остановить запись экрана в воспроизводимый файл (omp play)",
 	"omp.slash.pause.description": "Заморозить всех агентов (основного, субагентов, советника) до возобновления",
 	"omp.slash.forget-approvals.description":
 		"Забыть все разрешения для файлов и папок, записанные через «Ask and remember»",
@@ -229,20 +226,17 @@ export const ru: TranslationCatalog = {
 	"omp.slash.goal.sub.drop.description": "Отменить текущую цель",
 	"omp.slash.goal.sub.budget.description": "Изменить бюджет токенов",
 	"omp.slash.fast.sub.on.description": "Включить быстрый режим (уровень priority)",
-	"omp.slash.fast.sub.ultra.description":
-		"Включить Ultrafast (OpenAI API или модели Codex, где он доступен)",
+	"omp.slash.fast.sub.ultra.description": "Включить Ultrafast (OpenAI API или модели Codex, где он доступен)",
 	"omp.slash.fast.sub.off.description": "Отключить быстрый режим",
 	"omp.slash.fast.sub.status.description": "Показать статус быстрого режима",
-	"omp.slash.slow.sub.on.description":
-		"Уровень flex или низкий приоритет Anthropic при лимите сессии (авто)",
+	"omp.slash.slow.sub.on.description": "Уровень flex или низкий приоритет Anthropic при лимите сессии (авто)",
 	"omp.slash.slow.sub.off.description": "Стандартное обслуживание; отключить низкий приоритет Anthropic",
 	"omp.slash.slow.sub.status.description": "Показать статус медленного режима",
 	"omp.slash.skillful.sub.on.description": "Перечислять навыки в промпте для этой сессии",
 	"omp.slash.skillful.sub.off.description": "Не перечислять навыки в этой сессии",
 	"omp.slash.skillful.sub.status.description": "Показать статус перечисления навыков",
 	"omp.slash.extended-context.sub.on.description": "Включить увеличенные окна контекста",
-	"omp.slash.extended-context.sub.off.description":
-		"Использовать стандартные окна контекста (по обычной цене)",
+	"omp.slash.extended-context.sub.off.description": "Использовать стандартные окна контекста (по обычной цене)",
 	"omp.slash.extended-context.sub.status.description": "Показать статус расширенного контекста",
 	"omp.slash.computer.sub.on.description": "Включить computer use для этой сессии",
 	"omp.slash.computer.sub.off.description": "Отключить computer use для этой сессии",
@@ -271,8 +265,7 @@ export const ru: TranslationCatalog = {
 		"Записать zip с основным транскриптом, JSON запроса к LLM и отдельным файлом для каждого субагента",
 	"omp.slash.dump.sub.anon.description":
 		"Записать zip анонимизированного JSONL сессии (содержимое скрыто, метаданные сохранены) и субагентов",
-	"omp.slash.collab.sub.view.description":
-		"Поделиться ссылкой только для чтения (гости смотрят, но не пишут)",
+	"omp.slash.collab.sub.view.description": "Поделиться ссылкой только для чтения (гости смотрят, но не пишут)",
 	"omp.slash.collab.sub.list.description":
 		"Список активных локальных хостов Collab (без ссылок; используйте `omp collab link`)",
 	"omp.slash.collab.sub.status.description": "Показать ссылку и участников",
@@ -285,16 +278,14 @@ export const ru: TranslationCatalog = {
 	"omp.slash.todo.sub.collapse.description": "Вернуть ограниченный предпросмотр HUD",
 	"omp.slash.todo.sub.export.description": "Записать задачи в Markdown-файл (по умолчанию: TODO.md)",
 	"omp.slash.todo.sub.import.description": "Заменить задачи из Markdown-файла (по умолчанию: TODO.md)",
-	"omp.slash.todo.sub.append.description":
-		"Добавить задачу; фаза подбирается нечётко или создаётся автоматически",
+	"omp.slash.todo.sub.append.description": "Добавить задачу; фаза подбирается нечётко или создаётся автоматически",
 	"omp.slash.todo.sub.start.description": "Отметить задачу как in_progress (нечёткий подбор)",
 	"omp.slash.todo.sub.done.description": "Отметить задачу/фазу/всё выполненным (нечёткий подбор)",
 	"omp.slash.todo.sub.drop.description": "Отметить задачу/фазу/всё заброшенным (нечёткий подбор)",
 	"omp.slash.todo.sub.rm.description": "Удалить задачу/фазу/всё (нечёткий подбор)",
 	"omp.slash.session.sub.info.description": "Показать сведения и статистику сессии",
 	"omp.slash.session.sub.delete.description": "Удалить текущую сессию и вернуться к выбору",
-	"omp.slash.session.sub.pin.description":
-		"Закрепить сохранённый OAuth-аккаунт за текущим провайдером в этой сессии",
+	"omp.slash.session.sub.pin.description": "Закрепить сохранённый OAuth-аккаунт за текущим провайдером в этой сессии",
 	"omp.slash.jobs.sub.full.description": "Показать полные команды без обрезки",
 	"omp.slash.jobs.sub.kill.description": "Отменить выполняющуюся фоновую задачу",
 	"omp.slash.usage.sub.show.description": "Показать использование и лимиты провайдера",
@@ -312,8 +303,7 @@ export const ru: TranslationCatalog = {
 	"omp.slash.mcp.sub.unauth.description": "Удалить OAuth-авторизацию сервера",
 	"omp.slash.mcp.sub.enable.description": "Включить MCP-сервер",
 	"omp.slash.mcp.sub.disable.description": "Отключить MCP-сервер",
-	"omp.slash.mcp.sub.smithery-search.description":
-		"Найти в реестре Smithery и развернуть MCP-сервер",
+	"omp.slash.mcp.sub.smithery-search.description": "Найти в реестре Smithery и развернуть MCP-сервер",
 	"omp.slash.mcp.sub.smithery-login.description": "Войти в Smithery и сохранить API-ключ",
 	"omp.slash.mcp.sub.smithery-logout.description": "Удалить сохранённый API-ключ Smithery",
 	"omp.slash.mcp.sub.reconnect.description": "Переподключиться к указанному MCP-серверу",
@@ -331,8 +321,7 @@ export const ru: TranslationCatalog = {
 		"Суммировать через серверное сжатие, совместимое с OpenAI, затем вернуться к локальному резюме",
 	"omp.slash.compact.sub.snapcompact.description":
 		"Заархивировать историю в плотные растровые изображения, которые модель считывает (без вызова LLM)",
-	"omp.slash.shake.sub.elide.description":
-		"Убрать результаты инструментов и крупные блоки (по умолчанию)",
+	"omp.slash.shake.sub.elide.description": "Убрать результаты инструментов и крупные блоки (по умолчанию)",
 	"omp.slash.shake.sub.images.description": "Убрать блоки изображений",
 	"omp.slash.shake.sub.thinking.description": "Удалить все блоки размышлений",
 	"omp.slash.memory.sub.view.description": "Показать текущие данные внедрения памяти",
@@ -346,8 +335,7 @@ export const ru: TranslationCatalog = {
 	"omp.slash.memory.sub.rebuild.description": "Синоним enqueue",
 	"omp.slash.memory.sub.mm-list.description": "Список ментальных моделей активного банка",
 	"omp.slash.memory.sub.mm-show.description": "Показать одну ментальную модель (требуется id)",
-	"omp.slash.memory.sub.mm-refresh.description":
-		"Обновить автообновляемые модели банка или одну модель по id",
+	"omp.slash.memory.sub.mm-refresh.description": "Обновить автообновляемые модели банка или одну модель по id",
 	"omp.slash.memory.sub.mm-history.description": "Сравнить историю изменений ментальной модели",
 	"omp.slash.memory.sub.mm-seed.description": "Создать отсутствующие встроенные ментальные модели",
 	"omp.slash.memory.sub.mm-delete.description": "Удалить ментальную модель из банка (требуется id)",
@@ -357,8 +345,7 @@ export const ru: TranslationCatalog = {
 	"omp.slash.marketplace.sub.update.description": "Обновить каталог(и) маркетплейса",
 	"omp.slash.marketplace.sub.list.description": "Список настроенных маркетплейсов",
 	"omp.slash.marketplace.sub.discover.description": "Просмотреть доступные плагины",
-	"omp.slash.marketplace.sub.install.description":
-		"Установить плагин (без аргументов — интерактивный браузер)",
+	"omp.slash.marketplace.sub.install.description": "Установить плагин (без аргументов — интерактивный браузер)",
 	"omp.slash.marketplace.sub.uninstall.description": "Удалить плагин (без аргументов — выбор из списка)",
 	"omp.slash.marketplace.sub.installed.description": "Список установленных плагинов маркетплейса",
 	"omp.slash.marketplace.sub.upgrade.description": "Обновить устаревшие плагины",

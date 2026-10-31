@@ -2,11 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { hasTranslation, registerCatalog, registerCoreCatalogs, resetI18nForTest, setLocale } from "../src/i18n";
 import { buildAvailableSlashCommands } from "../src/slash-commands/available-commands";
 import { BUILTIN_SLASH_COMMANDS_INTERNAL, BUILTIN_SLASH_COMMAND_DEFS } from "../src/slash-commands/builtin-registry";
-import {
-	acpCommandDescriptionKey,
-	commandDescriptionKey,
-	subcommandDescriptionKey,
-} from "../src/slash-commands/i18n";
+import { acpCommandDescriptionKey, commandDescriptionKey, subcommandDescriptionKey } from "../src/slash-commands/i18n";
 
 function commandDef(name: string) {
 	const def = BUILTIN_SLASH_COMMAND_DEFS.find(command => command.name === name);
@@ -128,11 +124,7 @@ describe("dynamic autocomplete copy", () => {
 		ctx: {
 			todoPhases: [
 				{
-					tasks: [
-						{ status: "pending" },
-						{ status: "in_progress" },
-						{ status: "completed" },
-					],
+					tasks: [{ status: "pending" }, { status: "in_progress" }, { status: "completed" }],
 				},
 			],
 		},
