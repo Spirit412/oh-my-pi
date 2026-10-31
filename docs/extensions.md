@@ -168,6 +168,10 @@ Installed plugins can ship the same catalog through `package.json#omp.locales`
 (locale tag → catalog file inside the plugin root). The loader validates the
 catalog and prefixes keys with `plugin.<package-name>.` automatically.
 
+A catalog key `description` localizes the plugin's row in the plugin picker
+(the loader registers it as `plugin.<package-name>.description`); without it
+the manifest description shows.
+
 ### Provider registration
 
 Provider `models` entries and rows returned by `fetchDynamicModels` accept the same `api`/`kind` pairs as `models.yml` (see [Models](./models.md)): a runner API such as `openai-images` implies its kind, so the model reaches the `image` role and `generate_image` instead of registering as chat. A static `models` entry whose `kind` its api cannot serve fails `registerProvider`; such a `fetchDynamicModels` row is dropped with a logged warning.

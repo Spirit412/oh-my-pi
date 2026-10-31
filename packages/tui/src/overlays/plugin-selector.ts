@@ -58,7 +58,9 @@ export class PluginSelectorComponent extends OverlayPanel {
 			return {
 				value: id,
 				label: `${plugin.name}${version}${status}${scopeTag}`,
-				description: plugin.description,
+				// A plugin catalog key `description` arrives here prefixed as
+				// `plugin.<package-name>.description`; otherwise the manifest copy shows.
+				description: plugin.description ? t(`plugin.${plugin.name}.description`, plugin.description) : undefined,
 				hint: marketplace,
 			};
 		});

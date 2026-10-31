@@ -165,6 +165,10 @@ root). OMP validates the catalog, prefixes keys with `plugin.<package-name>.`,
 and loads it before UI startup. Marketplace catalog entries need no locale
 field; translations travel with the installed package.
 
+A plugin catalog may include a `description` key; the picker shows it as
+`plugin.<package-name>.description` and otherwise falls back to the manifest
+description.
+
 ### Plugin source formats
 
 The `source` field supports these formats. String sources must start with `./` and are resolved inside the marketplace root, after optional `metadata.pluginRoot` is prepended:
