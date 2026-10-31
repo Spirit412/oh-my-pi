@@ -506,4 +506,19 @@ export const ru: TranslationCatalog = {
 	},
 	"omp.loop.condition.until": "пока команда {command} не завершится успешно",
 	"omp.loop.condition.while": "пока команда {command} завершается успешно",
+	// ACP config/select display labels. Wire values (mode ids, thinking ids,
+	// approve/refine option strings) stay English because clients echo and
+	// code compares them.
+	"omp.acp.config.mode": "Режим",
+	"omp.acp.config.model": "Модель",
+	"omp.acp.config.thinking": "Рассуждения",
+	"omp.acp.mode.default": "По умолчанию",
+	"omp.acp.mode.defaultDescription": "Стандартный headless-режим ACP",
+	"omp.acp.mode.plan": "Планирование",
+	"omp.acp.mode.planDescription":
+		"Режим планирования только для чтения: сначала составляет план в markdown-файле, затем вносит изменения",
+	"omp.acp.thinking.off": "Выкл",
+	"omp.acp.thinking.auto": "Авто",
+	"omp.acp.thinking.autoDescription": "Автоопределение для каждого запроса",
+	"omp.acp.plan.approvalMessage": "Утвердить план «{title}» и начать реализацию?\n\n{preview}",
 };

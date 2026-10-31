@@ -98,10 +98,12 @@ import { ACP_TERMINAL_AUTH_FLAG } from "./terminal-auth";
 
 import { cfgDisabledExtensions } from "../../extensibility/settings";
 import { cfgPlanEnabled } from "../../plan-mode/settings";
+import { t } from "../../i18n";
 
 const ACP_DEFAULT_MODE_ID = "default";
 const ACP_PLAN_MODE_ID = "plan";
 const DEFAULT_PLAN_FILE_URL = "local://PLAN.md";
+// Wire values echoed by ACP clients and compared by code: keep them English.
 const APPROVE_OPTION = "Approve and execute";
 const REFINE_OPTION = "Refine plan";
 const MODE_CONFIG_ID = "mode";
@@ -2144,7 +2146,7 @@ export class AcpAgent implements Agent {
 		const configOptions: SessionConfigOption[] = [
 			{
 				id: MODE_CONFIG_ID,
-				name: "Mode",
+				name: t("omp.acp.config.mode", "Mode"),
 				category: "mode",
 				type: "select",
 				currentValue: currentModeId,
@@ -2157,7 +2159,7 @@ export class AcpAgent implements Agent {
 		if (models.length > 0) {
 			configOptions.push({
 				id: MODEL_CONFIG_ID,
-				name: "Model",
+				name: t("omp.acp.config.model", "Model"),
 				category: "model",
 				type: "select",
 				currentValue: currentModel ? this.#toModelId(currentModel) : this.#toModelId(models[0]),
@@ -2171,7 +2173,7 @@ export class AcpAgent implements Agent {
 
 		configOptions.push({
 			id: THINKING_CONFIG_ID,
-			name: "Thinking",
+			name: t("omp.acp.config.thinking", "Thinking"),
 			category: "thought_level",
 			type: "select",
 			currentValue: this.#toThinkingConfigValue(
@@ -2184,8 +2186,12 @@ export class AcpAgent implements Agent {
 
 	#buildThinkingOptions(session: AgentSession): Array<{ value: string; name: string; description?: string }> {
 		return [
-			{ value: THINKING_OFF, name: "Off" },
-			{ value: AUTO_THINKING, name: "Auto", description: "Auto-detect per prompt" },
+			{ value: THINKING_OFF, name: t("omp.acp.thinking.off", "Off") },
+			{
+				value: AUTO_THINKING,
+				name: t("omp.acp.thinking.auto", "Auto"),
+				description: t("omp.acp.thinking.autoDescription", "Auto-detect per prompt"),
+			},
 			...session.getAvailableThinkingLevels().map(level => ({
 				value: level,
 				name: level,
@@ -2225,12 +2231,21 @@ export class AcpAgent implements Agent {
 	}
 
 	#getAvailableModes(session: AgentSession): Array<{ id: string; name: string; description: string }> {
-		const modes = [{ id: ACP_DEFAULT_MODE_ID, name: "Default", description: "Standard ACP headless mode" }];
+		const modes = [
+			{
+				id: ACP_DEFAULT_MODE_ID,
+				name: t("omp.acp.mode.default", "Default"),
+				description: t("omp.acp.mode.defaultDescription", "Standard ACP headless mode"),
+			},
+		];
 		if (cfgPlanEnabled.get(session.settings)) {
 			modes.push({
 				id: ACP_PLAN_MODE_ID,
-				name: "Plan",
-				description: "Read-only planning mode that drafts a plan to a markdown file before any code changes",
+				name: t("omp.acp.mode.plan", "Plan"),
+				description: t(
+					"omp.acp.mode.planDescription",
+					"Read-only planning mode that drafts a plan to a markdown file before any code changes",
+				),
 			});
 		}
 		void session;
@@ -2421,7 +2436,10 @@ export class AcpAgent implements Agent {
 		// inline and a multi-thousand-line plan blows out the dialog.
 		const previewLines = planContent.split("\n").slice(0, 12).join("\n");
 		const ellipsis = planContent.split("\n").length > 12 ? "\n…" : "";
-		const message = `Approve plan "${title}" and start implementation?\n\n${previewLines}${ellipsis}`;
+		const message = t("omp.acp.plan.approvalMessage", 'Approve plan "{title}" and start implementation?\n\n{preview}', {
+			title,
+			preview: `${previewLines}${ellipsis}`,
+		});
 		const value = await elicitFromAcpClient(
 			this.#connection,
 			sessionId,
