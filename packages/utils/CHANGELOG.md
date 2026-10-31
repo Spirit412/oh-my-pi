@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Added `@oh-my-pi/pi-utils/i18n`: an ambient `t()` translator with inline English fallbacks, locale normalization, plural messages via `Intl.PluralRules`, catalog registration with source precedence and disposal, and a test reset for locale/catalog isolation.
+
 ## [18.14.1] - 2026-10-31
 
 ### Added
