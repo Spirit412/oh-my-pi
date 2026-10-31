@@ -687,6 +687,18 @@ export const ruTuiOverlays: TranslationCatalog = {
 	"tui.overlays.codexReset.bannerOpenAiReset": " O P E N A I   С Б Р О С ",
 	"tui.overlays.codexReset.bannerSavedReset": " З А П А С Н О Й   С Б Р О С ",
 	"tui.overlays.codexReset.close": "Закрыть",
+	"tui.overlays.codexReset.resetsBanked": {
+		one: "Новый сброс в запасе · доступно {available}",
+		few: "{added} сброса в запасе · доступно {available}",
+		many: "{added} сбросов в запасе · доступно {available}",
+		other: "{added} сброса в запасе · доступно {available}",
+	},
+	"tui.overlays.codexReset.resetsBankedReturn": {
+		one: "Новый сброс в запасе · доступно {available} · {key} — назад",
+		few: "{added} сброса в запасе · доступно {available} · {key} — назад",
+		many: "{added} сбросов в запасе · доступно {available} · {key} — назад",
+		other: "{added} сброса в запасе · доступно {available} · {key} — назад",
+	},
 	"tui.overlays.codexReset.titleOpenAiReset": "Сброс OpenAI",
 	"tui.overlays.codexReset.titleSavedReset": "Сохранённый сброс",
 	"tui.overlays.codexReset.weeklyCleared": "Недельное использование сброшено досрочно",
@@ -1644,7 +1656,7 @@ export const ruTuiOverlays: TranslationCatalog = {
 	"tui.overlays.pauseScreen.bodyInFlight": "Текущие вызовы завершаются; ничего нового не начинается до продолжения.",
 	"tui.overlays.pauseScreen.bodyMainAgents": "Главный агент, субагенты и советник замирают на следующем шаге.",
 	"tui.overlays.pauseScreen.countsToResume": "{counts} · {key} для продолжения",
-	"tui.overlays.pauseScreen.everyAgent": "Каждый агент в этом сеансе",
+	"tui.overlays.pauseScreen.everyAgent": "Каждый агент в этой сессии",
 	"tui.overlays.pauseScreen.factEveryAgent": "Все агенты приостановлены",
 	"tui.overlays.pauseScreen.factEveryAgentDetail":
 		"Главный агент, субагенты и советник останавливаются на следующем шаге.",

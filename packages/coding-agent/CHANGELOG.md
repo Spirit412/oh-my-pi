@@ -17,6 +17,7 @@
 - Added Russian localization for CLI help and shell completions: `omp --help`, `omp <command> --help`, and generated completion descriptions resolve before rendering; `--lang` wins over `OMP_LANG` and the system locale.
 - Added Russian localization for the status line, context usage and context views, and transcript chrome (warning/error labels, unknown-error fallback).
 - Added Russian localization for the full TUI surface — tool renderers, overlays, chat, prompt, setup, apps, and shared components — with 3,445 keys and Russian plural categories.
+- Added `bun run check:i18n` catalog coverage: it validates builtin slash commands, settings, settings chrome, CLI commands/flags/arguments, and literal `t()` keys against the shipped Russian catalogs, failing on missing or unreachable keys. The catalog now reports 0 missing and 0 unused across 6,500 keys.
 
 ### Changed
 

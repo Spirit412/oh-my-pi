@@ -4,7 +4,10 @@ import {
 	formatMessage,
 	getLocale,
 	hasTranslation,
+	isPseudoLocale,
 	normalizeLocale,
+	PSEUDO_LOCALE,
+	pseudoLocalize,
 	registerCatalog,
 	resetI18nForTest,
 	setLocale,
@@ -73,5 +76,30 @@ describe("registration", () => {
 		expect(hasTranslation("key", "ru")).toBe(true);
 		expect(hasTranslation("missing", "ru")).toBe(false);
 		expect(getLocale()).toBe("en");
+	});
+});
+
+describe("pseudo-locale", () => {
+	test("accents fallbacks, pads width, and keeps substituted values", () => {
+		const pseudo = formatMessage("Allow tool: {name}", { name: "read" }, PSEUDO_LOCALE);
+		expect(pseudo.startsWith("⟦")).toBe(true);
+		expect(pseudo.endsWith("⟧")).toBe(true);
+		expect(pseudo).toContain("ŕéáð");
+		expect(pseudo).not.toContain("Allow tool");
+		expect(pseudo.length).toBeGreaterThan("Allow tool: read".length);
+	});
+
+	test("t() pseudo-localizes missing keys and plural forms", () => {
+		setLocale("en-XA");
+		expect(isPseudoLocale(getLocale())).toBe(true);
+		expect(hasTranslation("greeting")).toBe(false);
+		expect(t("greeting", "Hello")).toContain("Ĥéļļó");
+		expect(formatMessage({ one: "{count} item", other: "{count} items" }, { count: 2 })).toContain("íţéɱš");
+	});
+
+	test("empty text stays empty and real locales are unaffected", () => {
+		expect(pseudoLocalize("")).toBe("");
+		expect(isPseudoLocale("ru")).toBe(false);
+		expect(formatMessage("Hello", undefined, "en")).toBe("Hello");
 	});
 });

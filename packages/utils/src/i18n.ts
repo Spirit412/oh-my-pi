@@ -176,10 +176,85 @@ function interpolate(text: string, params: MessageParams | undefined): string {
 	});
 }
 
+/** Pseudo-locale for missing-key and width detection. */
+export const PSEUDO_LOCALE = "en-xa";
+
+const PSEUDO_ACCENTS: Readonly<Record<string, string>> = {
+	a: "á",
+	b: "ƀ",
+	c: "ç",
+	d: "ð",
+	e: "é",
+	f: "ƒ",
+	g: "ĝ",
+	h: "ĥ",
+	i: "í",
+	j: "ĵ",
+	k: "ķ",
+	l: "ļ",
+	m: "ɱ",
+	n: "ñ",
+	o: "ó",
+	p: "þ",
+	q: "ǫ",
+	r: "ŕ",
+	s: "š",
+	t: "ţ",
+	u: "ú",
+	v: "ṽ",
+	w: "ŵ",
+	x: "ẋ",
+	y: "ý",
+	z: "ž",
+	A: "Á",
+	B: "Ɓ",
+	C: "Ç",
+	D: "Ð",
+	E: "É",
+	F: "Ƒ",
+	G: "Ĝ",
+	H: "Ĥ",
+	I: "Í",
+	J: "Ĵ",
+	K: "Ķ",
+	L: "Ļ",
+	M: "Ṁ",
+	N: "Ñ",
+	O: "Ó",
+	P: "Þ",
+	Q: "Ǫ",
+	R: "Ŕ",
+	S: "Š",
+	T: "Ţ",
+	U: "Ú",
+	V: "Ṽ",
+	W: "Ŵ",
+	X: "Ẋ",
+	Y: "Ý",
+	Z: "Ž",
+};
+
+/** Whether `locale` is the pseudo-locale used to expose untranslated copy. */
+export function isPseudoLocale(locale: string): boolean {
+	return normalizeLocale(locale) === PSEUDO_LOCALE;
+}
+
+/**
+ * Accent ASCII letters and pad the rendered text so English fallbacks stand
+ * out and width-sensitive layouts are exercised. Applied after interpolation,
+ * so substituted values are accented too and cursor-safe lengths still grow.
+ */
+export function pseudoLocalize(text: string): string {
+	if (!text) return text;
+	const accented = text.replace(/[A-Za-z]/g, char => PSEUDO_ACCENTS[char] ?? char);
+	return `⟦${accented}${"·".repeat(Math.ceil(accented.length * 0.3))}⟧`;
+}
+
 /** Format a message without a catalog lookup; used by tests and tooling. */
 export function formatMessage(message: Message, params?: MessageParams, locale = currentLocale): string {
 	const text = typeof message === "string" ? message : selectPlural(message, params, locale);
-	return interpolate(text, params);
+	const rendered = interpolate(text, params);
+	return isPseudoLocale(locale) ? pseudoLocalize(rendered) : rendered;
 }
 
 /**

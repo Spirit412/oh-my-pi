@@ -60,4 +60,14 @@ describe("status-line locale seam", () => {
 		expect(plain(plan.content)).toContain("Plan");
 		expect(plain(plan.content)).not.toContain("План");
 	});
+
+	it("pseudo-locale expands labels so width regressions surface", () => {
+		setLocale("en-XA");
+		const pseudo = renderSegment("mode", context({ planMode: { enabled: true, paused: false } }));
+		setLocale("en");
+		const english = renderSegment("mode", context({ planMode: { enabled: true, paused: false } }));
+
+		expect(plain(pseudo.content)).toContain("⟦");
+		expect(visibleWidth(plain(pseudo.content))).toBeGreaterThan(visibleWidth(plain(english.content)));
+	});
 });
