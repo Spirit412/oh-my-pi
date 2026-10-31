@@ -41,6 +41,7 @@ import type {
 import type { CompactionResult } from "@oh-my-pi/pi-agent-core/compaction";
 import type { ContextUsage } from "@oh-my-pi/pi-tui/status-line/types";
 import type { LoopConditionConfig } from "@oh-my-pi/pi-tui/status-line/loop";
+import type { Message, MessageParams, TranslationCatalog } from "@oh-my-pi/pi-utils/i18n";
 import type { LivePhase } from "@oh-my-pi/pi-tui/apps/live-visualizer";
 import type { ConfiguredThinkingLevel } from "@oh-my-pi/pi-tui/thinking";
 import type {
@@ -1986,6 +1987,30 @@ export interface ExtensionAPI {
 			default?: boolean | string;
 		},
 	): void;
+
+	/** Register translation catalogs for one or more locales. */
+	registerTranslations(
+		locales: string | readonly string[],
+		catalog: TranslationCatalog,
+		options?: { namespace?: string },
+	): void;
+
+	/** Translate `key` in the active locale, falling back to the English source text. */
+	t(key: string, fallback: Message, params?: MessageParams): string;
+
+	/** Active UI locale (for example `en` or `ru`). */
+	getLocale(): string;
+
+	/** Translation surface (`pi.i18n.t`, `pi.i18n.registerCatalog`, `pi.i18n.getLocale`). */
+	i18n: {
+		t(key: string, fallback: Message, params?: MessageParams): string;
+		registerCatalog(
+			locales: string | readonly string[],
+			catalog: TranslationCatalog,
+			options?: { namespace?: string },
+		): void;
+		getLocale(): string;
+	};
 
 	/** Set the display label for this extension, or set a label on a specific entry. */
 	setLabel(entryIdOrLabel: string, label?: string | undefined): void;

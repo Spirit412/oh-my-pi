@@ -17,6 +17,14 @@ import type {
 	TSchema,
 } from "@oh-my-pi/pi-ai";
 import { isBuiltinComposerStyle, type KeyId } from "@oh-my-pi/pi-tui";
+import {
+	getLocale as getActiveLocale,
+	registerCatalog,
+	t as translate,
+	type Message,
+	type MessageParams,
+	type TranslationCatalog,
+} from "@oh-my-pi/pi-utils/i18n";
 import { hasFsCode, isEacces, isEnoent, logger } from "@oh-my-pi/pi-utils";
 import { type ExtensionModule, extensionModuleCapability } from "../../capability/extension-module";
 import { type Hook, hookCapability } from "../../capability/hook";
@@ -207,6 +215,15 @@ class ConcreteExtensionAPI implements ExtensionAPI, IExtensionRuntime {
 		config: ProviderConfig;
 		sourceId: string;
 	}> = [];
+	readonly i18n = {
+		t: (key: string, fallback: Message, params?: MessageParams) => translate(key, fallback, params),
+		registerCatalog: (
+			locales: string | readonly string[],
+			catalog: TranslationCatalog,
+			options?: { namespace?: string },
+		) => this.registerTranslations(locales, catalog, options),
+		getLocale: () => getActiveLocale(),
+	};
 
 	get pi() {
 		return getCodingAgentApi();
@@ -287,6 +304,29 @@ class ConcreteExtensionAPI implements ExtensionAPI, IExtensionRuntime {
 		if (options.default !== undefined) {
 			this.runtime.flagValues.set(name, options.default);
 		}
+	}
+
+	registerTranslations(
+		locales: string | readonly string[],
+		catalog: TranslationCatalog,
+		options?: { namespace?: string },
+	): void {
+		const namespace = options?.namespace?.trim();
+		const normalized: Record<string, Message> = {};
+		for (const [key, message] of Object.entries(catalog)) {
+			normalized[namespace && !key.startsWith(`${namespace}.`) ? `${namespace}.${key}` : key] = message;
+		}
+		for (const locale of typeof locales === "string" ? [locales] : locales) {
+			registerCatalog(locale, normalized, `extension:${this.extension.path}`);
+		}
+	}
+
+	t(key: string, fallback: Message, params?: MessageParams): string {
+		return translate(key, fallback, params);
+	}
+
+	getLocale(): string {
+		return getActiveLocale();
 	}
 
 	registerMessageRenderer<T>(customType: string, renderer: MessageRenderer<T>): void {
