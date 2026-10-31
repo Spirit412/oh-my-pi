@@ -1,4 +1,4 @@
-import type * as nodeFs from "node:fs";
+import * as nodeFs from "node:fs";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import {
@@ -13,7 +13,7 @@ import {
 	type Usage,
 } from "@oh-my-pi/pi-ai";
 import { classifyModel } from "@oh-my-pi/pi-catalog/compat/taxonomy";
-import { getSessionsDir, isEnoent, readLines } from "@oh-my-pi/pi-utils";
+import { getAgentDir, getSessionsDir, isEnoent, readLines } from "@oh-my-pi/pi-utils";
 import type {
 	AgentType,
 	MessageStatsInput,
@@ -22,6 +22,7 @@ import type {
 	SessionModelUsageEntry,
 	SessionServiceTierChangeEntry,
 	ToolCallStats,
+	ToolKind,
 	ToolResultLink,
 	UserMessageLink,
 	UserMessageStats,
@@ -33,6 +34,68 @@ const ADVISOR_TRANSCRIPT_BASENAME = "__advisor.jsonl";
 
 /** Characters a persisted tool name may consist of without sanitization. */
 const TOOL_NAME_PATTERN = /^[\w.:-]+$/;
+
+/** Serialized UTF-8 byte length of a session payload, or 0 when it cannot be serialized. */
+function jsonBytes(value: unknown): number {
+	try {
+		const text = JSON.stringify(value);
+		return text === undefined ? 0 : Buffer.byteLength(text);
+	} catch {
+		return 0;
+	}
+}
+
+/** Bytes as kilobytes with two decimals — the unit every payload surface reports. */
+function toKb(bytes: number): number {
+	return Math.round((bytes / 1024) * 100) / 100;
+}
+
+/**
+ * Bytes per prompt token used to estimate a request's size. Sessions journal the
+ * provider-counted prompt tokens and the assistant response, but not the request
+ * body itself — and the transcript is not a substitute, because compaction and
+ * re-injected context blocks make its byte count wildly exceed what was sent.
+ * A fixed ratio keeps the estimate proportional across turns and models.
+ */
+const BYTES_PER_PROMPT_TOKEN = 4;
+
+/**
+ * Estimated size of the request body from the prompt tokens the provider
+ * counted for the turn (uncached input + cache reads + cache writes). Response
+ * sizes are measured exactly; this one is derived, and the UI labels it so.
+ */
+function estimateRequestKb(usage: Pick<Usage, "input" | "cacheRead" | "cacheWrite">): number {
+	const promptTokens = (usage.input ?? 0) + (usage.cacheRead ?? 0) + (usage.cacheWrite ?? 0);
+	return toKb(promptTokens * BYTES_PER_PROMPT_TOKEN);
+}
+
+/** Characters of serialized arguments kept for the tool-call log. */
+const ARGS_PREVIEW_LIMIT = 500;
+/** Characters of a command/path/url kept as a tool call's target. */
+const TOOL_TARGET_LIMIT = 200;
+
+/** Tool names whose invocation can execute a script file named in its arguments. */
+const SCRIPT_TOOL_NAMES: ReadonlySet<string> = new Set(["bash", "eval", "computer"]);
+/** Extensions that mark an argument token as an executed script. */
+const SCRIPT_EXTENSIONS = String.raw`(?:[cm]?[jt]sx?|py|sh|bash|zsh|rb|php|pl|lua|r|jl|sql|go|rs|kt|swift)`;
+/**
+ * A script handed to an interpreter (`python3 scripts/report.py --limit 5`).
+ * Requiring the interpreter is what keeps incidental filenames in unrelated
+ * commands (`git add report.py`) out; glob tokens are rejected so a search
+ * pattern like `--include=*.ts` never reads as an executed script.
+ */
+const SCRIPT_INTERPRETER_PATTERN = new RegExp(
+	String.raw`(?:^|[\s;&|])(?:python3?(?:\.\d+)?|pypy3?|bun|node|deno|tsx|ts-node|sh|bash|zsh|ruby|perl|php|lua)\s+[^;&|]*?([^\s"'` +
+		String.raw`;&|()<>*?[\]{}]+\.` +
+		SCRIPT_EXTENSIONS +
+		String.raw`)\b`,
+);
+/** A script executed directly by path (`./scripts/deploy.sh`). */
+const SCRIPT_PATH_PATTERN = new RegExp(
+	String.raw`(?:^|[\s;&|])(\.{0,2}\/[^\s"'` + String.raw`;&|()<>*?[\]{}]+\.` + SCRIPT_EXTENSIONS + String.raw`)\b`,
+);
+/** Argument keys consulted for a target when the tool has no dedicated mapping. */
+const GENERIC_TARGET_KEYS = ["description", "name", "query", "url", "path", "command", "pattern"] as const;
 
 /**
  * Classify which agent produced a transcript from its path within the sessions
@@ -382,6 +445,7 @@ function extractToolCalls(
 		} catch {
 			// Non-serializable arguments (shouldn't happen in persisted JSONL); size unknown.
 		}
+		const meta = deriveToolMeta(toolName, block.arguments);
 		calls.push({
 			sessionFile,
 			entryId: entry.id,
@@ -394,6 +458,12 @@ function extractToolCalls(
 			agentType,
 			callsInTurn: blocks.length,
 			argsChars,
+			toolKind: meta.kind,
+			serverName: meta.serverName,
+			skillName: meta.skillName,
+			scriptName: meta.scriptName,
+			target: meta.target,
+			argsPreview: meta.argsPreview,
 		});
 	}
 	return calls;
@@ -414,6 +484,206 @@ function sanitizeToolName(name: string): string | null {
 	if (TOOL_NAME_PATTERN.test(trimmed)) return trimmed;
 	const candidate = trimmed.split(/[^\w.:-]/)[0] ?? "";
 	return candidate.length > 0 ? candidate : null;
+}
+
+/**
+ * Sanitize one half of an MCP tool name the way the MCP bridge mints it
+ * (`sanitizeMCPToolNamePart` in the coding agent's tool bridge): lowercase,
+ * non-identifier characters collapsed into single underscores.
+ */
+function sanitizeMcpNamePart(value: string): string {
+	return value
+		.toLowerCase()
+		.replace(/[^a-z0-9_]+/g, "_")
+		.replace(/_+/g, "_")
+		.replace(/^_+|_+$/g, "");
+}
+
+/**
+ * Configured MCP servers, sanitized the way their tool names embed them. Cached
+ * per agent directory: a missing or malformed config only costs the exact
+ * server split, which then falls back to the name shape.
+ */
+let mcpServerCache: { dir: string; servers: { sanitized: string; original: string }[] } | null = null;
+function configuredMcpServers(): { sanitized: string; original: string }[] {
+	const dir = getAgentDir();
+	if (mcpServerCache?.dir === dir) return mcpServerCache.servers;
+	const servers: { sanitized: string; original: string }[] = [];
+	try {
+		const config = JSON.parse(nodeFs.readFileSync(path.join(dir, "mcp.json"), "utf8")) as {
+			mcpServers?: Record<string, unknown>;
+		};
+		for (const name of Object.keys(config.mcpServers ?? {})) {
+			const sanitized = sanitizeMcpNamePart(name);
+			if (sanitized.length > 0) servers.push({ sanitized, original: name });
+		}
+	} catch {
+		// No readable MCP config: the name-shape fallback below still yields a server guess.
+	}
+	servers.sort((a, b) => b.sanitized.length - a.sanitized.length);
+	mcpServerCache = { dir, servers };
+	return servers;
+}
+
+/**
+ * Split `mcp__<server>_<tool>` into its server and tool. The single-underscore
+ * join makes the boundary ambiguous in the raw name, so match the longest
+ * configured server prefix first and fall back to the last underscore, which
+ * keeps multi-word server names (`sequential-thinking`) intact.
+ */
+function splitMcpToolName(toolName: string): { server: string | null; tool: string | null } {
+	const rest = toolName.slice("mcp__".length);
+	if (rest.length === 0) return { server: null, tool: null };
+	for (const { sanitized, original } of configuredMcpServers()) {
+		if (rest === sanitized) return { server: original, tool: null };
+		if (rest.startsWith(`${sanitized}_`)) {
+			return { server: original, tool: rest.slice(sanitized.length + 1) };
+		}
+	}
+	// Doubled server prefixes (`serena_serena_write_memory`) name a server the
+	// config does not list; the repetition still identifies the boundary.
+	const first = rest.indexOf("_");
+	if (first > 0) {
+		const head = rest.slice(0, first);
+		if (rest.startsWith(`${head}_${head}_`)) return { server: head, tool: rest.slice(first + 1) };
+	}
+	const at = rest.lastIndexOf("_");
+	return at > 0 ? { server: rest.slice(0, at), tool: rest.slice(at + 1) } : { server: rest, tool: null };
+}
+
+/** First non-empty string value among `keys`, in order. */
+function firstStringArg(args: Record<string, unknown> | null, keys: readonly string[]): string | null {
+	if (!args) return null;
+	for (const key of keys) {
+		const value = args[key];
+		if (typeof value === "string" && value.trim().length > 0) return value;
+	}
+	return null;
+}
+
+/** Collapse whitespace and cut a target to its display budget. */
+function compactTarget(value: string | null): string | null {
+	if (value === null) return null;
+	const compact = value.replace(/\s+/g, " ").trim();
+	if (compact.length === 0) return null;
+	return compact.length > TOOL_TARGET_LIMIT ? `${compact.slice(0, TOOL_TARGET_LIMIT - 1)}…` : compact;
+}
+
+/** Serialized arguments kept for the call log; the full payload stays in the transcript. */
+function argsPreview(args: unknown): string | null {
+	if (args === undefined) return null;
+	try {
+		const text = JSON.stringify(args);
+		if (text === undefined) return null;
+		return text.length > ARGS_PREVIEW_LIMIT ? `${text.slice(0, ARGS_PREVIEW_LIMIT - 1)}…` : text;
+	} catch {
+		return null;
+	}
+}
+
+/** Skill named by a `skill://` read target or a `manage_skill` call. */
+function skillNameFromCall(toolName: string, args: Record<string, unknown> | null): string | null {
+	if (toolName === "manage_skill") return firstStringArg(args, ["name"]);
+	if (toolName !== "read") return null;
+	const target = firstStringArg(args, ["path"]);
+	if (!target) return null;
+	const match = /^skill:(?:\/\/)?([^/?#:]+)/i.exec(target);
+	return match?.[1] ?? null;
+}
+
+/** Script file executed by a shell/eval/computer call, or the inline eval language. */
+function scriptNameFromCall(toolName: string, args: Record<string, unknown> | null): string | null {
+	if (!SCRIPT_TOOL_NAMES.has(toolName)) return null;
+	if (toolName === "eval") {
+		const language = (firstStringArg(args, ["language"]) ?? "js").toLowerCase();
+		const short = language === "python" ? "py" : language === "javascript" ? "js" : language;
+		return `eval.${short}`;
+	}
+	const command = firstStringArg(args, ["command", "path"]);
+	if (!command) return null;
+	const match = SCRIPT_INTERPRETER_PATTERN.exec(command) ?? SCRIPT_PATH_PATTERN.exec(command);
+	if (!match) return null;
+	return path.basename(match[1]);
+}
+
+/** Most identifying target of a call: URL, command, path, query or `server/tool`. */
+function targetFromCall(toolName: string, args: Record<string, unknown> | null): string | null {
+	if (!args) return null;
+	switch (toolName) {
+		case "bash":
+			return compactTarget(firstStringArg(args, ["command"]));
+		case "eval": {
+			const language = (firstStringArg(args, ["language"]) ?? "js").toLowerCase();
+			return `eval ${language}`;
+		}
+		case "read":
+		case "write":
+		case "edit":
+		case "ast_edit":
+			return compactTarget(firstStringArg(args, ["path", "file_path", "filePath"]));
+		case "grep":
+		case "ast_grep":
+		case "glob":
+		case "find":
+			return compactTarget(firstStringArg(args, ["pattern", "query", "path"]));
+		case "fetch":
+			return compactTarget(firstStringArg(args, ["url", "path"]));
+		case "web_search":
+			return compactTarget(firstStringArg(args, ["query"]));
+		case "task":
+			return compactTarget(firstStringArg(args, ["description", "agent", "prompt"]));
+		case "manage_skill":
+			return compactTarget(firstStringArg(args, ["name"]));
+		default:
+			return compactTarget(firstStringArg(args, GENERIC_TARGET_KEYS));
+	}
+}
+
+/** Kind, source name and target derived from one tool call's name and arguments. */
+interface ToolMeta {
+	kind: ToolKind;
+	serverName: string | null;
+	skillName: string | null;
+	scriptName: string | null;
+	target: string | null;
+	argsPreview: string | null;
+}
+
+function deriveToolMeta(toolName: string, args: unknown): ToolMeta {
+	const record =
+		args !== null && typeof args === "object" && !Array.isArray(args) ? (args as Record<string, unknown>) : null;
+	const preview = argsPreview(args);
+	if (toolName.startsWith("mcp__")) {
+		const { server, tool } = splitMcpToolName(toolName);
+		return {
+			kind: "mcp",
+			serverName: server,
+			skillName: null,
+			scriptName: null,
+			target: compactTarget(tool ? `${server ?? "?"}/${tool}` : server),
+			argsPreview: preview,
+		};
+	}
+	const skillName = skillNameFromCall(toolName, record);
+	if (skillName !== null) {
+		return {
+			kind: "skill",
+			serverName: null,
+			skillName,
+			scriptName: null,
+			target: compactTarget(skillName),
+			argsPreview: preview,
+		};
+	}
+	const scriptName = scriptNameFromCall(toolName, record);
+	return {
+		kind: scriptName !== null ? "script" : "builtin",
+		serverName: null,
+		skillName: null,
+		scriptName,
+		target: targetFromCall(toolName, record),
+		argsPreview: preview,
+	};
 }
 
 /**
@@ -580,12 +850,20 @@ export async function parseSessionFile(
 		}
 		if (isModelUsage(entry)) {
 			const modelUsageStats = extractModelUsageStats(sessionPath, folder, entry, agentType);
-			if (modelUsageStats) stats.push(modelUsageStats);
+			if (modelUsageStats) {
+				modelUsageStats.requestKb = estimateRequestKb(entry.usage);
+				modelUsageStats.responseKb = 0;
+				stats.push(modelUsageStats);
+			}
 			return;
 		}
 		if (isAssistantMessage(entry)) {
 			const msgStats = extractStats(sessionPath, folder, entry, currentServiceTier, agentType);
-			if (msgStats) stats.push(msgStats);
+			if (msgStats) {
+				msgStats.requestKb = estimateRequestKb(msgStats.usage);
+				msgStats.responseKb = toKb(jsonBytes(entry.message));
+				stats.push(msgStats);
+			}
 			for (const call of extractToolCalls(sessionPath, folder, entry, agentType)) {
 				toolCalls.push(call);
 				if (!callsById.has(call.toolCallId)) callsById.set(call.toolCallId, call);

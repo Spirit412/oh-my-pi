@@ -1,5 +1,5 @@
 import type { AssistantMessage, ServiceTier, ServiceTierByFamily, StopReason, Usage } from "@oh-my-pi/pi-ai";
-import type { AgentType } from "./shared-types";
+import type { AgentType, ToolCallDetail, ToolKind } from "./shared-types";
 
 export * from "./shared-types";
 
@@ -51,6 +51,16 @@ export interface MessageStats {
 	 * `MessageStats` too.
 	 */
 	costUnpriced?: boolean;
+	/**
+	 * Estimated size of the request body in kilobytes with two decimals, derived
+	 * from the prompt tokens the provider counted for the turn (uncached input +
+	 * cache reads + cache writes). Sessions do not journal the request payload,
+	 * so this is an estimate; {@link responseKb} is measured from the recorded
+	 * response. Optional only for the same fixture reason as {@link serviceTier}.
+	 */
+	requestKb?: number;
+	/** Size of the recorded assistant response, in kilobytes with two decimals. */
+	responseKb?: number;
 }
 
 /**
@@ -73,6 +83,8 @@ export interface RequestDetails extends MessageStats {
 	messages: unknown[];
 	/** The model's response; `null` for `model_usage` entries, which journal no payload. */
 	output: unknown;
+	/** Tool calls emitted by this turn, with their derived MCP/skill/script metadata. */
+	toolCalls: ToolCallDetail[];
 }
 
 /**
@@ -231,6 +243,18 @@ export interface ToolCallStats {
 	callsInTurn: number;
 	/** Serialized argument characters */
 	argsChars: number;
+	/** Where the call came from: MCP server, skill, script, or built-in tool. */
+	toolKind: ToolKind;
+	/** MCP server name for `mcp` calls, when the configured server matched. */
+	serverName: string | null;
+	/** Skill name for `skill` calls. */
+	skillName: string | null;
+	/** Script basename for calls that execute a script file. */
+	scriptName: string | null;
+	/** Most identifying target: URL, command, path, query or `server/tool`. */
+	target: string | null;
+	/** Serialized arguments truncated at ingest for the call log. */
+	argsPreview: string | null;
 	/** Result text characters, when the same parse also read the call's `toolResult` */
 	resultChars?: number;
 	/** Result error flag, set together with `resultChars` */

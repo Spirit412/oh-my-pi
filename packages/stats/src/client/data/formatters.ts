@@ -97,6 +97,24 @@ export function formatFolder(folder: string): string {
 	return folder.replace(/^\/+|\/+$/g, "") || "(root)";
 }
 
+/** Payload size in kilobytes with two decimals, the unit the stats pages report. */
+export function formatKb(value: number | null | undefined): string {
+	if (value === null || value === undefined) return "–";
+	return `${value.toLocaleString(NUMBER_LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} KB`;
+}
+
+/**
+ * Payload volume for aggregates, which can reach gigabytes: KB below a
+ * megabyte, then MB/GB with two decimals. Callers keep the exact KB in the
+ * cell's title.
+ */
+export function formatPayloadKb(value: number | null | undefined): string {
+	if (value === null || value === undefined) return "–";
+	if (value >= 1024 * 1024) return `${(value / 1024 / 1024).toFixed(2)} GB`;
+	if (value >= 1024) return `${(value / 1024).toFixed(2)} MB`;
+	return `${value.toFixed(2)} KB`;
+}
+
 export function formatBytes(value: number): string {
 	if (value >= 1e9) return `${(value / 1e9).toFixed(1)} GB`;
 	if (value >= 1e6) return `${(value / 1e6).toFixed(1)} MB`;

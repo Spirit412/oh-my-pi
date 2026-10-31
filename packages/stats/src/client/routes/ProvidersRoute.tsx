@@ -9,6 +9,8 @@ import {
 	formatErrorRate,
 	formatEstimatedCost,
 	formatInteger,
+	formatKb,
+	formatPayloadKb,
 	formatPercent,
 	formatRelativeTime,
 	formatTokensPerSecond,
@@ -368,6 +370,21 @@ function ProviderTotalsTable({
 						display={formatCompact(p.totalTokens)}
 						color={colors.get(p.provider)}
 					/>
+				),
+			},
+			{
+				key: "payload",
+				header: "Payload",
+				title: "Request size estimated from prompt tokens · response size measured",
+				align: "right",
+				sort: p => p.totalRequestKb + p.totalResponseKb,
+				render: p => (
+					<span
+						className="num muted"
+						title={`Request ${formatKb(p.totalRequestKb)} · Response ${formatKb(p.totalResponseKb)}`}
+					>
+						{formatPayloadKb(p.totalRequestKb)} / {formatPayloadKb(p.totalResponseKb)}
+					</span>
 				),
 			},
 			{

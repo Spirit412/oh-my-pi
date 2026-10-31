@@ -8,7 +8,9 @@ import {
 	formatErrorRate,
 	formatEstimatedCost,
 	formatInteger,
+	formatKb,
 	formatMessageCost,
+	formatPayloadKb,
 	formatPercent,
 	formatRelativeTime,
 	formatTokensPerSecond,
@@ -153,6 +155,18 @@ export function OverviewRoute({ active, range, onRequestClick }: OverviewRoutePr
 							<Stat size="sm" label="Tokens/s" value={formatTokensPerSecond(overall.avgTokensPerSecond)} />
 							<Stat size="sm" label="Avg latency" value={formatDurationMs(overall.avgDuration)} />
 							<Stat size="sm" label="Avg TTFT" value={formatDurationMs(overall.avgTtft)} />
+							<Stat
+								size="sm"
+								label="Request payload"
+								title="Estimated from prompt tokens (4 bytes/token): sessions do not journal the request body"
+								value={formatPayloadKb(overall.totalRequestKb)}
+							/>
+							<Stat
+								size="sm"
+								label="Response payload"
+								title="Recorded assistant responses, including thinking and tool calls"
+								value={formatPayloadKb(overall.totalResponseKb)}
+							/>
 						</StatGrid>
 					</div>
 				)}
@@ -292,6 +306,20 @@ const REQUEST_COLUMNS = [
 		header: "Tokens",
 		align: "right" as const,
 		render: (row: MessageStats) => <span className="num">{formatInteger(row.usage.totalTokens)}</span>,
+	},
+	{
+		key: "payload",
+		header: "Payload",
+		title: "Request size estimated from prompt tokens · response size measured",
+		align: "right" as const,
+		render: (row: MessageStats) => (
+			<span
+				className="num muted"
+				title={`Request ${formatKb(row.requestKb)} · Response ${formatKb(row.responseKb)}`}
+			>
+				{formatKb(row.requestKb)} / {formatKb(row.responseKb)}
+			</span>
+		),
 	},
 	{
 		key: "cost",

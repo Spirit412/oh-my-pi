@@ -10,6 +10,8 @@ import {
 	formatErrorRate,
 	formatEstimatedCost,
 	formatInteger,
+	formatKb,
+	formatPayloadKb,
 	formatPercent,
 	formatRelativeTime,
 	formatTokensPerSecond,
@@ -376,6 +378,21 @@ function buildModelColumns(view: ModelsView, expandedKey: string | null, bucketW
 					</span>
 				);
 			},
+		},
+		{
+			key: "payload",
+			header: "Payload",
+			title: "Request size estimated from prompt tokens · response size measured",
+			align: "right",
+			sort: row => row.totalRequestKb + row.totalResponseKb,
+			render: row => (
+				<span
+					className="num muted"
+					title={`Request ${formatKb(row.totalRequestKb)} · Response ${formatKb(row.totalResponseKb)}`}
+				>
+					{formatPayloadKb(row.totalRequestKb)} / {formatPayloadKb(row.totalResponseKb)}
+				</span>
+			),
 		},
 		{
 			key: "cache",

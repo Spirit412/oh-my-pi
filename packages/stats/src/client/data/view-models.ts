@@ -5,6 +5,7 @@ import type {
 	FolderStats,
 	MessageStats,
 	ModelPerformancePoint,
+	ToolCallDetail,
 	ToolUsageStats,
 } from "../types";
 import { modelKey } from "./colors";
@@ -336,6 +337,10 @@ export interface RequestLogSummary {
 	cost: number;
 	/** Requests with tokens but no price (see `isUnpricedMessage`). */
 	unpriced: number;
+	/** Sum of recorded request-context sizes, in KB. */
+	requestKb: number;
+	/** Sum of recorded response sizes, in KB. */
+	responseKb: number;
 	medianDuration: number | null;
 	p95Duration: number | null;
 	medianTtft: number | null;
@@ -356,6 +361,8 @@ export function summarizeRequests(rows: readonly MessageStats[]): RequestLogSumm
 	let tokens = 0;
 	let cost = 0;
 	let unpriced = 0;
+	let requestKb = 0;
+	let responseKb = 0;
 	let oldest: number | null = null;
 	let newest: number | null = null;
 	const durations: number[] = [];
@@ -366,6 +373,8 @@ export function summarizeRequests(rows: readonly MessageStats[]): RequestLogSumm
 		else if (status === "aborted") aborted++;
 		tokens += row.usage.totalTokens;
 		cost += row.usage.cost.total;
+		requestKb += row.requestKb ?? 0;
+		responseKb += row.responseKb ?? 0;
 		if (isUnpricedMessage(row)) unpriced++;
 		if (row.duration !== null) durations.push(row.duration);
 		if (row.ttft !== null) ttfts.push(row.ttft);
@@ -381,12 +390,22 @@ export function summarizeRequests(rows: readonly MessageStats[]): RequestLogSumm
 		tokens,
 		cost,
 		unpriced,
+		requestKb,
+		responseKb,
 		medianDuration: quantile(durations, 0.5),
 		p95Duration: quantile(durations, 0.95),
 		medianTtft: quantile(ttfts, 0.5),
 		oldest,
 		newest,
 	};
+}
+
+/** Human name of a tool call's source: MCP server, skill, script or built-in tool. */
+export function toolCallSource(call: Pick<ToolCallDetail, "kind" | "server" | "skill" | "script">): string {
+	if (call.kind === "mcp") return `MCP · ${call.server ?? "unknown server"}`;
+	if (call.kind === "skill") return `Skill · ${call.skill ?? "unnamed"}`;
+	if (call.kind === "script") return `Script · ${call.script ?? "inline"}`;
+	return "Built-in";
 }
 
 const SIGNATURE_MAX = 180;

@@ -7,10 +7,12 @@ import {
 	completeSessionSync,
 	getRecentErrors as dbGetRecentErrors,
 	getRecentRequests as dbGetRecentRequests,
+	getRecentToolCalls as dbGetRecentToolCalls,
 	type FileOffset,
 	getFileOffsets,
 	getMessageById,
 	getMessageCount,
+	getToolCallsForEntry,
 	initDb,
 	markSessionBackfillsComplete,
 	type ParsedSession,
@@ -53,6 +55,7 @@ import type {
 	ProviderDashboardStats,
 	ProviderWindowStats,
 	RequestDetails,
+	ToolCallDetail,
 	ToolDashboardStats,
 } from "./types";
 import { computeUsageWindowStats, fetchUsageData, type UsageDataSnapshot } from "./usage-windows";
@@ -584,14 +587,21 @@ export async function getRequestDetails(id: number): Promise<RequestDetails | nu
 	const entry = await getSessionEntry(msg.sessionFile, msg.entryId);
 	// Role-model attempts (judge, auto-thinking, …) journal only a `model_usage`
 	// record: usage and outcome, no request or response payload.
-	if (entry?.type === "model_usage") return { ...msg, messages: [entry], output: null };
+	if (entry?.type === "model_usage") return { ...msg, messages: [entry], output: null, toolCalls: [] };
 	if (entry?.type !== "message" || !("message" in entry)) return null;
 
 	return {
 		...msg,
 		messages: [entry],
 		output: entry.message,
+		toolCalls: getToolCallsForEntry(msg.sessionFile, msg.entryId),
 	};
+}
+
+/** Newest tool calls with their MCP/skill/script metadata and argument previews. */
+export async function getRecentToolCalls(limit?: number, range?: string | null): Promise<ToolCallDetail[]> {
+	await initDb();
+	return dbGetRecentToolCalls(limit, getTimeRangeConfig(range).cutoff);
 }
 
 /**

@@ -5,6 +5,7 @@ import {
 	formatDurationMs,
 	formatFolder,
 	formatInteger,
+	formatKb,
 	formatMessageCost,
 	formatRelativeTime,
 	formatTimestamp,
@@ -12,13 +13,21 @@ import {
 } from "../data/formatters";
 import { useQuery } from "../data/query";
 import { buildHash, parseHash } from "../data/useHashRoute";
-import { type RequestStatus, requestStatus } from "../data/view-models";
-import type { RequestDetails } from "../types";
+import { type RequestStatus, requestStatus, toolCallSource } from "../data/view-models";
+import type { RequestDetails, ToolCallDetail } from "../types";
 import { Badge, type Tone } from "./Badge";
 import { Drawer, KeyValues } from "./Drawer";
 import { JsonBlock } from "./JsonBlock";
 import { ErrorState, Skeleton } from "./States";
 import "./request-drawer.css";
+
+/** Label and tone for each tool origin kind. */
+const TOOL_KIND_TONE: Record<ToolCallDetail["kind"], Tone> = {
+	mcp: "accent",
+	skill: "ok",
+	script: "warn",
+	builtin: "neutral",
+};
 
 /** Label and tone for each request outcome; shared by the request tables. */
 export const REQUEST_STATUS: Record<RequestStatus, { label: string; tone: Tone }> = {
@@ -102,7 +111,7 @@ function RequestDetailsBody({ details, aborted }: { details: RequestDetails; abo
 			? (usage.output * 1000) / details.duration
 			: null;
 	// The stats row as ingested, without the session payload shown separately below.
-	const { messages, output, ...row } = details;
+	const { messages, output, toolCalls, ...row } = details;
 
 	return (
 		<>
@@ -144,6 +153,30 @@ function RequestDetailsBody({ details, aborted }: { details: RequestDetails; abo
 			</section>
 
 			<section>
+				<div className="section-label">Payload</div>
+				<KeyValues
+					items={[
+						{
+							key: "request",
+							label: "Request (est.)",
+							value: (
+								<span title="Estimated from the turn's prompt tokens (4 bytes/token): sessions do not journal the request body">
+									{formatKb(details.requestKb)}
+								</span>
+							),
+						},
+						{ key: "inputTokens", label: "Prompt tokens", value: formatInteger(usage.input + usage.cacheRead) },
+						{
+							key: "response",
+							label: "Response",
+							value: <span title="Assistant text, thinking and tool calls">{formatKb(details.responseKb)}</span>,
+						},
+						{ key: "outputTokens", label: "Response tokens", value: formatInteger(usage.output) },
+					]}
+				/>
+			</section>
+
+			<section>
 				<div className="section-label">API-equivalent cost</div>
 				<KeyValues
 					items={[
@@ -177,9 +210,43 @@ function RequestDetailsBody({ details, aborted }: { details: RequestDetails; abo
 				</div>
 			</section>
 
+			{toolCalls.length > 0 && <ToolCallsSection calls={toolCalls} />}
 			{output != null && <JsonBlock data={output} title="Output message" />}
 			<JsonBlock data={messages} title="Session entry" initialCollapsed />
 			<JsonBlock data={row} title="Stats row" initialCollapsed />
 		</>
+	);
+}
+
+/** Tool calls of the turn with the metadata derived at ingest and their argument previews. */
+function ToolCallsSection({ calls }: { calls: ToolCallDetail[] }) {
+	return (
+		<section>
+			<div className="section-label">Tool calls ({calls.length})</div>
+			<div className="request-drawer-tools">
+				{calls.map(call => (
+					<div key={call.toolCallId} className="request-drawer-tool">
+						<div className="request-drawer-tool-head">
+							<span className="mono">{call.tool}</span>
+							<Badge tone={TOOL_KIND_TONE[call.kind]}>{call.kind}</Badge>
+							{call.isError === true && <Badge tone="bad">error</Badge>}
+						</div>
+						<div className="request-drawer-tool-meta">
+							<span>{toolCallSource(call)}</span>
+							{call.target && (
+								<span className="mono truncate" title={call.target}>
+									{call.target}
+								</span>
+							)}
+							<span className="num dim">{formatKb(call.argsChars / 1024)} args</span>
+							{call.resultChars !== null && (
+								<span className="num dim">{formatKb(call.resultChars / 1024)} result</span>
+							)}
+						</div>
+						{call.argsPreview && <pre className="request-drawer-tool-args">{call.argsPreview}</pre>}
+					</div>
+				))}
+			</div>
+		</section>
 	);
 }

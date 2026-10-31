@@ -15,6 +15,7 @@ import type {
 	SessionSummary,
 	SessionTrace,
 	TimeRange,
+	ToolCallDetail,
 	ToolDashboardStats,
 } from "./types";
 
@@ -176,6 +177,18 @@ export async function getToolDashboardStats(
 	signal?: AbortSignal,
 ): Promise<ToolDashboardStats> {
 	return fetchJson<ToolDashboardStats>(`${API_BASE}/stats/tools?range=${encodeURIComponent(range)}`, { signal });
+}
+
+/** Newest tool calls with their MCP/skill/script metadata and argument previews. */
+export async function getRecentToolCalls(
+	range: TimeRange = "24h",
+	limit = 100,
+	signal?: AbortSignal,
+): Promise<ToolCallDetail[]> {
+	return fetchJson<ToolCallDetail[]>(
+		`${API_BASE}/stats/tools/recent?range=${encodeURIComponent(range)}&limit=${limit}`,
+		{ signal },
+	);
 }
 
 export async function getProviderDashboardStats(

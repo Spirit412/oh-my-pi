@@ -20,6 +20,7 @@ import type {
 	ModelStats,
 	ModelTimeSeriesPoint,
 	TimeSeriesPoint,
+	ToolCallDetail,
 } from "../shared-types";
 
 export * from "../shared-types";
@@ -56,11 +57,17 @@ export interface MessageStats {
 	usage: Usage;
 	/** Ingest found no tariff to price this request from; its zero is unknown spend. */
 	costUnpriced?: boolean;
+	/** Recorded request-context size in KB with two decimals. */
+	requestKb: number;
+	/** Recorded response size in KB with two decimals. */
+	responseKb: number;
 }
 
 export interface RequestDetails extends MessageStats {
 	messages: unknown[];
 	output: unknown;
+	/** Tool calls emitted by this turn, with their derived MCP/skill/script metadata. */
+	toolCalls: ToolCallDetail[];
 }
 
 export type TimeRange = "1h" | "24h" | "7d" | "30d" | "90d" | "all";

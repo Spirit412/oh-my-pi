@@ -25,6 +25,14 @@ export interface AggregatedStats {
 	totalCacheReadTokens: number;
 	/** Total cache write tokens */
 	totalCacheWriteTokens: number;
+	/**
+	 * Sum of the estimated request-body sizes, in kilobytes with two decimals.
+	 * Each turn's request size is derived from the prompt tokens the provider
+	 * counted (see `MessageStats.requestKb`), not measured from a journaled body.
+	 */
+	totalRequestKb: number;
+	/** Sum of the recorded assistant response sizes, in kilobytes with two decimals. */
+	totalResponseKb: number;
 	/** Percentage of prompt input tokens served from cache (0-1). */
 	cacheRate: number;
 	/**
@@ -78,6 +86,10 @@ export interface TimeSeriesPoint {
 	tokens: number;
 	/** Total cost */
 	cost: number;
+	/** Sum of recorded request-context sizes, in kilobytes with two decimals. */
+	requestKb: number;
+	/** Sum of recorded response sizes, in kilobytes with two decimals. */
+	responseKb: number;
 }
 
 /**
@@ -322,6 +334,48 @@ export interface GainDashboardStats {
 }
 
 /**
+ * Where a tool call came from: an MCP server tool, a skill invocation, a
+ * script executed through an interpreter, or a built-in/plugin tool.
+ */
+export type ToolKind = "mcp" | "skill" | "script" | "builtin";
+
+/**
+ * One recorded tool call with the metadata derived at ingest: the MCP server,
+ * skill or script it names, its most identifying target (URL, command, path),
+ * and a truncated copy of its arguments for analysis.
+ */
+export interface ToolCallDetail {
+	/** Database row id, when read back from the stats database. */
+	id?: number;
+	sessionFile: string;
+	entryId: string;
+	toolCallId: string;
+	folder: string;
+	/** Tool name as recorded on the tool call. */
+	tool: string;
+	kind: ToolKind;
+	/** MCP server name for `mcp` calls, when it could be matched. */
+	server: string | null;
+	/** Skill name for `skill` calls. */
+	skill: string | null;
+	/** Script basename for `script` calls. */
+	script: string | null;
+	/** Most identifying target: URL, command, path, query or `server/tool`. */
+	target: string | null;
+	/** Serialized arguments truncated at ingest; the full payload lives in the session transcript. */
+	argsPreview: string | null;
+	/** Full serialized argument characters. */
+	argsChars: number;
+	/** Tool-result text characters fed back into context; null until the result landed. */
+	resultChars: number | null;
+	isError: boolean | null;
+	model: string;
+	provider: string;
+	timestamp: number;
+	agentType: AgentType;
+}
+
+/**
  * Aggregated usage for a single tool over the active range.
  *
  * Token/cost fields are the *real* provider usage of the assistant turns that
@@ -329,7 +383,8 @@ export interface GainDashboardStats {
  * stay additive (a turn with 3 calls contributes a third of its usage to each
  * tool). Payload fields (`argsChars`/`resultChars`) are raw character counts
  * of the serialized arguments and the text fed back into context — a size
- * proxy, not provider-counted tokens.
+ * proxy, not provider-counted tokens — and `argsKb`/`resultKb` are those
+ * counts expressed in kilobytes with two decimals.
  */
 export interface ToolUsageStats {
 	/** Tool name as recorded on the tool call. */
@@ -342,6 +397,10 @@ export interface ToolUsageStats {
 	argsChars: number;
 	/** Text characters of tool results fed back into context. */
 	resultChars: number;
+	/** Serialized tool-call argument size in kilobytes with two decimals. */
+	argsKb: number;
+	/** Tool-result size in kilobytes with two decimals. */
+	resultKb: number;
 	/** Total provider tokens of invoking turns, attributed per call share. */
 	totalTokensShare: number;
 	/** Output tokens of invoking turns, attributed per call share. */
@@ -390,6 +449,10 @@ export interface ProviderAggregate {
 	totalCacheWriteTokens: number;
 	/** Uncached input + cache reads + cache writes + output. */
 	totalTokens: number;
+	/** Sum of recorded request-context sizes, in kilobytes with two decimals. */
+	totalRequestKb: number;
+	/** Sum of recorded response sizes, in kilobytes with two decimals. */
+	totalResponseKb: number;
 	totalCost: number;
 	/** Requests excluded because no public-equivalent subscription price exists. */
 	unpricedRequests: number;

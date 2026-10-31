@@ -1,6 +1,6 @@
 import { X } from "lucide-react";
 import { useMemo, useState } from "react";
-import { getToolDashboardStats } from "../api";
+import { getRecentToolCalls, getToolDashboardStats } from "../api";
 import { Legend, Sparkline, TimeChart, useHiddenSeries } from "../charts";
 import { buildColorLookup, OTHER_COLOR } from "../data/colors";
 import {
@@ -8,14 +8,17 @@ import {
 	formatErrorRate,
 	formatEstimatedCost,
 	formatInteger,
+	formatKb,
+	formatPayloadKb,
 	formatPercent,
 	formatRelativeTime,
+	formatTimestamp,
 } from "../data/formatters";
 import { useQuery } from "../data/query";
 import { bucketAxis, rangeMeta } from "../data/range";
 import { densify, pivotSeries } from "../data/series";
-import { buildToolRows, type ToolRowView } from "../data/view-models";
-import type { TimeRange, ToolDashboardStats, ToolModelStats, ToolTimeSeriesPoint } from "../types";
+import { buildToolRows, toolCallSource, type ToolRowView } from "../data/view-models";
+import type { TimeRange, ToolCallDetail, ToolDashboardStats, ToolModelStats, ToolTimeSeriesPoint } from "../types";
 import {
 	Badge,
 	Card,
@@ -33,6 +36,7 @@ import {
 	Swatch,
 	Table,
 	TableSkeleton,
+	type Tone,
 } from "../ui";
 import "./tools.css";
 
@@ -51,6 +55,23 @@ const METRIC_OPTIONS = [
 /** Tools stacked individually in the calls chart; the rest fold into "Other". */
 const TOP_TOOLS = 6;
 
+/** Label and tone for each tool origin kind. */
+const TOOL_KIND_TONE: Record<ToolCallDetail["kind"], Tone> = {
+	mcp: "accent",
+	skill: "ok",
+	script: "warn",
+	builtin: "neutral",
+};
+
+/** Characters of the argument preview shown in a call-log row; the full preview is the cell's title. */
+const ARGS_SNIPPET_LIMIT = 90;
+
+function argsSnippet(preview: string | null): string {
+	if (!preview) return "–";
+	const compact = preview.replace(/\s+/g, " ").trim();
+	return compact.length > ARGS_SNIPPET_LIMIT ? `${compact.slice(0, ARGS_SNIPPET_LIMIT - 1)}…` : compact;
+}
+
 const ATTRIBUTION_NOTE =
 	"Tokens and API-equivalent cost of each invoking turn, split evenly across that turn's tool calls";
 
@@ -58,6 +79,9 @@ const NO_CALLS = <EmptyState title="No tool calls in this range" />;
 
 export function ToolsRoute({ active, range }: ToolsRouteProps) {
 	const tools = useQuery(["tools", range], ({ signal }) => getToolDashboardStats(range, signal), { enabled: active });
+	const recentCalls = useQuery(["tools-recent", range], ({ signal }) => getRecentToolCalls(range, 100, signal), {
+		enabled: active,
+	});
 	const [metric, setMetric] = useState<CallMetric>("calls");
 	const [hidden, toggleHidden] = useHiddenSeries();
 	const [pickedTool, setToolFilter] = useState<string | null>(null);
@@ -122,25 +146,25 @@ export function ToolsRoute({ active, range }: ToolsRouteProps) {
 							<StatGrid min={150}>
 								<Stat
 									size="sm"
-									label="Result text"
-									title="Characters of tool-result text fed back into context"
-									value={`${formatCompact(t.resultChars)} chars`}
+									label="Result size"
+									title={`Tool-result text fed back into context · ${formatInteger(t.resultChars)} characters`}
+									value={formatPayloadKb(t.resultChars / 1024)}
 								/>
 								<Stat
 									size="sm"
-									label="Call arguments"
-									title="Characters of serialized tool-call arguments"
-									value={`${formatCompact(t.argsChars)} chars`}
+									label="Arguments size"
+									title={`Serialized tool-call arguments · ${formatInteger(t.argsChars)} characters`}
+									value={formatPayloadKb(t.argsChars / 1024)}
 								/>
 								<Stat
 									size="sm"
 									label="Avg result per call"
-									value={`${formatCompact(t.calls > 0 ? Math.round(t.resultChars / t.calls) : 0)} chars`}
+									value={formatKb(t.calls > 0 ? t.resultChars / t.calls / 1024 : 0)}
 								/>
 								<Stat
 									size="sm"
 									label="Avg arguments per call"
-									value={`${formatCompact(t.calls > 0 ? Math.round(t.argsChars / t.calls) : 0)} chars`}
+									value={formatKb(t.calls > 0 ? t.argsChars / t.calls / 1024 : 0)}
 								/>
 							</StatGrid>
 						</div>
@@ -247,7 +271,116 @@ export function ToolsRoute({ active, range }: ToolsRouteProps) {
 					{data => <ToolModelTable rows={data.byToolModel} tool={toolFilter} colors={view.colors} />}
 				</QueryView>
 			</Card>
+
+			<Card
+				index={4}
+				title="Recent tool calls"
+				description={`Newest calls in ${meta.windowLabel}, with the MCP server, skill or script they used, their target, and the arguments they were called with`}
+				flush
+				stale={recentCalls.stale}
+			>
+				<QueryView
+					query={recentCalls}
+					skeleton={<TableSkeleton rows={8} />}
+					isEmpty={calls => calls.length === 0}
+					empty={NO_CALLS}
+				>
+					{calls => <RecentToolCallsTable rows={calls} />}
+				</QueryView>
+			</Card>
 		</div>
+	);
+}
+
+/** Newest calls with source, target and argument preview; the session drawer holds the full payload. */
+function RecentToolCallsTable({ rows }: { rows: ToolCallDetail[] }) {
+	const columns = useMemo<Column<ToolCallDetail>[]>(
+		() => [
+			{
+				key: "time",
+				header: "When",
+				sort: row => row.timestamp,
+				render: row => (
+					<span className="muted" title={formatTimestamp(row.timestamp)}>
+						{formatRelativeTime(row.timestamp)}
+					</span>
+				),
+			},
+			{
+				key: "tool",
+				header: "Tool",
+				sort: row => row.tool,
+				render: row => (
+					<span className="row" style={{ gap: 8 }}>
+						<span className="mono truncate tools-name" title={row.tool}>
+							{row.tool}
+						</span>
+						<Badge tone={TOOL_KIND_TONE[row.kind]}>{row.kind}</Badge>
+						{row.isError === true && <Badge tone="bad">error</Badge>}
+					</span>
+				),
+			},
+			{
+				key: "source",
+				header: "Source",
+				sort: row => toolCallSource(row),
+				render: row => <span className="truncate">{toolCallSource(row)}</span>,
+			},
+			{
+				key: "target",
+				header: "Target",
+				title: "URL, command, path, query or MCP server/tool",
+				render: row =>
+					row.target ? (
+						<span className="mono muted truncate" title={row.target} style={{ display: "block", maxWidth: 280 }}>
+							{row.target}
+						</span>
+					) : (
+						<span className="dim">–</span>
+					),
+			},
+			{
+				key: "args",
+				header: "Arguments",
+				title: "Recorded argument preview; the session transcript holds the full payload",
+				render: row =>
+					row.argsPreview ? (
+						<span
+							className="mono muted truncate"
+							title={row.argsPreview}
+							style={{ display: "block", maxWidth: 320 }}
+						>
+							{argsSnippet(row.argsPreview)}
+						</span>
+					) : (
+						<span className="dim">–</span>
+					),
+			},
+			{
+				key: "result",
+				header: "Result",
+				title: "Size of tool-result text fed back into context",
+				align: "right",
+				sort: row => row.resultChars ?? -1,
+				render: row =>
+					row.resultChars === null ? (
+						<span className="dim">–</span>
+					) : (
+						<span className="num muted">{formatKb(row.resultChars / 1024)}</span>
+					),
+			},
+		],
+		[],
+	);
+	return (
+		<Table
+			rows={rows}
+			rowKey={row => row.id ?? `${row.sessionFile}:${row.toolCallId}`}
+			columns={columns}
+			initialSort={{ key: "time", dir: "desc" }}
+			limit={50}
+			dense
+		/>
 	);
 }
 
@@ -398,26 +531,34 @@ function buildToolColumns(
 		{
 			key: "args",
 			header: "Args",
-			title: "Characters of serialized tool-call arguments",
+			title: "Size of serialized tool-call arguments",
 			align: "right",
 			sort: row => row.argsChars,
-			render: row => <span className="num">{formatCompact(row.argsChars)}</span>,
+			render: row => (
+				<span className="num" title={`${formatInteger(row.argsChars)} characters · ${formatKb(row.argsKb)}`}>
+					{formatPayloadKb(row.argsKb)}
+				</span>
+			),
 		},
 		{
 			key: "result",
 			header: "Result",
-			title: "Characters of tool-result text fed back into context",
+			title: "Size of tool-result text fed back into context",
 			align: "right",
 			sort: row => row.resultChars,
-			render: row => <span className="num">{formatCompact(row.resultChars)}</span>,
+			render: row => (
+				<span className="num" title={`${formatInteger(row.resultChars)} characters · ${formatKb(row.resultKb)}`}>
+					{formatPayloadKb(row.resultKb)}
+				</span>
+			),
 		},
 		{
 			key: "avgResult",
 			header: "Result / call",
-			title: "Mean tool-result characters per call",
+			title: "Mean tool-result size per call",
 			align: "right",
 			sort: row => row.avgResultChars,
-			render: row => <span className="num muted">{formatCompact(Math.round(row.avgResultChars))}</span>,
+			render: row => <span className="num muted">{formatKb(row.avgResultChars / 1024)}</span>,
 		},
 		{
 			key: "tokens",
@@ -528,10 +669,10 @@ function ToolModelTable({
 			{
 				key: "result",
 				header: "Result",
-				title: "Characters of tool-result text fed back into context",
+				title: "Size of tool-result text fed back into context",
 				align: "right",
 				sort: row => row.resultChars,
-				render: row => <span className="num">{formatCompact(row.resultChars)}</span>,
+				render: row => <span className="num">{formatPayloadKb(row.resultKb)}</span>,
 			},
 			{
 				key: "tokens",

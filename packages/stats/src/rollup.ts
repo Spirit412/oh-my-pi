@@ -53,7 +53,7 @@ const DAY_MS = 24 * HOUR_MS;
  * Bump when the rollup schema or fact definitions change: the tables are then
  * dropped and every hour is rebuilt from the raw tables.
  */
-const ROLLUP_VERSION = "2";
+const ROLLUP_VERSION = "3";
 const ROLLUP_VERSION_KEY = "rollup_version";
 /** Bump when the dirty-marking triggers change; they are then recreated in place. */
 const TRIGGER_VERSION = "3";
@@ -84,6 +84,8 @@ function messageFacts(bucketExpr: string, p: string): string {
 		SUM(${p}cache_read_tokens) AS cache_read_tokens,
 		SUM(${p}cache_write_tokens) AS cache_write_tokens,
 		SUM(${p}total_tokens) AS total_tokens,
+		SUM(${p}request_kb) AS request_kb,
+		SUM(${p}response_kb) AS response_kb,
 		TOTAL(${p}premium_requests) AS premium_requests,
 		TOTAL(${p}cost_total) AS cost_total,
 		TOTAL(${p}cost_input) AS cost_input,
@@ -105,9 +107,9 @@ function messageFacts(bucketExpr: string, p: string): string {
 }
 
 const MESSAGE_ROLLUP_COLUMNS = `bucket, ${MESSAGE_DIMENSIONS}, requests, failed, input_tokens, output_tokens,
-	cache_read_tokens, cache_write_tokens, total_tokens, premium_requests, cost_total, cost_input, cost_output,
-	cost_cache_read, cost_cache_write, unpriced, cached_prompt_cost, no_cache_input_cost, duration_sum, duration_n,
-	ttft_sum, ttft_n, tps_sum, tps_n, first_ts, last_ts`;
+	cache_read_tokens, cache_write_tokens, total_tokens, request_kb, response_kb, premium_requests, cost_total,
+	cost_input, cost_output, cost_cache_read, cost_cache_write, unpriced, cached_prompt_cost, no_cache_input_cost,
+	duration_sum, duration_n, ttft_sum, ttft_n, tps_sum, tps_n, first_ts, last_ts`;
 
 /**
  * Additive per-bucket facts over `tool_calls t LEFT JOIN messages m`. Provider
@@ -208,6 +210,8 @@ export function ensureRollupSchema(database: Database): void {
 				cache_read_tokens INTEGER NOT NULL,
 				cache_write_tokens INTEGER NOT NULL,
 				total_tokens INTEGER NOT NULL,
+				request_kb REAL NOT NULL DEFAULT 0,
+				response_kb REAL NOT NULL DEFAULT 0,
 				premium_requests REAL NOT NULL,
 				cost_total REAL NOT NULL,
 				cost_input REAL NOT NULL,
@@ -540,6 +544,8 @@ const AGGREGATE_COLUMNS = `
 	SUM(f.output_tokens) AS output_tokens,
 	SUM(f.cache_read_tokens) AS cache_read_tokens,
 	SUM(f.cache_write_tokens) AS cache_write_tokens,
+	SUM(f.request_kb) AS request_kb,
+	SUM(f.response_kb) AS response_kb,
 	TOTAL(f.premium_requests) AS premium_requests,
 	TOTAL(f.cost_total) AS cost_total,
 	SUM(f.unpriced) AS unpriced,
@@ -558,6 +564,8 @@ interface AggregateRow {
 	output_tokens: number | null;
 	cache_read_tokens: number | null;
 	cache_write_tokens: number | null;
+	request_kb: number | null;
+	response_kb: number | null;
 	premium_requests: number | null;
 	cost_total: number | null;
 	unpriced: number | null;
@@ -586,6 +594,8 @@ function toAggregatedStats(row: AggregateRow | undefined): AggregatedStats {
 		totalOutputTokens: row?.output_tokens ?? 0,
 		totalCacheReadTokens,
 		totalCacheWriteTokens: row?.cache_write_tokens ?? 0,
+		totalRequestKb: row?.request_kb ?? 0,
+		totalResponseKb: row?.response_kb ?? 0,
 		cacheRate:
 			totalInputTokens + totalCacheReadTokens > 0
 				? totalCacheReadTokens / (totalInputTokens + totalCacheReadTokens)
@@ -652,12 +662,21 @@ export function getStatsByAgentType(cutoff: number | null = null): AgentTypeStat
 	}));
 }
 
-/** Requests, errors, tokens and cost per bucket. */
+/** Requests, errors, tokens, payload sizes and cost per bucket. */
 export function getTimeSeries({ cutoff, bucketMs }: RangeWindow): TimeSeriesPoint[] {
-	return queryMessages<{ bucket: number; requests: number; errors: number; tokens: number; cost: number }>(
+	return queryMessages<{
+		bucket: number;
+		requests: number;
+		errors: number;
+		tokens: number;
+		cost: number;
+		request_kb: number | null;
+		response_kb: number | null;
+	}>(
 		{ cutoff, bucketMs },
 		`${seriesBucket(bucketMs)} AS bucket, SUM(f.requests) AS requests, SUM(f.failed) AS errors,
-		 SUM(f.total_tokens) AS tokens, TOTAL(f.cost_total) AS cost`,
+		 SUM(f.total_tokens) AS tokens, TOTAL(f.cost_total) AS cost,
+		 SUM(f.request_kb) AS request_kb, SUM(f.response_kb) AS response_kb`,
 		"GROUP BY 1 ORDER BY 1",
 	).map(row => ({
 		timestamp: row.bucket,
@@ -665,6 +684,8 @@ export function getTimeSeries({ cutoff, bucketMs }: RangeWindow): TimeSeriesPoin
 		errors: row.errors,
 		tokens: row.tokens,
 		cost: row.cost,
+		requestKb: row.request_kb ?? 0,
+		responseKb: row.response_kb ?? 0,
 	}));
 }
 
@@ -750,6 +771,8 @@ export function getStatsByProvider(cutoff: number | null = null): ProviderAggreg
 		cost_total: number;
 		unpriced: number;
 		premium_requests: number;
+		request_kb: number | null;
+		response_kb: number | null;
 		avg_tps: number | null;
 	}>(
 		{ cutoff },
@@ -757,6 +780,7 @@ export function getStatsByProvider(cutoff: number | null = null): ProviderAggreg
 		 COUNT(DISTINCT f.model) AS models, SUM(f.input_tokens) AS input_tokens, SUM(f.output_tokens) AS output_tokens,
 		 SUM(f.cache_read_tokens) AS cache_read_tokens, SUM(f.cache_write_tokens) AS cache_write_tokens,
 		 TOTAL(f.cost_total) AS cost_total, SUM(f.unpriced) AS unpriced, TOTAL(f.premium_requests) AS premium_requests,
+		 SUM(f.request_kb) AS request_kb, SUM(f.response_kb) AS response_kb,
 		 TOTAL(f.tps_sum) / NULLIF(SUM(f.tps_n), 0) AS avg_tps`,
 		"GROUP BY f.provider",
 	)
@@ -770,6 +794,8 @@ export function getStatsByProvider(cutoff: number | null = null): ProviderAggreg
 			totalCacheReadTokens: row.cache_read_tokens,
 			totalCacheWriteTokens: row.cache_write_tokens,
 			totalTokens: row.input_tokens + row.output_tokens + row.cache_read_tokens + row.cache_write_tokens,
+			totalRequestKb: row.request_kb ?? 0,
+			totalResponseKb: row.response_kb ?? 0,
 			totalCost: row.cost_total,
 			unpricedRequests: row.unpriced,
 			totalPremiumRequests: row.premium_requests,
@@ -929,13 +955,22 @@ interface ToolAggregateRow {
 	last_used: number;
 }
 
+/** Characters → kilobytes with two decimals; the tool rows count characters, not UTF-8 bytes. */
+function charsToKb(chars: number): number {
+	return Math.round((chars / 1024) * 100) / 100;
+}
+
 function toToolUsage(row: ToolAggregateRow): ToolUsageStats {
+	const argsChars = row.args_chars ?? 0;
+	const resultChars = row.result_chars ?? 0;
 	return {
 		tool: row.tool_name,
 		calls: row.calls,
 		errors: row.errors,
-		argsChars: row.args_chars ?? 0,
-		resultChars: row.result_chars ?? 0,
+		argsChars,
+		resultChars,
+		argsKb: charsToKb(argsChars),
+		resultKb: charsToKb(resultChars),
 		totalTokensShare: row.total_tokens_share,
 		outputTokensShare: row.output_tokens_share,
 		costShare: row.cost_share,

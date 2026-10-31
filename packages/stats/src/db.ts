@@ -20,7 +20,9 @@ import type {
 	FrustrationCounts,
 	MessageStats,
 	MessageStatsInput,
+	ToolCallDetail,
 	ToolCallStats,
+	ToolKind,
 	ToolResultLink,
 	UserMessageLink,
 	UserMessageStats,
@@ -101,6 +103,11 @@ const FORK_DEDUPE_KEY = "fork_dedupe_v1";
 // collapses provider-side garbage names; a full re-parse replaces the polluted
 // rows already stored in existing databases.
 const TOOL_CALLS_BACKFILL_KEY = "tool_calls_v2";
+// Message payload sizes (`request_kb`/`response_kb`) and the derived tool-call
+// metadata (kind/server/skill/script/target/args preview) only reach rows
+// ingested before those columns existed through a re-parse, so this sentinel
+// drops the tool rows and every cursor once.
+const PAYLOAD_METRICS_BACKFILL_KEY = "payload_metrics_v1";
 // Older ingests dropped `Usage.orchestration` (never a stored column) when
 // pricing, so subscription models billed on orchestration tokens — multi-agent
 // Grok most notably — were priced from conversation buckets alone and could not
@@ -183,6 +190,8 @@ export async function initDb(): Promise<Database> {
 			cost_unpriced INTEGER NOT NULL DEFAULT 0,
 			agent_type TEXT NOT NULL DEFAULT 'main',
 			service_tier TEXT,
+			request_kb REAL NOT NULL DEFAULT 0,
+			response_kb REAL NOT NULL DEFAULT 0,
 			UNIQUE(session_file, entry_id)
 		);
 
@@ -260,6 +269,12 @@ export async function initDb(): Promise<Database> {
 			args_chars INTEGER NOT NULL DEFAULT 0,
 			result_chars INTEGER,
 			is_error INTEGER,
+			tool_kind TEXT NOT NULL DEFAULT 'builtin',
+			server_name TEXT,
+			skill_name TEXT,
+			script_name TEXT,
+			target TEXT,
+			args_preview TEXT,
 			UNIQUE(session_file, tool_call_id)
 		);
 
@@ -303,6 +318,26 @@ export async function initDb(): Promise<Database> {
 	const hasAgentTypeColumn = messageColumns.some(column => column.name === "agent_type");
 	if (!hasAgentTypeColumn) {
 		db.run("ALTER TABLE messages ADD COLUMN agent_type TEXT NOT NULL DEFAULT 'main'");
+	}
+	// Payload sizes: rows ingested before these columns existed default to 0;
+	// the payload-metrics backfill below re-parses each transcript, and the
+	// upsert in `insertMessageStats` refreshes the sizes on existing rows.
+	if (!messageColumns.some(column => column.name === "request_kb")) {
+		db.run("ALTER TABLE messages ADD COLUMN request_kb REAL NOT NULL DEFAULT 0");
+	}
+	if (!messageColumns.some(column => column.name === "response_kb")) {
+		db.run("ALTER TABLE messages ADD COLUMN response_kb REAL NOT NULL DEFAULT 0");
+	}
+	// Tool-call metadata: same story — defaults for existing rows, then the
+	// re-parse replaces them through the (DELETE + INSERT) backfill.
+	const toolCallColumns = db.query("PRAGMA table_info(tool_calls)").all() as { name: string }[];
+	if (!toolCallColumns.some(column => column.name === "tool_kind")) {
+		db.run("ALTER TABLE tool_calls ADD COLUMN tool_kind TEXT NOT NULL DEFAULT 'builtin'");
+	}
+	for (const column of ["server_name", "skill_name", "script_name", "target", "args_preview"]) {
+		if (!toolCallColumns.some(existing => existing.name === column)) {
+			db.run(`ALTER TABLE tool_calls ADD COLUMN ${column} TEXT`);
+		}
 	}
 	// For any pre-existing table, enroll the backfill PENDING unless a prior run
 	// already settled the sentinel — `OR IGNORE` leaves an existing
@@ -380,6 +415,7 @@ export async function initDb(): Promise<Database> {
 	db.run("CREATE INDEX IF NOT EXISTS idx_user_messages_prose_hash ON user_messages(prose_hash)");
 	backfillUserMessages(db);
 	backfillToolCalls(db);
+	backfillPayloadMetrics(db);
 	backfillReingestCosts(db);
 	backfillUnpricedCosts(db);
 	repairUserMessageLinks(db);
@@ -943,6 +979,8 @@ export function insertMessageStats(stats: Iterable<MessageStatsInput>): number {
 			"cost_unpriced",
 			"agent_type",
 			"service_tier",
+			"request_kb",
+			"response_kb",
 		],
 		identity: ["entry_id", "timestamp"],
 		upsert: `ON CONFLICT(session_file, entry_id) DO UPDATE SET
@@ -954,7 +992,9 @@ export function insertMessageStats(stats: Iterable<MessageStatsInput>): number {
 			cost_total = excluded.cost_total,
 			cost_no_cache_input = excluded.cost_no_cache_input,
 			cost_unpriced = excluded.cost_unpriced,
-			service_tier = excluded.service_tier`,
+			service_tier = excluded.service_tier,
+			request_kb = excluded.request_kb,
+			response_kb = excluded.response_kb`,
 	});
 	return atomically(db, () => {
 		for (const s of stats) {
@@ -990,6 +1030,8 @@ export function insertMessageStats(stats: Iterable<MessageStatsInput>): number {
 					unpriced ? 1 : 0,
 					s.agentType,
 					s.serviceTier ?? null,
+					s.requestKb ?? 0,
+					s.responseKb ?? 0,
 				],
 			);
 		}
@@ -1049,6 +1091,8 @@ function rowToMessageStats(row: any): MessageStats {
 		agentType: (row.agent_type as AgentType) ?? "main",
 		serviceTier: (row.service_tier as ServiceTier | null) ?? null,
 		costUnpriced: row.cost_unpriced === 1,
+		requestKb: row.request_kb ?? 0,
+		responseKb: row.response_kb ?? 0,
 	};
 }
 
@@ -1081,6 +1125,55 @@ export function getMessageById(id: number): MessageStats | null {
 	const stmt = db.query("SELECT * FROM messages WHERE id = ?");
 	const row = stmt.get(id);
 	return row ? rowToMessageStats(row) : null;
+}
+
+function rowToToolCallDetail(row: any): ToolCallDetail {
+	return {
+		id: row.id,
+		sessionFile: row.session_file,
+		entryId: row.entry_id,
+		toolCallId: row.tool_call_id,
+		folder: row.folder,
+		tool: row.tool_name,
+		kind: (row.tool_kind as ToolKind) ?? "builtin",
+		server: row.server_name ?? null,
+		skill: row.skill_name ?? null,
+		script: row.script_name ?? null,
+		target: row.target ?? null,
+		argsPreview: row.args_preview ?? null,
+		argsChars: row.args_chars ?? 0,
+		resultChars: row.result_chars ?? null,
+		isError: row.is_error === null || row.is_error === undefined ? null : row.is_error === 1,
+		model: row.model,
+		provider: row.provider,
+		timestamp: row.timestamp,
+		agentType: (row.agent_type as AgentType) ?? "main",
+	};
+}
+
+/** Newest tool calls with their MCP/skill/script metadata, optionally since `cutoff`. */
+export function getRecentToolCalls(limit = 100, cutoff?: number | null): ToolCallDetail[] {
+	if (!db) return [];
+	const hasCutoff = cutoff !== undefined && cutoff !== null;
+	const stmt = db.query(`
+		SELECT * FROM tool_calls
+		${hasCutoff ? "WHERE timestamp >= ?" : ""}
+		ORDER BY timestamp DESC
+		LIMIT ?
+	`);
+	const rows = hasCutoff ? stmt.all(cutoff, limit) : stmt.all(limit);
+	return (rows as any[]).map(rowToToolCallDetail);
+}
+
+/** Tool calls emitted by one assistant turn, oldest first. */
+export function getToolCallsForEntry(sessionFile: string, entryId: string): ToolCallDetail[] {
+	if (!db) return [];
+	const stmt = db.query(`
+		SELECT * FROM tool_calls
+		WHERE session_file = ? AND entry_id = ?
+		ORDER BY id
+	`);
+	return (stmt.all(sessionFile, entryId) as any[]).map(rowToToolCallDetail);
 }
 /**
  * Per-local-day activity aggregates for the last `days` days, oldest first.
@@ -1194,6 +1287,28 @@ function backfillToolCalls(database: Database): void {
 	database
 		.query("INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)")
 		.run(TOOL_CALLS_BACKFILL_KEY, BACKFILL_PENDING);
+}
+
+/**
+ * One-shot re-ingest for payload sizes and tool-call metadata. Both sets of
+ * columns are derived at parse time, so existing rows only learn them when
+ * their transcript is read again: drop the tool rows (their insert is
+ * `INSERT OR IGNORE`, which would keep the old metadata) and every cursor,
+ * letting the next sync re-parse the files. Message rows keep their ids and
+ * get the size columns refreshed by the cost-refreshing upsert. Same sentinel
+ * protocol as {@link backfillToolCalls}.
+ */
+function backfillPayloadMetrics(database: Database): void {
+	const row = database.query("SELECT value FROM meta WHERE key = ?").get(PAYLOAD_METRICS_BACKFILL_KEY) as
+		| { value: string }
+		| undefined;
+	if (!shouldResetBackfill(row?.value)) return;
+
+	database.run("DELETE FROM tool_calls");
+	database.run("DELETE FROM file_offsets");
+	database
+		.query("INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)")
+		.run(PAYLOAD_METRICS_BACKFILL_KEY, BACKFILL_PENDING);
 }
 
 /**
@@ -1363,6 +1478,7 @@ export function markSessionBackfillsComplete(): void {
 		for (const key of [
 			USER_MESSAGES_BACKFILL_KEY,
 			TOOL_CALLS_BACKFILL_KEY,
+			PAYLOAD_METRICS_BACKFILL_KEY,
 			USER_MESSAGE_LINKS_REPAIR_KEY,
 			PRIORITY_PREMIUM_REQUESTS_BACKFILL_KEY,
 			COST_REINGEST_BACKFILL_KEY,
@@ -1647,6 +1763,12 @@ export function insertToolCalls(calls: Iterable<ToolCallStats>): number {
 			"args_chars",
 			"result_chars",
 			"is_error",
+			"tool_kind",
+			"server_name",
+			"skill_name",
+			"script_name",
+			"target",
+			"args_preview",
 		],
 		identity: ["entry_id", "timestamp", "tool_call_id"],
 	});
@@ -1669,6 +1791,14 @@ export function insertToolCalls(calls: Iterable<ToolCallStats>): number {
 					c.argsChars,
 					c.resultChars ?? null,
 					c.isError === undefined ? null : c.isError ? 1 : 0,
+					// `tool_kind` is NOT NULL: fixtures and older callers that do
+					// not derive metadata still store a usable kind.
+					c.toolKind ?? "builtin",
+					c.serverName ?? null,
+					c.skillName ?? null,
+					c.scriptName ?? null,
+					c.target ?? null,
+					c.argsPreview ?? null,
 				],
 			);
 		}

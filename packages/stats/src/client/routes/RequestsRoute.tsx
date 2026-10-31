@@ -7,7 +7,9 @@ import {
 	formatEstimatedCost,
 	formatFolder,
 	formatInteger,
+	formatKb,
 	formatMessageCost,
+	formatPayloadKb,
 	formatRelativeTime,
 	formatTimestamp,
 } from "../data/formatters";
@@ -148,6 +150,22 @@ export function RequestsRoute({ active, range, onRequestClick }: RequestsRoutePr
 								title="Time to first token"
 								value={formatDurationMs(summary.medianTtft)}
 							/>
+							<Stat
+								label="Request payload"
+								title="Estimated from prompt tokens (4 bytes/token): sessions do not journal the request body"
+								value={formatPayloadKb(summary.requestKb)}
+								hint={
+									summary.requests > 0 ? `${formatKb(summary.requestKb / summary.requests)} avg` : undefined
+								}
+							/>
+							<Stat
+								label="Response payload"
+								title="Recorded assistant responses, including thinking and tool calls"
+								value={formatPayloadKb(summary.responseKb)}
+								hint={
+									summary.requests > 0 ? `${formatKb(summary.responseKb / summary.requests)} avg` : undefined
+								}
+							/>
 						</StatGrid>
 					</div>
 				)}
@@ -267,6 +285,22 @@ const REQUEST_COLUMNS: readonly Column<MessageStats>[] = [
 		align: "right",
 		sort: row => row.usage.output,
 		render: row => <span className="num">{formatCompact(row.usage.output)}</span>,
+	},
+	{
+		key: "requestKb",
+		header: "In KB",
+		title: "Request size estimated from the turn's prompt tokens",
+		align: "right",
+		sort: row => row.requestKb ?? 0,
+		render: row => <span className="num muted">{formatKb(row.requestKb)}</span>,
+	},
+	{
+		key: "responseKb",
+		header: "Out KB",
+		title: "Recorded assistant response size (text, thinking and tool calls)",
+		align: "right",
+		sort: row => row.responseKb ?? 0,
+		render: row => <span className="num muted">{formatKb(row.responseKb)}</span>,
 	},
 	{
 		key: "cost",

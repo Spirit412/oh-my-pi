@@ -13,6 +13,7 @@ import {
 	getProviderWindowStats,
 	getRecentErrors,
 	getRecentRequests,
+	getRecentToolCalls,
 	getRequestDetails,
 	getTimeRangeConfig,
 	getToolDashboardStats,
@@ -221,6 +222,12 @@ export async function handleApi(req: Request): Promise<Response> {
 	if (path === "/api/stats/tools") {
 		const stats = await getToolDashboardStats(range);
 		return Response.json(stats);
+	}
+
+	if (path === "/api/stats/tools/recent") {
+		const limit = url.searchParams.get("limit");
+		const calls = await getRecentToolCalls(limit ? parseInt(limit, 10) : undefined, range);
+		return Response.json(calls);
 	}
 
 	if (path === "/api/stats/provider-windows") {

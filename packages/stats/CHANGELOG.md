@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Added
+
+- Requests now record their payload sizes in kilobytes with two decimals: the response size is measured from the recorded assistant message, and the request size is estimated from the prompt tokens omp journaled (`input + cacheRead + cacheWrite`). Totals and per-request figures appear on the overview, the model/project/provider tables, the request log and each request's detail drawer.
+- Tool calls now record their source — MCP server, skill, script basename, or built-in tool — alongside their most identifying target (URL, command, path, query or `server/tool`) and a truncated argument preview. The Tools page gains a recent-calls log, and a request's detail drawer lists the turn's calls with the full arguments.
+
 ## [18.14.0] - 2026-10-29
 
 ### Changed
