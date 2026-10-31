@@ -1,4 +1,5 @@
 import { SEANCE_SLASH_COMMAND } from "./seance";
+import { t } from "../i18n";
 import { clearSubmittedText, refuseImages, restoreDetachedDraft, runWithDetachedDraft } from "./helpers/draft";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
@@ -171,7 +172,9 @@ export const BUILTIN_LIFECYCLE_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> =
 		icon: "restart",
 		description: "Reset provider stream state without changing the local transcript",
 		getTuiAutocompleteDescription: runtime =>
-			runtime.ctx.session.isStreaming ? "Fresh: unavailable while streaming" : "Fresh: ready",
+			runtime.ctx.session.isStreaming
+				? t("omp.slash.fresh.tui.streaming", "Fresh: unavailable while streaming")
+				: t("omp.slash.fresh.tui.ready", "Fresh: ready"),
 		handle: async (_command, runtime) => {
 			const result = runtime.session.freshSession();
 			if (!result) {
@@ -193,7 +196,9 @@ export const BUILTIN_LIFECYCLE_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> =
 		icon: "eraser",
 		description: "Clear the conversation context in place, keeping the session",
 		getTuiAutocompleteDescription: runtime =>
-			runtime.ctx.session.isStreaming ? "Clear: unavailable while streaming" : "Clear: drop context, keep session",
+			runtime.ctx.session.isStreaming
+				? t("omp.slash.clear.tui.streaming", "Clear: unavailable while streaming")
+				: t("omp.slash.clear.tui.ready", "Clear: drop context, keep session"),
 		handleTui: async (_command, runtime) => {
 			clearSubmittedText(runtime);
 			await runtime.ctx.handleResetContextCommand();
@@ -222,7 +227,11 @@ export const BUILTIN_LIFECYCLE_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> =
 		allowArgs: true,
 		getTuiAutocompleteDescription: runtime => {
 			const usage = runtime.ctx.session.getContextUsage();
-			return usage ? `Compact: context ${Math.round(usage.percent)}% used` : "Compact: context unavailable";
+			return usage
+				? t("omp.slash.compact.tui.percent", "Compact: context {percent}% used", {
+						percent: Math.round(usage.percent),
+					})
+				: t("omp.slash.compact.tui.unavailable", "Compact: context unavailable");
 		},
 		handle: async (command, runtime) => {
 			const parsed = parseCompactArgs(command.args);

@@ -1,5 +1,6 @@
 import { readShellWord } from "../tools/shell-tokenize";
 import type { LoopConditionConfig, LoopLimitRuntime } from "@oh-my-pi/pi-tui/status-line/loop";
+import { t } from "../i18n";
 
 export type LoopLimitConfig =
 	| {
@@ -232,21 +233,30 @@ export function describeLoopLimit(config: LoopLimitConfig): string {
 
 export function describeLoopLimitRuntime(limit: LoopLimitRuntime): string {
 	if (limit.kind === "iterations") {
-		return `${limit.remaining} of ${limit.initial} ${limit.initial === 1 ? "iteration" : "iterations"} remaining`;
+		return t(
+			"omp.loop.limit.runtime.iterations",
+			{
+				one: "{remaining} of {initial} iteration remaining",
+				other: "{remaining} of {initial} iterations remaining",
+			},
+			{ remaining: limit.remaining, initial: limit.initial, count: limit.initial },
+		);
 	}
-	return `${formatLoopBudget(limit.durationMs)} limit`;
+	return t("omp.loop.limit.runtime.duration", "{budget} limit", {
+		budget: formatLoopBudget(limit.durationMs),
+	});
 }
 
 // Budget descriptions retain full precision in one spelled-out unit, unlike compact elapsed times.
 function formatLoopBudget(durationMs: number): string {
 	if (durationMs % 3_600_000 === 0) {
 		const hours = durationMs / 3_600_000;
-		return `${hours} ${hours === 1 ? "hour" : "hours"}`;
+		return t("omp.loop.budget.hours", { one: "{count} hour", other: "{count} hours" }, { count: hours });
 	}
 	if (durationMs % 60_000 === 0) {
 		const minutes = durationMs / 60_000;
-		return `${minutes} ${minutes === 1 ? "minute" : "minutes"}`;
+		return t("omp.loop.budget.minutes", { one: "{count} minute", other: "{count} minutes" }, { count: minutes });
 	}
 	const seconds = durationMs / 1_000;
-	return `${seconds} ${seconds === 1 ? "second" : "seconds"}`;
+	return t("omp.loop.budget.seconds", { one: "{count} second", other: "{count} seconds" }, { count: seconds });
 }

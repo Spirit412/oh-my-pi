@@ -1,4 +1,5 @@
 import { type PauseWorkStatus, runPauseScreen } from "@oh-my-pi/pi-tui/overlays/pause-screen";
+import { t } from "../i18n";
 import { AgentRegistry } from "../registry/agent-registry";
 import type { AgentSession } from "../session/agent-session";
 import { clearApprovalGrants } from "../tools/approval-cache";
@@ -48,7 +49,16 @@ export const BUILTIN_CONTROL_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> = [
 		allowArgs: true,
 		getTuiAutocompleteDescription: runtime => {
 			const count = runtime.ctx.session.getActiveToolNames().length;
-			return count === 0 ? "Force: no active tools" : `Force: ${count} active tools`;
+			return count === 0
+				? t("omp.slash.force.tui.none", "Force: no active tools")
+				: t(
+						"omp.slash.force.tui.active",
+						{
+							one: "Force: {count} active tool",
+							other: "Force: {count} active tools",
+						},
+						{ count },
+					);
 		},
 		handle: async (command, runtime) => {
 			const spaceIdx = command.args.indexOf(" ");

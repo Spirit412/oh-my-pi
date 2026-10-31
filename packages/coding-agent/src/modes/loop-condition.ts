@@ -16,6 +16,7 @@
  */
 
 import { logger } from "@oh-my-pi/pi-utils";
+import { t } from "../i18n";
 import type { LoopConditionConfig } from "@oh-my-pi/pi-tui/status-line/loop";
 import type { BashResult } from "../exec/bash-executor";
 import { executeBash } from "../exec/bash-executor";
@@ -80,7 +81,10 @@ function formatTimeout(timeoutMs: number): string {
 
 /** Human-readable form of the condition, for enable/status messages. */
 export function describeLoopCondition(condition: LoopConditionConfig): string {
-	return `${condition.until ? "until" : "while"} ${quoteCommand(condition.command)} succeeds`;
+	const command = quoteCommand(condition.command);
+	return condition.until
+		? t("omp.loop.condition.until", "until {command} succeeds", { command })
+		: t("omp.loop.condition.while", "while {command} succeeds", { command });
 }
 
 /**

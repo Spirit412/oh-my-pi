@@ -1,4 +1,5 @@
 import { clearSubmittedText } from "./helpers/draft";
+import { t } from "../i18n";
 import { getOAuthProviders } from "@oh-my-pi/pi-ai/oauth";
 import { journalJudgmentUsage, resolveJudge, sharedJudgmentCache } from "../judgment";
 import type { AgentSession } from "../session/agent-session";
@@ -230,11 +231,19 @@ export const BUILTIN_SESSION_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> = [
 		allowArgs: true,
 		getTuiAutocompleteDescription: runtime => {
 			const tasks = runtime.ctx.todoPhases.flatMap(phase => phase.tasks);
-			if (tasks.length === 0) return "Todos: none";
+			if (tasks.length === 0) return t("omp.slash.todo.tui.none", "Todos: none");
 			const pending = tasks.filter(task => task.status === "pending").length;
 			const inProgress = tasks.filter(task => task.status === "in_progress").length;
 			const completed = tasks.filter(task => task.status === "completed").length;
-			return `Todos: ${pending + inProgress} open (${inProgress} in progress, ${completed} done)`;
+			const open = pending + inProgress;
+			return t(
+				"omp.slash.todo.tui.summary",
+				{
+					one: "Todos: {open} open ({inProgress} in progress, {done} done)",
+					other: "Todos: {open} open ({inProgress} in progress, {done} done)",
+				},
+				{ open, inProgress, done: completed, count: open },
+			);
 		},
 		handle: handleTodoAcp,
 		handleTui: async (command, runtime) => {
@@ -333,8 +342,18 @@ export const BUILTIN_SESSION_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> = [
 		allowArgs: true,
 		getTuiAutocompleteDescription: runtime => {
 			const snapshot = runtime.ctx.session.getAsyncJobSnapshot({ recentLimit: 5 });
-			if (!snapshot || (snapshot.running.length === 0 && snapshot.recent.length === 0)) return "Jobs: none";
-			return `Jobs: ${snapshot.running.length} running, ${snapshot.recent.length} recent`;
+			if (!snapshot || (snapshot.running.length === 0 && snapshot.recent.length === 0)) {
+				return t("omp.slash.jobs.tui.none", "Jobs: none");
+			}
+			const running = snapshot.running.length;
+			return t(
+				"omp.slash.jobs.tui.summary",
+				{
+					one: "Jobs: {running} running, {recent} recent",
+					other: "Jobs: {running} running, {recent} recent",
+				},
+				{ running, recent: snapshot.recent.length, count: running },
+			);
 		},
 		handle: async (command, runtime) => {
 			const { verb, rest } = parseSubcommand(command.args);
@@ -521,7 +540,16 @@ export const BUILTIN_SESSION_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> = [
 		getTuiAutocompleteDescription: runtime => {
 			const active = runtime.ctx.session.getActiveToolNames().length;
 			const all = runtime.ctx.session.getAllToolNames().length;
-			return all === 0 ? "Tools: none available" : `Tools: ${active} active / ${all} available`;
+			return all === 0
+				? t("omp.slash.tools.tui.none", "Tools: none available")
+				: t(
+						"omp.slash.tools.tui.summary",
+						{
+							one: "Tools: {active} active / {all} available",
+							other: "Tools: {active} active / {all} available",
+						},
+						{ active, all, count: active },
+					);
 		},
 		handle: async (_command, runtime) => {
 			const active = runtime.session.getActiveToolNames();
@@ -549,8 +577,12 @@ export const BUILTIN_SESSION_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> = [
 		acpDescription: "Show context usage",
 		getTuiAutocompleteDescription: runtime => {
 			const usage = runtime.ctx.session.getContextUsage();
-			if (!usage) return "Context: unavailable";
-			return `Context: ${Math.round(usage.percent)}% (${formatTokenCount(usage.tokens)}/${formatTokenCount(usage.contextWindow)})`;
+			if (!usage) return t("omp.slash.context.tui.unavailable", "Context: unavailable");
+			return t("omp.slash.context.tui.usage", "Context: {percent}% ({tokens}/{window})", {
+				percent: Math.round(usage.percent),
+				tokens: formatTokenCount(usage.tokens),
+				window: formatTokenCount(usage.contextWindow),
+			});
 		},
 		handle: async (_command, runtime) => {
 			await runtime.output(buildContextReportText(runtime));
@@ -679,8 +711,10 @@ export const BUILTIN_SESSION_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> = [
 		allowArgs: true,
 		getTuiAutocompleteDescription: runtime =>
 			runtime.ctx.oauthManualInput.hasPending()
-				? `Login: waiting for ${runtime.ctx.oauthManualInput.pendingProviderId ?? "OAuth"} callback`
-				: "Login: choose provider",
+				? t("omp.slash.login.tui.waiting", "Login: waiting for {provider} callback", {
+						provider: runtime.ctx.oauthManualInput.pendingProviderId ?? "OAuth",
+					})
+				: t("omp.slash.login.tui.choose", "Login: choose provider"),
 		handleTui: (command, runtime) => {
 			const manualInput = runtime.ctx.oauthManualInput;
 			const args = command.args.trim();

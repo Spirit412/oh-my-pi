@@ -2,7 +2,11 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { hasTranslation, registerCatalog, registerCoreCatalogs, resetI18nForTest, setLocale } from "../src/i18n";
 import { buildAvailableSlashCommands } from "../src/slash-commands/available-commands";
 import { BUILTIN_SLASH_COMMANDS_INTERNAL, BUILTIN_SLASH_COMMAND_DEFS } from "../src/slash-commands/builtin-registry";
-import { acpCommandDescriptionKey, commandDescriptionKey } from "../src/slash-commands/i18n";
+import {
+	acpCommandDescriptionKey,
+	commandDescriptionKey,
+	subcommandDescriptionKey,
+} from "../src/slash-commands/i18n";
 
 function commandDef(name: string) {
 	const def = BUILTIN_SLASH_COMMAND_DEFS.find(command => command.name === name);
@@ -82,9 +86,12 @@ describe("builtin slash-command descriptions", () => {
 });
 
 describe("bundled Russian catalog", () => {
-	test("covers every builtin command description and ACP override", () => {
+	test("covers every builtin command, subcommand, and ACP override", () => {
 		for (const command of BUILTIN_SLASH_COMMAND_DEFS) {
 			expect(hasTranslation(commandDescriptionKey(command.name), "ru")).toBe(true);
+			for (const subcommand of command.subcommands ?? []) {
+				expect(hasTranslation(subcommandDescriptionKey(command.name, subcommand.name), "ru")).toBe(true);
+			}
 		}
 		for (const command of BUILTIN_SLASH_COMMANDS_INTERNAL) {
 			if (!command.acpDescription) continue;
@@ -107,5 +114,52 @@ describe("bundled Russian catalog", () => {
 		);
 		const byName = Object.fromEntries(commands.map(command => [command.name, command]));
 		expect(byName.model.description).toBe("Показать текущий выбор модели");
+	});
+});
+
+describe("dynamic autocomplete copy", () => {
+	function liveDescription(name: string, runtime: unknown): string | undefined {
+		const command = BUILTIN_SLASH_COMMANDS_INTERNAL.find(entry => entry.name === name);
+		return command?.getTuiAutocompleteDescription?.(runtime as never);
+	}
+
+	const forceRuntime = { ctx: { session: { getActiveToolNames: () => ["read", "edit"] } } };
+	const todoRuntime = {
+		ctx: {
+			todoPhases: [
+				{
+					tasks: [
+						{ status: "pending" },
+						{ status: "in_progress" },
+						{ status: "completed" },
+					],
+				},
+			],
+		},
+	};
+
+	test("English output is unchanged by default", () => {
+		expect(liveDescription("force", forceRuntime)).toBe("Force: 2 active tools");
+		expect(liveDescription("todo", todoRuntime)).toBe("Todos: 2 open (1 in progress, 1 done)");
+	});
+
+	test("Russian catalog drives plural state labels", () => {
+		setLocale("ru");
+		expect(liveDescription("force", forceRuntime)).toBe("Принудительно: 2 активных инструмента");
+		expect(liveDescription("todo", todoRuntime)).toBe("Задачи: открыты 2 (1 в работе, 1 выполнено)");
+		expect(
+			liveDescription("model", {
+				ctx: { viewSession: { model: undefined } },
+			}),
+		).toBe("Модель: не выбрана");
+	});
+
+	test("missing runtime state falls back to localized empty labels", () => {
+		setLocale("ru");
+		expect(
+			liveDescription("jobs", {
+				ctx: { session: { getAsyncJobSnapshot: () => undefined } },
+			}),
+		).toBe("Фоновые задачи: нет");
 	});
 });

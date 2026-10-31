@@ -17,7 +17,8 @@ export function acpCommandDescriptionKey(name: string): string {
 
 /** Stable key for a builtin subcommand description. */
 export function subcommandDescriptionKey(commandName: string, subcommandName: string): string {
-	return `omp.slash.${commandName}.sub.${subcommandName}.description`;
+	// Composite names such as `mm list` become `mm-list` so keys stay dot-delimited.
+	return `omp.slash.${commandName}.sub.${subcommandName.trim().replace(/\s+/g, "-")}.description`;
 }
 
 /**
@@ -35,6 +36,11 @@ export function resolveAcpCommandDescription(
 	return command.acpDescription
 		? t(acpCommandDescriptionKey(command.name), command.acpDescription)
 		: resolveCommandDescription(command);
+}
+
+/** Localized on/off state for autocomplete status lines (`Fast: on`). */
+export function stateLabel(enabled: boolean): string {
+	return enabled ? t("omp.common.state.on", "on") : t("omp.common.state.off", "off");
 }
 
 /**

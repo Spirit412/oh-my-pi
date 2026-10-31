@@ -1,4 +1,5 @@
 import { clearSubmittedText } from "./helpers/draft";
+import { t } from "../i18n";
 import { Spacer } from "@oh-my-pi/pi-tui";
 import { APP_NAME, formatAge } from "@oh-my-pi/pi-utils";
 import { formatKeyHint } from "@oh-my-pi/pi-tui/app-keybindings";
@@ -75,10 +76,20 @@ export const BUILTIN_COLLABORATION_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpe
 		allowArgs: true,
 		getTuiAutocompleteDescription: runtime => {
 			const stats = runtime.ctx.session.getAdvisorStats();
-			if (stats.active && stats.advisors.length > 1) return `Advisor: on (${stats.advisors.length} advisors)`;
-			if (stats.active && stats.model) return `Advisor: on (${stats.model.provider}/${stats.model.id})`;
-			if (stats.configured) return "Advisor: configured, no model";
-			return "Advisor: off";
+			if (stats.active && stats.advisors.length > 1) {
+				return t(
+					"omp.slash.advisor.tui.multi",
+					{ one: "Advisor: on ({count} advisor)", other: "Advisor: on ({count} advisors)" },
+					{ count: stats.advisors.length },
+				);
+			}
+			if (stats.active && stats.model) {
+				return t("omp.slash.advisor.tui.model", "Advisor: on ({model})", {
+					model: `${stats.model.provider}/${stats.model.id}`,
+				});
+			}
+			if (stats.configured) return t("omp.slash.advisor.tui.configured", "Advisor: configured, no model");
+			return t("omp.slash.advisor.tui.off", "Advisor: off");
 		},
 		handle: async (command, runtime) => {
 			const { verb, rest } = parseSubcommand(command.args);
@@ -330,11 +341,17 @@ export const BUILTIN_COLLABORATION_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpe
 		getTuiAutocompleteDescription: runtime => {
 			const host = runtime.ctx.collabController.host;
 			if (host) {
-				return `Collab: hosting (${Math.max(0, host.participants.length - 1)} guests)`;
+				return t(
+					"omp.slash.collab.tui.hosting",
+					{ one: "Collab: hosting ({count} guest)", other: "Collab: hosting ({count} guests)" },
+					{ count: Math.max(0, host.participants.length - 1) },
+				);
 			}
-			if (runtime.ctx.collabGuest?.readOnly) return "Collab: read-only guest";
-			if (runtime.ctx.collabGuest) return "Collab: guest";
-			return "Collab: off";
+			if (runtime.ctx.collabGuest?.readOnly) {
+				return t("omp.slash.collab.tui.readOnlyGuest", "Collab: read-only guest");
+			}
+			if (runtime.ctx.collabGuest) return t("omp.slash.collab.tui.guest", "Collab: guest");
+			return t("omp.slash.collab.tui.off", "Collab: off");
 		},
 		handleTui: async (command, runtime) => {
 			const ctx = runtime.ctx;
@@ -481,9 +498,9 @@ export const BUILTIN_COLLABORATION_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpe
 		icon: "signOut",
 		description: "Leave the collab session",
 		getTuiAutocompleteDescription: runtime => {
-			if (runtime.ctx.collabController.host) return "Leave collab: hosting";
-			if (runtime.ctx.collabGuest) return "Leave collab: guest";
-			return "Leave collab: not in collab";
+			if (runtime.ctx.collabController.host) return t("omp.slash.leave.tui.hosting", "Leave collab: hosting");
+			if (runtime.ctx.collabGuest) return t("omp.slash.leave.tui.guest", "Leave collab: guest");
+			return t("omp.slash.leave.tui.none", "Leave collab: not in collab");
 		},
 		handleTui: async (_command, runtime) => {
 			const ctx = runtime.ctx;
@@ -512,8 +529,12 @@ export const BUILTIN_COLLABORATION_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpe
 		],
 		allowArgs: true,
 		getTuiAutocompleteDescription: runtime => {
-			if (!cfgBrowserEnabled.get(runtime.ctx.settings)) return "Browser: disabled";
-			return cfgBrowserHeadless.get(runtime.ctx.settings) ? "Browser: headless" : "Browser: visible";
+			if (!cfgBrowserEnabled.get(runtime.ctx.settings)) {
+				return t("omp.slash.browser.tui.disabled", "Browser: disabled");
+			}
+			return cfgBrowserHeadless.get(runtime.ctx.settings)
+				? t("omp.slash.browser.tui.headless", "Browser: headless")
+				: t("omp.slash.browser.tui.visible", "Browser: visible");
 		},
 		handle: async (command, runtime) => {
 			const arg = command.args.toLowerCase();
