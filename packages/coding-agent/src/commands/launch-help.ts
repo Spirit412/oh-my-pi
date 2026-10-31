@@ -57,6 +57,7 @@ export const launchHelp = {
 			description: "Load an extra config.yml-style overlay for this run (repeatable)",
 			multiple: true,
 		}),
+		lang: Flags.string({ description: "UI language tag (e.g. en, ru; default: the language setting)" }),
 		"add-dir": Flags.string({
 			description: "Add a workspace directory beyond the working directory (repeatable)",
 			multiple: true,

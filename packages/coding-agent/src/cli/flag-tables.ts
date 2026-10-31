@@ -133,6 +133,18 @@ export const STRING_SETTERS: Record<string, StringSetter> = {
 	"--add-dir": (result, value) => {
 		result.addDir = [...(result.addDir ?? []), value];
 	},
+	"--lang": (result, value) => {
+		const normalized = value.trim().split(".")[0]!.replaceAll("_", "-").toLowerCase();
+		if (!normalized) throw new CliUsageError("--lang requires a locale tag (for example: en, ru).");
+		try {
+			Intl.getCanonicalLocales(normalized);
+		} catch {
+			throw new CliUsageError(
+				`Invalid --lang value: ${JSON.stringify(value)}. Expected a BCP-47 tag such as "en" or "ru".`,
+			);
+		}
+		result.lang = normalized;
+	},
 	"--mode": (result, value) => {
 		if (value === "text" || value === "json" || value === "rpc" || value === "acp" || value === "rpc-ui") {
 			result.mode = value;

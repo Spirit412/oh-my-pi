@@ -46,6 +46,9 @@ export interface PluginManifest {
 
 	/** Settings schema for plugin configuration */
 	settings?: Record<string, PluginSettingSchema>;
+
+	/** Locale catalogs: BCP-47 tag → catalog file relative to the plugin root. */
+	locales?: Record<string, string>;
 }
 
 // =============================================================================

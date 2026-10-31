@@ -200,6 +200,10 @@ import { cfgDisabledProviders, cfgEnabledModels } from "./config/model-settings"
 import { cfgTaskAgentIdleTtlMs } from "./task/settings";
 import { cfgSkillsIncludeSkills } from "./extensibility/settings";
 import { cfgWorkspaceAdditionalDirectories } from "./session/context-settings";
+import { setLocale } from "./i18n";
+import { resolveLocale } from "./i18n/locale";
+import { cfgLanguage } from "./i18n/settings";
+import { loadPluginTranslationCatalogs } from "./extensibility/plugins/loader";
 
 type RunAcpMode = (createSession: AcpSessionFactory) => Promise<never>;
 type RunPrintMode = (session: AgentSession, options: PrintModeOptions) => Promise<number>;
@@ -1983,6 +1987,10 @@ export async function runRootCommand(
 		// Runtime overrides (not persisted): the session's cost gate reads its thresholds from settings.
 		if (parsedArgs.warnCost !== undefined) cfgSessionWarnCost.override(settingsInstance, parsedArgs.warnCost);
 		if (parsedArgs.maxCost !== undefined) cfgSessionMaxCost.override(settingsInstance, parsedArgs.maxCost);
+		// UI locale: CLI flag wins over the setting/environment. Set it explicitly
+		// for `deps.settings` hosts where Settings.init never bound the effect.
+		if (parsedArgs.lang) cfgLanguage.override(settingsInstance, parsedArgs.lang);
+		setLocale(resolveLocale({ configured: cfgLanguage.get(settingsInstance), cli: parsedArgs.lang }));
 		if (parsedArgs.mode === "rpc" || parsedArgs.mode === "rpc-ui") {
 			applyProtocolDefaults("rpc", settingsInstance);
 		} else if (parsedArgs.mode === "acp") {
@@ -2327,6 +2335,7 @@ export async function runRootCommand(
 			}
 		}
 		await pluginPreloadPromise;
+		await logger.time("loadPluginTranslationCatalogs", loadPluginTranslationCatalogs, cwd);
 		// Pure file I/O: overlap it with session-option building, but land it before
 		// extensions load or the session can start project daemons.
 		const daemonPresencePromise =

@@ -21,6 +21,7 @@ import { findExtensionDirectoryIndex, resolveExtensionDirectory } from "../exten
 import { installLegacyPiSpecifierShim } from "./legacy-pi-compat";
 import { normalizePluginRuntimeConfig } from "./runtime-config";
 import type { InstalledPlugin, PluginManifest, PluginRuntimeConfig, ProjectPluginOverrides } from "./types";
+import { isTranslationCatalog, registerCatalog, type Message } from "@oh-my-pi/pi-utils/i18n";
 
 /** Installed plugin plus the root scope that supplied its runtime metadata. */
 export interface ScopedInstalledPlugin extends InstalledPlugin {
@@ -494,4 +495,65 @@ export async function getPluginSettings(pluginName: string, cwd: string): Promis
 	const project = projectOverrides.settings?.[pluginName] || {};
 
 	return { ...global, ...project };
+}
+
+const PLUGIN_TRANSLATION_MAX_KEYS = 5000;
+
+/** Resolve a manifest locale path without allowing it to escape the plugin root. */
+function resolvePluginLocaleFile(plugin: InstalledPlugin, entry: string): string | null {
+	const root = path.resolve(plugin.path);
+	const target = path.resolve(root, entry);
+	const relative = path.relative(root, target);
+	if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) return null;
+	return target;
+}
+
+/**
+ * Register `omp.locales` catalogs from every enabled plugin. Keys are prefixed
+ * with `plugin.<package-name>.` so a plugin cannot silently shadow core or TUI
+ * strings. Invalid catalogs warn and are skipped; installation is unaffected.
+ */
+export async function loadPluginTranslationCatalogs(cwd: string, opts: { home?: string } = {}): Promise<void> {
+	const plugins = await getEnabledPlugins(cwd, opts);
+	for (const plugin of plugins) {
+		const locales = plugin.manifest.locales;
+		if (!locales || typeof locales !== "object") continue;
+		for (const [locale, entry] of Object.entries(locales)) {
+			if (typeof entry !== "string" || !entry.trim()) continue;
+			const file = resolvePluginLocaleFile(plugin, entry);
+			if (!file) {
+				logger.warn("Ignoring plugin locale outside its package root", { plugin: plugin.name, entry });
+				continue;
+			}
+			try {
+				const raw: unknown = await Bun.file(file).json();
+				if (!isTranslationCatalog(raw)) {
+					logger.warn("Ignoring invalid plugin translation catalog", { plugin: plugin.name, locale, file });
+					continue;
+				}
+				const entries = Object.entries(raw);
+				if (entries.length > PLUGIN_TRANSLATION_MAX_KEYS) {
+					logger.warn("Ignoring oversized plugin translation catalog", {
+						plugin: plugin.name,
+						locale,
+						keys: entries.length,
+					});
+					continue;
+				}
+				const prefix = `plugin.${plugin.name}.`;
+				const catalog: Record<string, Message> = {};
+				for (const [key, message] of entries) {
+					catalog[key.startsWith(prefix) ? key : `${prefix}${key}`] = message;
+				}
+				registerCatalog(locale, catalog, `plugin:${plugin.name}`);
+			} catch (error) {
+				logger.warn("Failed to load plugin translation catalog", {
+					plugin: plugin.name,
+					locale,
+					file,
+					error: String(error),
+				});
+			}
+		}
+	}
 }

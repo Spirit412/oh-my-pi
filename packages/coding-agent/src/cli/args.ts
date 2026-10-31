@@ -33,6 +33,8 @@ export interface Args {
 	provider?: string;
 	model?: string;
 	config?: string[];
+	/** UI language tag (`en`, `ru`, …); omitted keeps the `language` setting. */
+	lang?: string;
 	smol?: string;
 	slow?: string;
 	plan?: string;
