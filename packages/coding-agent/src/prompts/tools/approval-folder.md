@@ -1,4 +1,4 @@
-Folder: {{folder}}{{#if summary}} — {{summary}}{{/if}}
+{{label}}: {{folder}}{{#if summary}} — {{summary}}{{/if}}
 {{#each entries}}  - {{this}}
 {{/each}}{{#if more}}  … {{more}}
 {{/if}}
