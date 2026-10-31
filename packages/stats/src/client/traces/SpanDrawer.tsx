@@ -7,7 +7,7 @@
 import { Check, Copy, X } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { getSessionEntryDetail } from "../api";
-import { formatDurationMs, formatInteger } from "../data/formatters";
+import { formatDurationMs, formatInteger, formatKb } from "../data/formatters";
 import type { TraceSpan, TraceTrack } from "../types";
 import { Badge, Drawer, type DrawerProps, ErrorState, JsonBlock, KeyValues, Skeleton } from "../ui";
 
@@ -176,6 +176,35 @@ export function SpanDrawer({
 					</span>
 				),
 			});
+		// Exact transport-measured payload sizes; older sessions carry none.
+		metrics.push(
+			{
+				key: "requestSize",
+				label: "Request size",
+				value: (
+					<span
+						className="num"
+						title={span.requestBytes === undefined ? "not measured" : `${formatInteger(span.requestBytes)} bytes`}
+					>
+						{formatKb(span.requestBytes === undefined ? null : span.requestBytes / 1024)}
+					</span>
+				),
+			},
+			{
+				key: "responseSize",
+				label: "Response size",
+				value: (
+					<span
+						className="num"
+						title={
+							span.responseBytes === undefined ? "not measured" : `${formatInteger(span.responseBytes)} bytes`
+						}
+					>
+						{formatKb(span.responseBytes === undefined ? null : span.responseBytes / 1024)}
+					</span>
+				),
+			},
+		);
 		if (msg?.provider)
 			metrics.push({ key: "provider", label: "Provider", value: <span className="mono">{msg.provider}</span> });
 		if (msg?.stopReason)

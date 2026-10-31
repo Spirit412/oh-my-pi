@@ -641,6 +641,10 @@ export interface TraceSpan {
 	model?: string;
 	/** usage.totalTokens (model spans). */
 	tokens?: number;
+	/** Exact request-body bytes the AI transport sent (model spans; absent when unmeasured). */
+	requestBytes?: number;
+	/** Exact response-body bytes received, streaming frames included (model spans). */
+	responseBytes?: number;
 	/** usage.cost.total (model spans). */
 	cost?: number;
 	/** Time to first token, ms offset from start. */

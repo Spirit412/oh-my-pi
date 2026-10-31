@@ -100,6 +100,9 @@ interface MessageView {
 	provider?: string;
 	stopReason?: string;
 	errorMessage?: string;
+	/** Exact wire sizes recorded by the AI transport; absent before that measurement. */
+	requestBytes?: number;
+	responseBytes?: number;
 }
 
 /** `tool_execution_start` marker facts joined to tool spans by call id. */
@@ -438,6 +441,8 @@ function scanTranscript(
 			if (entry.id) span.entryId = entry.id;
 			if (typeof msg.model === "string") span.model = msg.model;
 			if (totalTokens > 0) span.tokens = totalTokens;
+			if (typeof msg.requestBytes === "number") span.requestBytes = msg.requestBytes;
+			if (typeof msg.responseBytes === "number") span.responseBytes = msg.responseBytes;
 
 			if (costTotal !== undefined) span.cost = costTotal;
 			if (typeof msg.ttft === "number") span.ttft = msg.ttft;

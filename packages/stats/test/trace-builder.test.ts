@@ -63,6 +63,8 @@ const ROOT_ENTRIES: unknown[] = [
 			completedAt: T + 11_000,
 			ttft: 500,
 			usage: usage(100, 0.01),
+			requestBytes: 290_482,
+			responseBytes: 1_815,
 			stopReason: "toolUse",
 			content: [
 				{ type: "text", text: "working" },
@@ -361,11 +363,22 @@ describe("buildSessionTrace", () => {
 
 		// Model span: request-start → completedAt, carrying ttft/tokens/cost.
 		const modelA1 = main.spans.find(span => span.entryId === "a1" && span.kind === "model");
-		expect(modelA1).toMatchObject({ start: T + 2000, end: T + 11_000, ttft: 500, tokens: 100, cost: 0.01 });
+		expect(modelA1).toMatchObject({
+			start: T + 2000,
+			end: T + 11_000,
+			ttft: 500,
+			tokens: 100,
+			cost: 0.01,
+			// Exact transport-measured payload sizes travel with the span.
+			requestBytes: 290_482,
+			responseBytes: 1_815,
+		});
 
 		// Legacy assistant degrades to an envelope-derived zero-width span.
 		const legacy = main.spans.find(span => span.entryId === "a4" && span.kind === "model");
 		expect(legacy).toMatchObject({ start: T + 61_000, end: T + 61_000 });
+		expect(legacy?.requestBytes).toBeUndefined();
+		expect(legacy?.responseBytes).toBeUndefined();
 
 		// Tool span joined via tool_execution_start marker; end from the toolResult.
 		const bash1 = main.spans.find(span => span.toolCallId === "call1");
