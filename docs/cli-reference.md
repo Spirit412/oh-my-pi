@@ -318,6 +318,15 @@ Run `omp <command> --help` for each command's own flags and examples.
 > command, and so on). The table lists each as it is registered in
 > `packages/coding-agent/src/cli-commands.ts`.
 
+### Source installs and `omp update`
+
+An installer source checkout (`~/.omp/source`, or `PI_SOURCE_DIR`) updates
+from its own `origin` and current branch: `omp update` fetches the branch,
+fast-forwards the checkout, reinstalls dependencies, rebuilds the native addon
+when `crates/` or `packages/natives/` changed, and refreshes the `omp` link.
+`omp update --check` reports the available commit without changing anything.
+A development checkout is left to git.
+
 `__complete` is an internal, hidden subcommand used by shell completion scripts.
 
 ### Worktree clones
