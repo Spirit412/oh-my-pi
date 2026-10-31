@@ -2,6 +2,13 @@ import { resolveExtraCa, withExtraCaInit } from "@oh-my-pi/pi-utils";
 import { coworkFetch } from "../providers/cowork-fetch";
 import { withInferenceUserAgent } from "../providers/inference-headers";
 import type { Api, FetchImpl, Model } from "../types";
+import {
+	attachPayloadMeter,
+	type PayloadMeter,
+	payloadMeterFor,
+	requestBodyBytes,
+	tapResponseBytes,
+} from "./payload-meter";
 import { getProxyForProvider, withProxyInit } from "./proxy";
 import { createFetchRequestDebugSession, isRequestDebugEnabled } from "./request-debug";
 
@@ -15,16 +22,21 @@ type TransportFetch = FetchImpl & { [TRANSPORT_FETCH]?: true };
  * order: the inference User-Agent default, `NODE_EXTRA_CA_CERTS`, the
  * per-provider proxy, and `PI_REQ_DEBUG` request/response recording — then
  * calls `fetchImpl` (or the model's default fetch) exactly once. Providers
- * never layer transport concerns themselves.
+ * never layer transport concerns themselves. It also meters the exact payload:
+ * the body bytes handed to fetch and every byte read back from the response.
  *
  * Idempotent: the built fetch is stamped and returned as-is on later passes.
  * `streamSimple` re-enters `stream`, and `streamSimpleRequest` re-enters itself
  * on auth retries, so without the stamp each entry point would add another
- * layer (three PI_REQ_DEBUG dumps for one request).
+ * layer (three PI_REQ_DEBUG dumps for one request). A later pass with a meter
+ * rebinds it, so the newest turn owns the measurements.
  */
-export function transportFetch(model: Model<Api>, fetchImpl: FetchImpl | undefined): FetchImpl {
+export function transportFetch(model: Model<Api>, fetchImpl: FetchImpl | undefined, meter?: PayloadMeter): FetchImpl {
 	const given = fetchImpl as TransportFetch | undefined;
-	if (given?.[TRANSPORT_FETCH]) return given;
+	if (given?.[TRANSPORT_FETCH]) {
+		if (meter) attachPayloadMeter(given, meter);
+		return given;
+	}
 	const base =
 		given ?? (model.provider === "anthropic" && model.api === "anthropic-messages" ? coworkFetch : globalThis.fetch);
 	const proxyUrl = getProxyForProvider(model.provider);
@@ -37,12 +49,23 @@ export function transportFetch(model: Model<Api>, fetchImpl: FetchImpl | undefin
 		const extraCa = resolveExtraCa();
 		if (extraCa) init = withExtraCaInit(init, extraCa);
 		if (proxyUrl) init = withProxyInit(input, init, proxyUrl);
-		if (!isRequestDebugEnabled()) return base(input, init);
-		const session = await createFetchRequestDebugSession(input, init);
-		return session.wrapResponse(await base(input, init));
+		// Read the meter at call time: a re-entrant pass may have rebound it.
+		const activeMeter = payloadMeterFor(fetch);
+		if (activeMeter) {
+			activeMeter.requestBytes = requestBodyBytes(init?.body);
+			activeMeter.responseBytes = null;
+		}
+		const send = async (): Promise<Response> => {
+			if (!isRequestDebugEnabled()) return base(input, init);
+			const session = await createFetchRequestDebugSession(input, init);
+			return session.wrapResponse(await base(input, init));
+		};
+		const response = await send();
+		return activeMeter ? tapResponseBytes(response, activeMeter) : response;
 	};
 	if (base.preconnect) fetch.preconnect = base.preconnect;
 	fetch[TRANSPORT_FETCH] = true;
+	if (meter) attachPayloadMeter(fetch, meter);
 	return fetch;
 }
 
@@ -81,7 +104,11 @@ export function resetDispatchOriginsForTesting(): void {
 }
 
 /** Options-bag form of {@link transportFetch}; returns `options` untouched when its fetch is already built. */
-export function withTransportFetch<T extends { fetch?: FetchImpl }>(model: Model<Api>, options: T): T {
-	const fetch = transportFetch(model, options.fetch);
+export function withTransportFetch<T extends { fetch?: FetchImpl }>(
+	model: Model<Api>,
+	options: T,
+	meter?: PayloadMeter,
+): T {
+	const fetch = transportFetch(model, options.fetch, meter);
 	return fetch === options.fetch ? options : { ...options, fetch };
 }

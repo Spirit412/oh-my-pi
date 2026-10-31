@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Assistant messages now carry the exact request- and response-body byte counts measured by the transport fetch (`requestBytes` / `responseBytes`), so session logs and usage tooling can report payload volume without estimating from tokens.
+
 ## [18.14.1] - 2026-10-31
 
 ### Added

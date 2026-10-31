@@ -72,6 +72,7 @@ import { getHeaderCaseInsensitive, resolveCacheRetention } from "./utils";
 import { AssistantMessageEventStream } from "./utils/event-stream";
 import { applyGlyphCodec } from "./utils/glyph-codec";
 import { wrapLeakedThinkingStream } from "./utils/leaked-thinking-stream";
+import { createPayloadMeter, type PayloadMeter, withPayloadMeter } from "./utils/payload-meter";
 import { withThinkingLoopGuard } from "./utils/thinking-loop";
 import { withTransportFetch } from "./utils/transport-fetch";
 
@@ -855,9 +856,22 @@ function streamDispatch<TApi extends Api>(
 	options: OptionsForApi<TApi> | undefined,
 	limited: boolean,
 ): AssistantMessageEventStream {
+	// One meter per dispatched turn: the transport fetch records the request and
+	// response bytes, and the terminal message carries them into the session.
+	const meter = createPayloadMeter();
+	return withPayloadMeter(streamDispatchInner(model, context, options, limited, meter), meter);
+}
+
+function streamDispatchInner<TApi extends Api>(
+	model: Model<TApi>,
+	context: Context,
+	options: OptionsForApi<TApi> | undefined,
+	limited: boolean,
+	meter: PayloadMeter,
+): AssistantMessageEventStream {
 	const requestOptions = withSupportedSamplingParams(
 		model,
-		withTransportFetch(model, (options || {}) as StreamOptions),
+		withTransportFetch(model, (options || {}) as StreamOptions, meter),
 	) as OptionsForApi<TApi>;
 	assertExplicitOpenAIResponsesPromptCacheSupport(model, requestOptions);
 
@@ -1177,8 +1191,12 @@ export function streamSimple<TApi extends Api>(
 	const effortRequested =
 		sessionOptions.reasoning !== undefined && !sessionOptions.disableReasoning && !sessionOptions.forceReasoningOff;
 	if (!effortRequested) model = withoutUnverifiedThinking(model);
+	// A simple turn is dispatched here directly (not through `streamDispatch`),
+	// so it owns the payload meter: the transport fetch records the bytes and
+	// the terminal message carries them.
+	const meter = createPayloadMeter();
 	if (!model.requiresGlyphTokenization) {
-		return streamSimpleRequest(model, context, sessionOptions);
+		return withPayloadMeter(streamSimpleRequest(model, context, sessionOptions, meter), meter);
 	}
 	const codec = applyGlyphCodec(context);
 	const execHandlers = sessionOptions.cursorExecHandlers ?? sessionOptions.execHandlers;
@@ -1191,7 +1209,7 @@ export function streamSimple<TApi extends Api>(
 					execHandlers: wrappedExecHandlers,
 					cursorExecHandlers: wrappedExecHandlers,
 				};
-	return codec.wrap(streamSimpleRequest(model, codec.context, wireOptions));
+	return codec.wrap(withPayloadMeter(streamSimpleRequest(model, codec.context, wireOptions, meter), meter));
 }
 
 /**
@@ -1218,10 +1236,11 @@ function streamSimpleRequest<TApi extends Api>(
 	model: Model<TApi>,
 	context: Context,
 	options?: SimpleStreamOptions,
+	meter?: PayloadMeter,
 ): AssistantMessageEventStream {
 	const requestOptions = withSupportedSamplingParams(
 		model,
-		withTransportFetch(model, (options || {}) as SimpleStreamOptions),
+		withTransportFetch(model, (options || {}) as SimpleStreamOptions, meter),
 	);
 
 	const apiKeyResolver = isApiKeyResolver(requestOptions?.apiKey) ? requestOptions.apiKey : undefined;
@@ -1245,7 +1264,7 @@ function streamSimpleRequest<TApi extends Api>(
 
 			try {
 				const attemptOptions = { ...requestOptions, apiKey, credentialId, oauthIdentity };
-				const inner = streamSimpleRequest(model, context, attemptOptions);
+				const inner = streamSimpleRequest(model, context, attemptOptions, meter);
 				for await (const event of inner) {
 					if (credentialId !== undefined) {
 						if ("partial" in event) event.partial.credentialId = credentialId;
@@ -1369,7 +1388,7 @@ function streamSimpleRequest<TApi extends Api>(
 
 	if (model.resolveHeaders) {
 		return withResolvedModelHeaders(model, requestOptions.signal, resolvedModel =>
-			streamSimpleRequest(resolvedModel, context, requestOptions),
+			streamSimpleRequest(resolvedModel, context, requestOptions, meter),
 		);
 	}
 

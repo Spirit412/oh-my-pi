@@ -1330,6 +1330,20 @@ export interface AssistantMessage {
 	errorClassificationMessage?: string;
 	/** True only when an exact request-body-read timeout failed on a full Responses replay, not a previous-response delta. */
 	requestBodyReadTimeoutFullReplay?: boolean;
+	/**
+	 * Bytes this turn's request body put on the wire (serialized JSON, or the
+	 * compressed body when a provider compresses it). Measured by the transport
+	 * fetch; absent for transports that do not go through it (binary/websocket
+	 * agents) and for messages journaled before it was recorded. The final
+	 * attempt wins when a request was retried.
+	 */
+	requestBytes?: number;
+	/**
+	 * Bytes of the response body read from the wire for this turn, including
+	 * streaming frames. Same availability and retry rules as
+	 * {@link requestBytes}.
+	 */
+	responseBytes?: number;
 	/** Per-tool abort messages used when an aborted assistant turn needs different placeholder results per tool call. */
 	toolCallAbortMessages?: Record<string, string>;
 	/** HTTP status surfaced by the provider when the request failed. Populated by every provider's catch block alongside `errorMessage` so consumers (auth retry, telemetry, UI) can branch without regex-scraping the message. */
