@@ -2,6 +2,7 @@ import type { AvailableCommand } from "@oh-my-pi/pi-utils/acp";
 import { BUILTIN_SLASH_COMMANDS_INTERNAL, lookupBuiltinSlashCommand } from "./builtin-registry";
 import { parseSlashCommand } from "./helpers/parse";
 import type { AcpBuiltinSlashCommandResult, SlashCommandRuntime } from "./types";
+import { resolveAcpCommandDescription } from "./i18n";
 
 export type { AcpBuiltinSlashCommandResult } from "./types";
 
@@ -43,7 +44,9 @@ export const ACP_BUILTIN_SLASH_COMMANDS: AvailableCommand[] = BUILTIN_SLASH_COMM
 	const hint = command.acpInputHint ?? command.inlineHint;
 	return {
 		name: command.name,
-		description: command.acpDescription ?? command.description,
+		get description() {
+			return resolveAcpCommandDescription(command);
+		},
 		input: hint ? { hint } : undefined,
 	};
 });

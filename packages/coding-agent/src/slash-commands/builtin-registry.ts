@@ -13,6 +13,7 @@ import {
 	buildStaticInlineHint,
 	buildSubcommandInlineHint,
 } from "./builtin-completions";
+import { localizeSubcommands, resolveCommandDescription } from "./i18n";
 import { BUILTIN_CONTROL_SLASH_COMMANDS } from "./builtin-control";
 import { BUILTIN_LIFECYCLE_SLASH_COMMANDS } from "./builtin-lifecycle";
 import { BUILTIN_MARKETPLACE_SLASH_COMMANDS, reloadTuiPluginState } from "./builtin-marketplace";
@@ -66,12 +67,12 @@ export const BUILTIN_SLASH_COMMAND_DEFS: ReadonlyArray<BuiltinSlashCommand> = BU
 		name: command.name,
 		aliases: command.aliases,
 		allowArgs: command.allowArgs === true,
-		// Getter: some descriptions name keys, formatted at read time (theme/preset may change).
+		// Getter: resolves translated copy at read time (locale/theme/preset may change).
 		get description() {
-			return command.description;
+			return resolveCommandDescription(command);
 		},
 		icon: command.icon,
-		subcommands: command.subcommands,
+		subcommands: localizeSubcommands(command.name, command.subcommands),
 		subcommandOptional: command.subcommandOptional,
 		inlineHint: command.inlineHint,
 		getTuiAutocompleteDescription: command.getTuiAutocompleteDescription,
@@ -82,7 +83,13 @@ function materializeTuiBuiltinSlashCommand(
 	cmd: BuiltinSlashCommand,
 	runtime?: TuiSlashCommandRuntime,
 ): TuiBuiltinSlashCommand {
-	const materialized: TuiBuiltinSlashCommand = { ...cmd };
+	const materialized: TuiBuiltinSlashCommand = {
+		...cmd,
+		// Getter: `{ ...cmd }` would freeze the description at materialization time.
+		get description() {
+			return cmd.description;
+		},
+	};
 	if (cmd.subcommands) {
 		const subcommands = cmd.subcommands;
 		// `/mcp` and `/effort` narrow their declarative lists to live session

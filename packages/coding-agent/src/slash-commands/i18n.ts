@@ -1,0 +1,55 @@
+import { t } from "../i18n";
+import type { BuiltinSlashCommand, SubcommandDef } from "./types";
+
+/**
+ * Stable key for a builtin command description. Keys derive from the command
+ * name — a reserved identifier that translation never changes — so shipped
+ * catalogs survive copy edits to the inline English fallback.
+ */
+export function commandDescriptionKey(name: string): string {
+	return `omp.slash.${name}.description`;
+}
+
+/** Stable key for the ACP-specific description of a builtin command. */
+export function acpCommandDescriptionKey(name: string): string {
+	return `omp.slash.${name}.acpDescription`;
+}
+
+/** Stable key for a builtin subcommand description. */
+export function subcommandDescriptionKey(commandName: string, subcommandName: string): string {
+	return `omp.slash.${commandName}.sub.${subcommandName}.description`;
+}
+
+/**
+ * Resolve a builtin command description at read time. Callers hold this behind
+ * a getter so a locale change applies without rebuilding the registry.
+ */
+export function resolveCommandDescription(command: Pick<BuiltinSlashCommand, "name" | "description">): string {
+	return t(commandDescriptionKey(command.name), command.description);
+}
+
+/** Resolve the description an ACP client sees, honoring `acpDescription`. */
+export function resolveAcpCommandDescription(
+	command: Pick<BuiltinSlashCommand, "name" | "description"> & { acpDescription?: string },
+): string {
+	return command.acpDescription
+		? t(acpCommandDescriptionKey(command.name), command.acpDescription)
+		: resolveCommandDescription(command);
+}
+
+/**
+ * Wrap subcommand definitions so their descriptions translate at read time.
+ * `usage` stays verbatim: it is invocation syntax, not prose.
+ */
+export function localizeSubcommands(
+	commandName: string,
+	subcommands: SubcommandDef[] | undefined,
+): SubcommandDef[] | undefined {
+	if (!subcommands) return undefined;
+	return subcommands.map(subcommand => ({
+		...subcommand,
+		get description() {
+			return t(subcommandDescriptionKey(commandName, subcommand.name), subcommand.description);
+		},
+	}));
+}
