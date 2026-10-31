@@ -4,6 +4,7 @@ import { getOAuthProviders } from "@oh-my-pi/pi-ai/oauth";
 import type { OAuthProvider } from "@oh-my-pi/pi-ai/oauth/types";
 import type { TspText } from "@oh-my-pi/pi-wire";
 import { getAgentDbPath } from "@oh-my-pi/pi-utils";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import { Container } from "../../tui";
 import { Spacer } from "../../components/spacer";
 import { Text } from "../../components/text";
@@ -25,12 +26,8 @@ import {
 	type StyledLine,
 } from "./types";
 
-const SCENE_TITLE = "Sign in to your providers";
 /** Login dialog rows kept above a cut on short screens: top border, spacer, first sign-in link row. */
 const DIALOG_HEAD_ROWS = 3;
-const LIST_LEAD = "Pick a provider to sign in — you can connect more than one.";
-/** The provider sheet's subtitle: its title and rows already say "pick a provider". */
-const SHEET_LEAD = "You can connect more than one.";
 
 /** The last finished sign-in (`provider` is the display name): shown on the provider sheet (natively) or under the list (ANSI). */
 type SignInOutcome =
@@ -48,9 +45,13 @@ type SignInOutcome =
  * in the cell grid drawn in the wizard body in place of the selector.
  */
 export class SignInScene implements SetupSceneController {
-	readonly title = SCENE_TITLE;
+	get title(): string {
+		return t("tui.setup.signIn.title", "Sign in to your providers");
+	}
 	get subtitle(): string {
-		return `Sign in to one or more providers. Press ${editorKey("tui.select.cancel")} when you're done.`;
+		return t("tui.setup.signIn.subtitle", "Sign in to one or more providers. Press {key} when you're done.", {
+			key: editorKey("tui.select.cancel"),
+		});
 	}
 
 	#authStorage: AuthStorage;
@@ -128,7 +129,16 @@ export class SignInScene implements SetupSceneController {
 		let intro: Container | undefined;
 		if (maxLines === undefined || maxLines >= 17 + 2) {
 			intro = new Container();
-			intro.addChild(new Text(theme.fg("muted", LIST_LEAD), 0, 0));
+			intro.addChild(
+				new Text(
+					theme.fg(
+						"muted",
+						t("tui.setup.signIn.listLead", "Pick a provider to sign in — you can connect more than one."),
+					),
+					0,
+					0,
+				),
+			);
 			intro.addChild(new Spacer(1));
 		}
 		const status = new Container();
@@ -164,7 +174,19 @@ export class SignInScene implements SetupSceneController {
 			if (dialog) return col([dialog]);
 			if (sheet) return col([this.#selector]);
 			const children: NativeChild[] = [
-				node("text", { spans: [span(LIST_LEAD, "muted")] }, undefined, "intro"),
+				node(
+					"text",
+					{
+						spans: [
+							span(
+								t("tui.setup.signIn.listLead", "Pick a provider to sign in — you can connect more than one."),
+								"muted",
+							),
+						],
+					},
+					undefined,
+					"intro",
+				),
 				this.#selector,
 			];
 			this.#statusLines().forEach((line, index) => {
@@ -180,19 +202,33 @@ export class SignInScene implements SetupSceneController {
 		let status: TspText | undefined;
 		if (outcome?.kind === "success") {
 			status = [
-				span(`Signed in to ${outcome.provider}.`, "success"),
-				span(" Add another provider or continue.", "muted"),
+				span(
+					t("tui.setup.signIn.signedInTo", "Signed in to {provider}.", { provider: outcome.provider }),
+					"success",
+				),
+				span(t("tui.setup.signIn.anotherProvider", " Add another provider or continue."), "muted"),
 			];
 		} else if (outcome?.kind === "error") {
-			status = [span(`Couldn't sign in to ${outcome.provider}: ${outcome.message}`, "error")];
+			status = [
+				span(
+					t("tui.setup.signIn.signInFailed", "Couldn't sign in to {provider}: {message}", {
+						provider: outcome.provider,
+						message: outcome.message,
+					}),
+					"error",
+				),
+			];
 		}
 		return {
-			title: SCENE_TITLE,
-			subtitle: SHEET_LEAD,
+			title: this.title,
+			subtitle: t("tui.setup.signIn.sheetLead", "You can connect more than one."),
 			role: SETUP_SHEET_ROLE,
 			size: "lg",
 			...(status ? { status } : {}),
-			leave: { id: "skip", label: this.#signedIn ? "Continue" : "Skip" },
+			leave: {
+				id: "skip",
+				label: this.#signedIn ? t("tui.setup.signIn.continue", "Continue") : t("tui.setup.signIn.skip", "Skip"),
+			},
 		};
 	}
 
@@ -202,14 +238,27 @@ export class SignInScene implements SetupSceneController {
 		if (!outcome) return [];
 		if (outcome.kind === "success") {
 			return [
-				{ text: `${theme.status.success} Signed in to ${outcome.provider}`, color: "success" },
-				{ text: `Credentials saved to ${getAgentDbPath()}`, color: "dim" },
+				{
+					text: `${theme.status.success} ${t("tui.setup.signIn.statusSignedIn", "Signed in to {provider}", { provider: outcome.provider })}`,
+					color: "success",
+				},
+				{
+					text: t("tui.setup.signIn.credentialsSaved", "Credentials saved to {path}", {
+						path: getAgentDbPath(),
+					}),
+					color: "dim",
+				},
 			];
 		}
 		return [
-			{ text: `Login failed: ${outcome.message}`, color: "error" },
 			{
-				text: `Choose another provider or press ${editorKey("tui.select.cancel")} to continue.`,
+				text: t("tui.setup.signIn.loginFailed", "Login failed: {message}", { message: outcome.message }),
+				color: "error",
+			},
+			{
+				text: t("tui.setup.signIn.chooseAnother", "Choose another provider or press {key} to continue.", {
+					key: editorKey("tui.select.cancel"),
+				}),
 				color: "dim",
 			},
 		];
@@ -256,7 +305,11 @@ export class SignInScene implements SetupSceneController {
 				onManualCodeInput: useManualInput
 					? signal =>
 							dialog.showManualInput(
-								`Paste the authorization code (or full redirect URL), then press ${editorKey("tui.input.submit")}:`,
+								t(
+									"tui.setup.signIn.pasteCode",
+									"Paste the authorization code (or full redirect URL), then press {key}:",
+									{ key: editorKey("tui.input.submit") },
+								),
 								signal,
 							)
 					: undefined,
@@ -284,8 +337,12 @@ export class SignInScene implements SetupSceneController {
 /** Onboarding scene for provider sign-in. */
 export const providersSetupScene: SetupScene = {
 	id: "providers",
-	title: SCENE_TITLE,
-	step: "Sign in",
+	get title(): string {
+		return t("tui.setup.signIn.title", "Sign in to your providers");
+	},
+	get step(): string {
+		return t("tui.setup.signIn.step", "Sign in");
+	},
 	minVersion: 1,
 	mount: host => new SignInScene(host),
 };

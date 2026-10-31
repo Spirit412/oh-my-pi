@@ -6,6 +6,7 @@ import { theme } from "../../theme/theme";
 import { formatKeyHint } from "../../app-keybindings";
 import { col, kbd, keyed, node, row, span, text } from "../../native/describe";
 import type { NativeNode } from "../../native/node";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 export const SETUP_SPLASH_MS = 2600;
 export const SETUP_TICK_MS = 33;
@@ -28,7 +29,7 @@ const MIN_SCENE_HEIGHT = 22;
 
 /** Skip affordance; built at render time so it follows the live symbol preset. */
 function skipHint(): string {
-	return `press ${formatKeyHint("enter")} to skip`;
+	return t("tui.setup.splash.skipHint", "press {key} to skip", { key: formatKeyHint("enter") });
 }
 
 function starAt(x: number, y: number, frame: number): string {
@@ -263,11 +264,18 @@ export function describeSetupSplash(): NativeNode {
 			lockupNode(VERSION),
 			node("spacer", { grow: 1 }, undefined, "bottom"),
 			keyed(
-				row([text([span("Press", "muted")]), kbd("enter"), text([span("to begin", "muted")])], {
-					align: "center",
-					gap: "xs",
-					role: "omp.setup.hint",
-				}),
+				row(
+					[
+						text([span(t("tui.setup.splash.press", "Press"), "muted")]),
+						kbd("enter"),
+						text([span(t("tui.setup.splash.toBegin", "to begin"), "muted")]),
+					],
+					{
+						align: "center",
+						gap: "xs",
+						role: "omp.setup.hint",
+					},
+				),
 				"hint",
 			),
 		],

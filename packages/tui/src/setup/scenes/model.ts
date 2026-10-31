@@ -1,6 +1,7 @@
 import type { Model } from "@oh-my-pi/pi-ai";
 import { modelKind } from "@oh-my-pi/pi-catalog/types";
 import type { TspPickerProps } from "@oh-my-pi/pi-wire";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import type { SgrMouseEvent } from "../../mouse";
 import { Text } from "../../components/text";
 import { WizardStep } from "../../components/wizard-step";
@@ -28,13 +29,14 @@ import {
 } from "./types";
 
 const MAX_VISIBLE_MODELS = 10;
-const TITLE = "Choose your default model";
-/** The sheet's subtitle while nothing is in flight. */
-const SHEET_SUBTITLE = "Used by new sessions. Change it with /model.";
 
 class ModelSceneController implements SetupSceneController {
-	title = TITLE;
-	subtitle = "Search configured models and save the model used for new sessions.";
+	get title(): string {
+		return t("tui.setup.model.title", "Choose your default model");
+	}
+	get subtitle(): string {
+		return t("tui.setup.model.subtitle", "Search configured models and save the model used for new sessions.");
+	}
 	#browser: ModelBrowser;
 	/** Base rows (available chat models), the picker's catalogue. */
 	#items: ModelBrowserItem[] = [];
@@ -99,7 +101,9 @@ class ModelSceneController implements SetupSceneController {
 				? theme.fg(status.color, status.text)
 				: theme.fg(
 						"muted",
-						`Type to search. ${formatKeyHint("enter")} saves the highlighted model as your default.`,
+						t("tui.setup.model.intro", "Type to search. {key} saves the highlighted model as your default.", {
+							key: formatKeyHint("enter"),
+						}),
 					),
 			0,
 			0,
@@ -160,11 +164,20 @@ class ModelSceneController implements SetupSceneController {
 	/** The latest in-flight or failed operation, as one line of status copy. */
 	#status(): (StyledLine & { readonly busy: boolean }) | undefined {
 		if (this.#saving !== undefined) {
-			return { text: `Saving ${this.#saving} as the default model…`, color: "muted", busy: true };
+			return {
+				text: t("tui.setup.model.saving", "Saving {model} as the default model…", { model: this.#saving }),
+				color: "muted",
+				busy: true,
+			};
 		}
 		if (this.#saveError !== undefined) return { text: this.#saveError, color: "error", busy: false };
 		if (this.#discoveryError !== undefined) return { text: this.#discoveryError, color: "error", busy: false };
-		if (this.#discovering) return { text: "Discovering available models…", color: "muted", busy: true };
+		if (this.#discovering)
+			return {
+				text: t("tui.setup.model.discovering", "Discovering available models…"),
+				color: "muted",
+				busy: true,
+			};
 		return undefined;
 	}
 
@@ -178,7 +191,10 @@ class ModelSceneController implements SetupSceneController {
 		const query = browser.query;
 		const filtering = query.trim().length > 0;
 		// Provider groups while browsing; one ranked "Matches" block while searching.
-		const view = browser.pickerOrder({ providers: !filtering, rest: filtering ? "Matches" : "All models" });
+		const view = browser.pickerOrder({
+			providers: !filtering,
+			rest: filtering ? t("tui.setup.model.matches", "Matches") : t("tui.setup.model.allModels", "All models"),
+		});
 		const catalogue = browser.pickerItems(this.#items);
 		const preview = browser.pickerPreview("full", this.#current);
 		const deps = [
@@ -207,32 +223,42 @@ class ModelSceneController implements SetupSceneController {
 			const saving = this.#saving !== undefined;
 			const retry = this.#canRetry();
 			const primary = retry
-				? pickerAction("retry", "Retry", "enter", { primary: true })
-				: pickerAction("save", saving ? "Saving…" : "Set as default", "enter", {
-						primary: true,
-						...(saving
-							? { disabled: "Saving the default model" }
-							: rows.selected
-								? {}
-								: { disabled: "No model highlighted" }),
-					});
+				? pickerAction("retry", t("tui.setup.model.retry", "Retry"), "enter", { primary: true })
+				: pickerAction(
+						"save",
+						saving
+							? t("tui.setup.model.savingAction", "Saving…")
+							: t("tui.setup.model.setDefault", "Set as default"),
+						"enter",
+						{
+							primary: true,
+							...(saving
+								? { disabled: t("tui.setup.model.savingDisabled", "Saving the default model") }
+								: rows.selected
+									? {}
+									: { disabled: t("tui.setup.model.noModelHighlighted", "No model highlighted") }),
+						},
+					);
 			// The reconciler hoists the picker into `layer`; the column is its place in the page.
 			return dockedPicker(
 				{
 					role: SETUP_SHEET_ROLE,
-					title: TITLE,
+					title: t("tui.setup.model.title", "Choose your default model"),
 					subtitle: this.#sheetSubtitle(),
 					icon: "cpu",
-					noun: "models",
+					noun: t("tui.setup.model.noun", "models"),
 					size: "lg",
 					layout: "rows",
 					preview: "side",
-					placeholder: "Search models…",
+					placeholder: t("tui.setup.model.placeholder", "Search models…"),
 					...rows,
 					state,
 					...(state === "error" && this.#discoveryError !== undefined ? { message: this.#discoveryError } : {}),
-					empty: "No models yet. Skip this step and run /login to sign in to a provider.",
-					actions: [pickerAction("skip", "Skip", "escape", { end: true }), primary],
+					empty: t(
+						"tui.setup.model.empty",
+						"No models yet. Skip this step and run /login to sign in to a provider.",
+					),
+					actions: [pickerAction("skip", t("tui.setup.model.skip", "Skip"), "escape", { end: true }), primary],
 				},
 				this.#saveError === undefined
 					? preview
@@ -243,11 +269,24 @@ class ModelSceneController implements SetupSceneController {
 
 	#sheetSubtitle(): TspPickerProps["subtitle"] {
 		if (this.#saving !== undefined)
-			return [span("Saving "), span(this.#saving, "mono"), span(" as your default model…")];
-		if (this.#saveError !== undefined) return [span(`Couldn't save the default model: ${this.#saveError}`, "error")];
+			return [
+				span(t("tui.setup.model.sheetSavingPrefix", "Saving ")),
+				span(this.#saving, "mono"),
+				span(t("tui.setup.model.sheetSavingSuffix", " as your default model…")),
+			];
+		if (this.#saveError !== undefined)
+			return [
+				span(
+					t("tui.setup.model.saveFailed", "Couldn't save the default model: {message}", {
+						message: this.#saveError,
+					}),
+					"error",
+				),
+			];
 		if (this.#discoveryError !== undefined && this.#items.length > 0) return [span(this.#discoveryError, "error")];
-		if (this.#discovering && this.#items.length > 0) return "Looking for more models…";
-		return SHEET_SUBTITLE;
+		if (this.#discovering && this.#items.length > 0)
+			return t("tui.setup.model.lookingForMore", "Looking for more models…");
+		return t("tui.setup.model.sheetSubtitle", "Used by new sessions. Change it with /model.");
 	}
 
 	/** Status (a spinner while models load or the choice saves) over the model browser, which describes itself. */
@@ -261,7 +300,14 @@ class ModelSceneController implements SetupSceneController {
 			} else if (status) {
 				intro = text([span(status.text, status.color)]);
 			} else {
-				intro = text([span(`Type to search. ${enter} saves the highlighted model as your default.`, "muted")]);
+				intro = text([
+					span(
+						t("tui.setup.model.intro", "Type to search. {key} saves the highlighted model as your default.", {
+							key: enter,
+						}),
+						"muted",
+					),
+				]);
 			}
 			return col([{ ...intro, key: "intro" }, this.#browser], { gap: "sm", role: "omp.setup.model" });
 		});
@@ -325,8 +371,12 @@ class ModelSceneController implements SetupSceneController {
 /** Setup step that assigns one available model to the persisted default role. */
 export const modelSetupScene: SetupScene = {
 	id: "model",
-	title: TITLE,
-	step: "Model",
+	get title(): string {
+		return t("tui.setup.model.title", "Choose your default model");
+	},
+	get step(): string {
+		return t("tui.setup.model.step", "Model");
+	},
 	minVersion: 1,
 	mount: host => new ModelSceneController(host),
 };
