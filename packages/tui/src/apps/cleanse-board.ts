@@ -10,6 +10,7 @@
  * Non-TTY output keeps the original plain-line protocol
  * (`[start]`/`[done]`/`[fail]`), so scripted callers see unchanged output.
  */
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import { formatDuration, formatNumber } from "@oh-my-pi/pi-utils";
 import { sanitizeDisplaySingleLine } from "../overlays/extensions/display-text";
 import { truncateToWidth } from "../utils";
@@ -58,6 +59,16 @@ const REPAIR_BAR_STYLE: ProgressBarStyle = {
 	styleFilled: text => fgOrPlain("accent", text),
 	styleEmpty: text => fgOrPlain("dim", text),
 };
+
+/** `N issues`, with the English singular/plural fallback preserved. */
+function issuesLabel(count: number): string {
+	return t("tui.apps.cleanseBoard.issues", { one: "{count} issue", other: "{count} issues" }, { count });
+}
+
+/** `N tools`, with the English singular/plural fallback preserved. */
+function toolsLabel(count: number): string {
+	return t("tui.apps.cleanseBoard.tools", { one: "{count} tool", other: "{count} tools" }, { count });
+}
 
 /** Rendering surface for one `omp cleanse` run. */
 export interface CleanseStatusBoard {
@@ -129,13 +140,15 @@ export class CleanseBoardModel {
 			[
 				span(count === 0 ? "✓ " : "● ", tone),
 				span(`${check.label} `),
-				span(count === 0 ? "clean" : `${count} issue${count === 1 ? "" : "s"}`, tone),
+				span(count === 0 ? t("tui.apps.cleanseBoard.clean", "clean") : issuesLabel(count), tone),
 				span(` · ${formatDuration(durationMs)}`, "dim"),
 			],
 			{ wrap: "word", role: "omp.cleanse.verdict" },
 		);
 		const verdict =
-			count === 0 ? fgOrPlain("success", "clean") : fgOrPlain("warning", `${count} issue${count === 1 ? "" : "s"}`);
+			count === 0
+				? fgOrPlain("success", t("tui.apps.cleanseBoard.clean", "clean"))
+				: fgOrPlain("warning", issuesLabel(count));
 		const glyph = count === 0 ? fgOrPlain("success", "✓") : fgOrPlain("warning", "●");
 		return `${glyph} ${check.label} ${verdict} ${fgOrPlain("dim", `· ${formatDuration(durationMs)}`)}`;
 	}
@@ -237,20 +250,24 @@ export class CleanseBoardModel {
 			cost += entry.cost;
 		}
 		const parts: string[] = [];
-		if (this.#agents.size > 0) parts.push(`${this.#agents.size} running`);
+		if (this.#agents.size > 0)
+			parts.push(t("tui.apps.cleanseBoard.runningCount", "{count} running", { count: this.#agents.size }));
 		if (tokens > 0) parts.push(`${formatNumber(tokens)} tok`);
 		if (cost > 0) parts.push(formatCost(cost));
 		const value = this.#repairDone / this.#repairTotal;
 		const label = `${this.#repairDone}/${this.#repairTotal}`;
 		const children: NativeNode[] = [
-			node("spinner", { label: "Repairing", tone: "accent" }),
+			node("spinner", { label: t("tui.apps.cleanseBoard.repairing", "Repairing"), tone: "accent" }),
 			meter
 				? node("meter", {
 						value,
 						style: "bar",
 						size: "md",
-						label: `${label} lanes`,
-						title: `${this.#repairDone} of ${this.#repairTotal} repair lanes finished`,
+						label: t("tui.apps.cleanseBoard.lanesLabel", "{label} lanes", { label }),
+						title: t("tui.apps.cleanseBoard.repairLanesFinished", "{done} of {total} repair lanes finished", {
+							done: this.#repairDone,
+							total: this.#repairTotal,
+						}),
 						role: "omp.cleanse.meter",
 					})
 				: node("progress", { value, label, tone: "accent" }),
@@ -322,7 +339,13 @@ export function createCleanseStatusBoard(
 		agentStarted(name, assignment) {
 			if (!board.interactive) {
 				const files = assignment.groups.map(group => group.file ?? "<project>").join(", ");
-				output.write(`[start] ${name}: ${files} (weight ${assignment.weight})\n`);
+				output.write(
+					`${t("tui.apps.cleanseBoard.agentStart", "[start] {name}: {files} (weight {weight})", {
+						name,
+						files,
+						weight: assignment.weight,
+					})}\n`,
+				);
 				return;
 			}
 			model.agentStarted(name, assignment);
@@ -335,15 +358,26 @@ export function createCleanseStatusBoard(
 			if (!board.interactive) {
 				model.agentFinished(outcome, assignment);
 				if (outcome.success) {
-					output.write(`[done] ${outcome.name}${outcome.resolvedModel ? ` (${outcome.resolvedModel})` : ""}\n`);
+					output.write(
+						`${t("tui.apps.cleanseBoard.agentDone", "[done] {name}", { name: outcome.name })}${
+							outcome.resolvedModel ? ` (${outcome.resolvedModel})` : ""
+						}\n`,
+					);
 				} else {
 					const message = truncateToWidth(
-						sanitizeDisplaySingleLine(outcome.error ?? "subagent failed")
+						sanitizeDisplaySingleLine(
+							outcome.error ?? t("tui.apps.cleanseBoard.subagentFailed", "subagent failed"),
+						)
 							.replace(/\s+/g, " ")
 							.trim(),
 						ERROR_WIDTH,
 					);
-					errors.write(`[fail] ${outcome.name}: ${message}\n`);
+					errors.write(
+						`${t("tui.apps.cleanseBoard.agentFail", "[fail] {name}: {message}", {
+							name: outcome.name,
+							message,
+						})}\n`,
+					);
 				}
 				return;
 			}
@@ -373,18 +407,18 @@ function renderWaveHeader(
 		cost += entry.cost;
 	}
 	const parts = [`${done}/${total}`];
-	if (running > 0) parts.push(`${running} running`);
+	if (running > 0) parts.push(t("tui.apps.cleanseBoard.runningCount", "{count} running", { count: running }));
 	if (tokens > 0) parts.push(`${formatNumber(tokens)} tok`);
 	if (cost > 0) parts.push(formatCost(cost));
 	parts.push(formatDuration(Date.now() - startedAt));
-	return `${fgOrPlain("accent", spinner)} Repairing [${bar}] ${parts.join(fgOrPlain("dim", " · "))}`;
+	return `${fgOrPlain("accent", spinner)} ${t("tui.apps.cleanseBoard.repairing", "Repairing")} [${bar}] ${parts.join(fgOrPlain("dim", " · "))}`;
 }
 
 function renderAgentRow(spinner: string, agentName: string, agent: RunningAgent): string {
 	const label = agentName.replace(/^Cleanse/, "");
 	const meta: string[] = [];
 	const toolCount = agent.progress?.toolCount ?? 0;
-	if (toolCount > 0) meta.push(`${toolCount} tool${toolCount === 1 ? "" : "s"}`);
+	if (toolCount > 0) meta.push(toolsLabel(toolCount));
 	meta.push(formatDuration(Date.now() - agent.startedAt));
 	return (
 		`${fgOrPlain("warning", spinner)} ${theme ? theme.bold(label) : label} ${compactFiles(agent.assignment)} ` +
@@ -399,7 +433,7 @@ function describeAgentRow(agentName: string, agent: RunningAgent): NativeNode {
 		text([span(compactFiles(agent.assignment), "path")], { truncate: "middle" }),
 		text(describeActivity(agent.progress), { truncate: "end", grow: 1 }),
 	];
-	if (toolCount > 0) children.push(text([span(`${toolCount} tool${toolCount === 1 ? "" : "s"}`, "dim")]));
+	if (toolCount > 0) children.push(text([span(toolsLabel(toolCount), "dim")]));
 	children.push(elapsed(Date.now() - agent.startedAt));
 	return keyed(row(children, { gap: "sm" }), `agent-${stableKey(agentName)}`);
 }
@@ -448,10 +482,16 @@ function describeAgentLane(agentName: string, agent: RunningAgent, now: number):
 
 /** Spans for a repair agent's latest activity, mirroring {@link agentActivity}. */
 function describeActivity(progress: AgentProgress | undefined): TspSpan[] {
-	if (!progress) return [span("starting", "dim")];
+	if (!progress) return [span(t("tui.apps.cleanseBoard.starting", "starting"), "dim")];
 	if (progress.retryState) {
 		return [
-			span(`rate-limited · retry ${progress.retryState.attempt}/${progress.retryState.maxAttempts}`, "warning"),
+			span(
+				t("tui.apps.cleanseBoard.rateLimited", "rate-limited · retry {attempt}/{max}", {
+					attempt: progress.retryState.attempt,
+					max: progress.retryState.maxAttempts,
+				}),
+				"warning",
+			),
 		];
 	}
 	const intent = sanitizeDisplaySingleLine(progress.lastIntent ?? "")
@@ -464,7 +504,7 @@ function describeActivity(progress: AgentProgress | undefined): TspSpan[] {
 		const tool = span(args ? `${progress.currentTool} ${args}` : progress.currentTool, "dim");
 		return intent ? [span(`${intent} `), tool] : [tool];
 	}
-	return intent ? [span(intent)] : [span("thinking", "dim")];
+	return intent ? [span(intent)] : [span(t("tui.apps.cleanseBoard.thinking", "thinking"), "dim")];
 }
 
 /** Semantic twin of {@link renderOutcomeLine}. */
@@ -476,7 +516,9 @@ function describeOutcome(
 ): NativeNode {
 	const files = compactFiles(assignment);
 	if (!outcome.success) {
-		const message = sanitizeDisplaySingleLine(outcome.error ?? "subagent failed")
+		const message = sanitizeDisplaySingleLine(
+			outcome.error ?? t("tui.apps.cleanseBoard.subagentFailed", "subagent failed"),
+		)
 			.replace(/\s+/g, " ")
 			.trim();
 		return text([span("✗ ", "error"), span(`${outcome.name} `), span(files, "path"), span(` ${message}`, "error")], {
@@ -487,7 +529,7 @@ function describeOutcome(
 	}
 	const meta: string[] = [];
 	const toolCount = agent?.progress?.toolCount ?? 0;
-	if (toolCount > 0) meta.push(`${toolCount} tool${toolCount === 1 ? "" : "s"}`);
+	if (toolCount > 0) meta.push(toolsLabel(toolCount));
 	if (total && total.tokens > 0) meta.push(`${formatNumber(total.tokens)} tok`);
 	if (agent) meta.push(formatDuration(Date.now() - agent.startedAt));
 	const spans = [span("✓ ", "success"), span(`${outcome.name} `), span(files, "path")];
@@ -504,7 +546,7 @@ function renderOutcomeLine(
 	const files = compactFiles(assignment);
 	if (!outcome.success) {
 		const message = truncateToWidth(
-			sanitizeDisplaySingleLine(outcome.error ?? "subagent failed")
+			sanitizeDisplaySingleLine(outcome.error ?? t("tui.apps.cleanseBoard.subagentFailed", "subagent failed"))
 				.replace(/\s+/g, " ")
 				.trim(),
 			ERROR_WIDTH,
@@ -513,7 +555,7 @@ function renderOutcomeLine(
 	}
 	const meta: string[] = [];
 	const toolCount = agent?.progress?.toolCount ?? 0;
-	if (toolCount > 0) meta.push(`${toolCount} tool${toolCount === 1 ? "" : "s"}`);
+	if (toolCount > 0) meta.push(toolsLabel(toolCount));
 	if (total && total.tokens > 0) meta.push(`${formatNumber(total.tokens)} tok`);
 	if (agent) meta.push(formatDuration(Date.now() - agent.startedAt));
 	const suffix = meta.length > 0 ? ` ${fgOrPlain("dim", `· ${meta.join(" · ")}`)}` : "";
@@ -522,11 +564,14 @@ function renderOutcomeLine(
 
 /** Latest human-readable activity for a repair agent row. */
 function agentActivity(progress: AgentProgress | undefined): string {
-	if (!progress) return fgOrPlain("dim", "starting");
+	if (!progress) return fgOrPlain("dim", t("tui.apps.cleanseBoard.starting", "starting"));
 	if (progress.retryState) {
 		return fgOrPlain(
 			"warning",
-			`rate-limited · retry ${progress.retryState.attempt}/${progress.retryState.maxAttempts}`,
+			t("tui.apps.cleanseBoard.rateLimited", "rate-limited · retry {attempt}/{max}", {
+				attempt: progress.retryState.attempt,
+				max: progress.retryState.maxAttempts,
+			}),
 		);
 	}
 	const intent = truncateToWidth(
@@ -545,7 +590,7 @@ function agentActivity(progress: AgentProgress | undefined): string {
 		const tool = fgOrPlain("dim", args ? `${progress.currentTool} ${args}` : progress.currentTool);
 		return intent ? `${intent} ${tool}` : tool;
 	}
-	return intent || fgOrPlain("dim", "thinking");
+	return intent || fgOrPlain("dim", t("tui.apps.cleanseBoard.thinking", "thinking"));
 }
 
 function compactFiles(assignment: CleanseAssignment): string {

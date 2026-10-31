@@ -7,6 +7,7 @@
  * titled "Keyboard shortcuts" with one section per group and a two-column
  * table whose key cells carry the `key` span token, so Tern draws keycaps.
  */
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import { formatKeyHint } from "../../app-keybindings";
 import type { KeyName } from "../../key-hint-format";
 import { matchesKey } from "../../keys";
@@ -22,53 +23,78 @@ interface Shortcut {
 	readonly label: string;
 }
 
-const GROUPS: readonly { readonly title: string; readonly rows: readonly Shortcut[] }[] = [
-	{
-		title: "Move",
-		rows: [
-			{ keys: ["up", "down"], label: "Move the selection" },
-			{ keys: ["left", "right"], label: "Fold or unfold a folder or section" },
-			{ keys: ["enter"], label: "Open the file in the diff" },
-			{ keys: ["tab"], label: "Switch between the diff and the changes" },
-			{ keys: ["]", "["], label: "Next or previous file" },
-			{ keys: ["alt+down", "alt+up"], label: "Next or previous change" },
-			{ keys: ["g", "shift+g"], label: "First or last row" },
-		],
-	},
-	{
-		title: "Stage",
-		rows: [
-			{ keys: ["space"], label: "Stage or unstage the row" },
-			{ keys: ["s", "u"], label: "Stage or unstage (the hunk or selected lines in the diff)" },
-			{ keys: ["shift+up", "shift+down"], label: "Select lines in the diff" },
-			{ keys: ["x"], label: "Discard the hunk or selected lines (press twice)" },
-			{ keys: ["delete"], label: "Discard the file or folder (press twice)" },
-		],
-	},
-	{
-		title: "View",
-		rows: [
-			{ keys: ["v"], label: "Cycle the diff view" },
-			{ keys: ["1", "2", "3", "4"], label: "File, split, inline or hunk view" },
-			{ keys: ["w"], label: "Wrap long lines" },
-			{ keys: ["b"], label: "Ignore whitespace, then formatting" },
-			{ keys: ["t"], label: "Paths or folder tree" },
-			{ keys: ["r"], label: "Refresh" },
-		],
-	},
-	{
-		title: "Commit",
-		rows: [
-			{ keys: ["c"], label: "Write the commit message (empty: generate one)" },
-			{ keys: ["escape"], label: "Leave the field" },
-			{ keys: ["q"], label: "Quit" },
-		],
-	},
-];
+/** Shortcut groups; labels resolve through {@link t} so the sheet follows the active locale. */
+function shortcutGroups(): readonly { readonly title: string; readonly rows: readonly Shortcut[] }[] {
+	return [
+		{
+			title: t("tui.apps.gitHelp.groupMove", "Move"),
+			rows: [
+				{ keys: ["up", "down"], label: t("tui.apps.gitHelp.moveSelection", "Move the selection") },
+				{
+					keys: ["left", "right"],
+					label: t("tui.apps.gitHelp.foldSection", "Fold or unfold a folder or section"),
+				},
+				{ keys: ["enter"], label: t("tui.apps.gitHelp.openFile", "Open the file in the diff") },
+				{
+					keys: ["tab"],
+					label: t("tui.apps.gitHelp.switchPanes", "Switch between the diff and the changes"),
+				},
+				{ keys: ["]", "["], label: t("tui.apps.gitHelp.nextFile", "Next or previous file") },
+				{ keys: ["alt+down", "alt+up"], label: t("tui.apps.gitHelp.nextChange", "Next or previous change") },
+				{ keys: ["g", "shift+g"], label: t("tui.apps.gitHelp.firstLastRow", "First or last row") },
+			],
+		},
+		{
+			title: t("tui.apps.gitHelp.groupStage", "Stage"),
+			rows: [
+				{ keys: ["space"], label: t("tui.apps.gitHelp.stageRow", "Stage or unstage the row") },
+				{
+					keys: ["s", "u"],
+					label: t("tui.apps.gitHelp.stageHunk", "Stage or unstage (the hunk or selected lines in the diff)"),
+				},
+				{ keys: ["shift+up", "shift+down"], label: t("tui.apps.gitHelp.selectLines", "Select lines in the diff") },
+				{
+					keys: ["x"],
+					label: t("tui.apps.gitHelp.discardHunk", "Discard the hunk or selected lines (press twice)"),
+				},
+				{
+					keys: ["delete"],
+					label: t("tui.apps.gitHelp.discardFile", "Discard the file or folder (press twice)"),
+				},
+			],
+		},
+		{
+			title: t("tui.apps.gitHelp.groupView", "View"),
+			rows: [
+				{ keys: ["v"], label: t("tui.apps.gitHelp.cycleView", "Cycle the diff view") },
+				{ keys: ["1", "2", "3", "4"], label: t("tui.apps.gitHelp.viewModes", "File, split, inline or hunk view") },
+				{ keys: ["w"], label: t("tui.apps.gitHelp.wrapLines", "Wrap long lines") },
+				{ keys: ["b"], label: t("tui.apps.gitHelp.ignoreWhitespace", "Ignore whitespace, then formatting") },
+				{ keys: ["t"], label: t("tui.apps.gitHelp.pathsTree", "Paths or folder tree") },
+				{ keys: ["r"], label: t("tui.apps.gitHelp.refresh", "Refresh") },
+			],
+		},
+		{
+			title: t("tui.apps.gitHelp.groupCommit", "Commit"),
+			rows: [
+				{
+					keys: ["c"],
+					label: t("tui.apps.gitHelp.writeCommit", "Write the commit message (empty: generate one)"),
+				},
+				{ keys: ["escape"], label: t("tui.apps.gitHelp.leaveField", "Leave the field") },
+				{ keys: ["q"], label: t("tui.apps.gitHelp.quit", "Quit") },
+			],
+		},
+	];
+}
 
 /** The shortcuts overlay; any of `?`, escape or `q` closes it. */
 export class GitHelpSheet implements Component {
-	readonly nativeOverlay = { role: "omp.overlay.hotkeys", head: "Keyboard shortcuts", size: "lg" } as const;
+	readonly nativeOverlay = {
+		role: "omp.overlay.hotkeys",
+		head: t("tui.apps.gitHelp.title", "Keyboard shortcuts"),
+		size: "lg",
+	} as const;
 	readonly #close: () => void;
 	#native: NativeNode | undefined;
 
@@ -86,9 +112,10 @@ export class GitHelpSheet implements Component {
 	}
 
 	describe(): NativeNode {
+		const groups = shortcutGroups();
 		this.#native ??= col(
 			[
-				...GROUPS.map(group =>
+				...groups.map(group =>
 					node(
 						"section",
 						{ head: group.title, role: "omp.hotkeys.group" },
@@ -96,8 +123,8 @@ export class GitHelpSheet implements Component {
 							node("table", {
 								role: "omp.hotkeys.table",
 								cols: [
-									{ id: "keys", head: "Keys" },
-									{ id: "does", head: "Action", grow: 1 },
+									{ id: "keys", head: t("tui.apps.gitHelp.headKeys", "Keys") },
+									{ id: "does", head: t("tui.apps.gitHelp.headAction", "Action"), grow: 1 },
 								],
 								rows: group.rows.map((row, index) => ({
 									id: String(index),
@@ -108,7 +135,7 @@ export class GitHelpSheet implements Component {
 						group.title,
 					),
 				),
-				actionBar([null, actionButton("Close", "close", { keys: "escape" })]),
+				actionBar([null, actionButton(t("tui.apps.gitHelp.closeButton", "Close"), "close", { keys: "escape" })]),
 			],
 			{ gap: "lg", role: "omp.app.git.help" },
 		);
@@ -116,12 +143,12 @@ export class GitHelpSheet implements Component {
 	}
 
 	render(width: number): readonly string[] {
+		const groups = shortcutGroups();
 		const keyWidth = Math.max(
-			...GROUPS.flatMap(group => group.rows.map(row => visibleWidth(row.keys.map(formatKeyHint).join(" ")))),
+			...groups.flatMap(group => group.rows.map(row => visibleWidth(row.keys.map(formatKeyHint).join(" ")))),
 		);
-		const lines = [truncateToWidth(` ${theme.bold("Keyboard shortcuts")}`, width), ""];
-		for (const group of GROUPS) {
-			lines.push(truncateToWidth(` ${theme.fg("muted", group.title)}`, width));
+		const lines = [truncateToWidth(` ${theme.bold(t("tui.apps.gitHelp.title", "Keyboard shortcuts"))}`, width), ""];
+		for (const group of groups) {
 			for (const row of group.rows) {
 				const keys = row.keys.map(formatKeyHint).join(" ");
 				const pad = " ".repeat(Math.max(1, keyWidth - visibleWidth(keys) + 2));
@@ -129,7 +156,12 @@ export class GitHelpSheet implements Component {
 			}
 			lines.push("");
 		}
-		lines.push(truncateToWidth(` ${theme.fg("dim", `${formatKeyHint("escape")} close`)}`, width));
+		lines.push(
+			truncateToWidth(
+				` ${theme.fg("dim", `${formatKeyHint("escape")} ${t("tui.apps.gitHelp.closeHint", "close")}`)}`,
+				width,
+			),
+		);
 		return lines;
 	}
 

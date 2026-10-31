@@ -1,4 +1,5 @@
 import type { TspPickerGroup, TspPickerItem, TspTone } from "@oh-my-pi/pi-wire";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import { formatKeyHint, formatKeyHints } from "../../app-keybindings";
 import type { Component } from "../../tui";
 import { code } from "../../native/describe";
@@ -678,7 +679,7 @@ export class DebugLogViewerComponent implements Component {
 		this.#onError = options.onError;
 		this.#onUpdate = options.onUpdate;
 		this.#frame = new DebugViewerFrame({
-			title: "Recent Logs",
+			title: t("tui.apps.logViewer.frameTitle", "Recent Logs"),
 			getHeight: () => process.stdout.rows || this.#terminalRows || 24,
 			headerRows: 2,
 			footerRows: 2,
@@ -883,11 +884,18 @@ export class DebugLogViewerComponent implements Component {
 				const needle = query.toLowerCase();
 				for (const viewerRow of model.rows) {
 					if (viewerRow.kind === "warning") {
-						order.push({ group: "session", label: "This session" });
+						order.push({
+							group: "session",
+							label: t("tui.apps.logViewer.thisSession", "This session"),
+						});
 						continue;
 					}
 					if (viewerRow.kind === "load-older") {
-						items.push({ id: OLDER_ITEM, label: "Load older entries", tone: "muted" });
+						items.push({
+							id: OLDER_ITEM,
+							label: t("tui.apps.logViewer.loadOlderEntries", "Load older entries"),
+							tone: "muted",
+						});
 						order.push(OLDER_ITEM);
 						continue;
 					}
@@ -906,23 +914,30 @@ export class DebugLogViewerComponent implements Component {
 				const cursorLog = model.cursorLogIndex;
 				const preview = cursorLog === undefined ? undefined : logPreviewText(model.getRawLine(cursorLog));
 				const subtitle = [
-					`${model.visibleLogCount}/${model.logCount} entries`,
-					selected.length > 1 ? `${selected.length} selected` : undefined,
-					model.historyLimitReached ? "history limit reached" : undefined,
-					this.#loadingOlder ? "loading older…" : undefined,
+					t("tui.apps.logViewer.entriesCount", "{visible}/{total} entries", {
+						visible: model.visibleLogCount,
+						total: model.logCount,
+					}),
+					selected.length > 1
+						? t("tui.apps.logViewer.selectedCount", "{count} selected", { count: selected.length })
+						: undefined,
+					model.historyLimitReached
+						? t("tui.apps.logViewer.historyLimitReached", "history limit reached")
+						: undefined,
+					this.#loadingOlder ? t("tui.apps.logViewer.loadingOlder", "loading older…") : undefined,
 				]
 					.filter(part => part !== undefined)
 					.join(" · ");
 				return picker(
 					{
-						title: "Recent logs",
+						title: t("tui.apps.logViewer.pickerTitle", "Recent logs"),
 						subtitle,
-						noun: "entries",
+						noun: t("tui.apps.logViewer.pickerNoun", "entries"),
 						size: "lg",
 						layout: "rows",
 						preview: preview ? "below" : "none",
 						...pickerQuery(this.#filter),
-						placeholder: "Filter logs…",
+						placeholder: t("tui.apps.logViewer.filterPlaceholder", "Filter logs…"),
 						columns: [
 							{ id: "pid", format: "dim", priority: 0 },
 							{ id: "time", format: "dim", priority: 1 },
@@ -938,18 +953,22 @@ export class DebugLogViewerComponent implements Component {
 									: `l${cursorLog}`,
 						current: selected.length > 1 ? selected.map(index => `l${index}`) : [],
 						total: model.logCount,
-						empty: query ? "No matching log entries" : "No log entries",
+						empty: query
+							? t("tui.apps.logViewer.noMatches", "No matching log entries")
+							: t("tui.apps.logViewer.noEntries", "No log entries"),
 						message: this.#statusMessage,
 						actions: [
-							pickerAction("copy", "Copy", "ctrl+c", { primary: true }),
-							pickerAction("all", "Select all", "ctrl+a"),
-							pickerAction("pid", "This process", "ctrl+p", { on: model.isProcessFilterEnabled() }),
-							pickerAction("older", "Load older", "ctrl+o", {
+							pickerAction("copy", t("tui.apps.logViewer.copy", "Copy"), "ctrl+c", { primary: true }),
+							pickerAction("all", t("tui.apps.logViewer.selectAll", "Select all"), "ctrl+a"),
+							pickerAction("pid", t("tui.apps.logViewer.thisProcess", "This process"), "ctrl+p", {
+								on: model.isProcessFilterEnabled(),
+							}),
+							pickerAction("older", t("tui.apps.logViewer.loadOlder", "Load older"), "ctrl+o", {
 								disabled: model.canLoadOlder()
 									? undefined
 									: model.historyLimitReached
-										? "Log history limit reached"
-										: "No older log entries",
+										? t("tui.apps.logViewer.logHistoryLimit", "Log history limit reached")
+										: t("tui.apps.logViewer.noOlderEntries", "No older log entries"),
 							}),
 							CLOSE_ACTION,
 						],
@@ -1015,7 +1034,7 @@ export class DebugLogViewerComponent implements Component {
 		let anchor: DebugViewerFrameContent["body"]["anchor"];
 
 		if (rendered.length === 0) {
-			lines.push(theme.fg("muted", "no matches"));
+			lines.push(theme.fg("muted", t("tui.apps.logViewer.noMatchesInline", "no matches")));
 			mapping.push(undefined);
 		} else {
 			for (const entry of rendered) {
@@ -1041,29 +1060,43 @@ export class DebugLogViewerComponent implements Component {
 	#summaryText(): string {
 		const selected = this.#model.getSelectedCount();
 		const expanded = this.#model.expandedCount;
-		const limitText = this.#model.historyLimitReached ? `  ${theme.fg("warning", "history limit reached")}` : "";
-		return `${theme.fg("muted", "showing")} ${theme.fg("accent", `${this.#model.visibleLogCount}/${this.#model.logCount}`)}  ${theme.fg("muted", "selected")} ${theme.fg(selected > 0 ? "accent" : "muted", String(selected))}  ${theme.fg("muted", "expanded")} ${theme.fg(expanded > 0 ? "accent" : "muted", String(expanded))}${limitText}`;
+		const limitText = this.#model.historyLimitReached
+			? `  ${theme.fg("warning", t("tui.apps.logViewer.historyLimitReached", "history limit reached"))}`
+			: "";
+		return `${theme.fg("muted", t("tui.apps.logViewer.showing", "showing"))} ${theme.fg("accent", `${this.#model.visibleLogCount}/${this.#model.logCount}`)}  ${theme.fg("muted", t("tui.apps.logViewer.selected", "selected"))} ${theme.fg(selected > 0 ? "accent" : "muted", String(selected))}  ${theme.fg("muted", t("tui.apps.logViewer.expanded", "expanded"))} ${theme.fg(expanded > 0 ? "accent" : "muted", String(expanded))}${limitText}`;
 	}
 
 	#controlsText(): string {
-		return `${formatKeyHint("escape")} close · ${formatKeyHint("ctrl+c")} copy · ${formatKeyHints(["up", "down"])}/wheel move · ${formatKeyHints(["pageUp", "pageDown"])} page · ${formatKeyHints(["home", "end"])} first/last · click toggle · ${formatKeyHints(["shift+up", "shift+down"])} select · ${formatKeyHints(["left", "right"])} collapse/expand · ${formatKeyHint("ctrl+a")} all · ${formatKeyHint("ctrl+o")} older · ${formatKeyHint("ctrl+p")} pid`;
+		return `${formatKeyHint("escape")} ${t("tui.apps.logViewer.hintClose", "close")} · ${formatKeyHint("ctrl+c")} ${t("tui.apps.logViewer.hintCopy", "copy")} · ${formatKeyHints(["up", "down"])}/wheel ${t("tui.apps.logViewer.hintMove", "move")} · ${formatKeyHints(["pageUp", "pageDown"])} ${t("tui.apps.logViewer.hintPage", "page")} · ${formatKeyHints(["home", "end"])} ${t("tui.apps.logViewer.hintFirstLast", "first/last")} · ${t("tui.apps.logViewer.hintClickToggle", "click toggle")} · ${formatKeyHints(["shift+up", "shift+down"])} ${t("tui.apps.logViewer.hintSelect", "select")} · ${formatKeyHints(["left", "right"])} ${t("tui.apps.logViewer.hintCollapseExpand", "collapse/expand")} · ${formatKeyHint("ctrl+a")} ${t("tui.apps.logViewer.hintAll", "all")} · ${formatKeyHint("ctrl+o")} ${t("tui.apps.logViewer.hintOlder", "older")} · ${formatKeyHint("ctrl+p")} ${t("tui.apps.logViewer.hintPid", "pid")}`;
 	}
 
 	#filterText(): string {
 		const value = this.#filter.getValue();
 		const [field = ""] = this.#filter.render(visibleWidth(value) + 1);
-		const query = value.length === 0 ? field + theme.fg("muted", "type to filter") : theme.fg("accent", field);
+		const query =
+			value.length === 0
+				? field + theme.fg("muted", t("tui.apps.logViewer.typeToFilter", "type to filter"))
+				: theme.fg("accent", field);
 		const pidStatus = this.#model.isProcessFilterEnabled()
-			? theme.fg("success", "pid on")
-			: theme.fg("muted", "pid off");
-		const loading = this.#loadingOlder ? `  ${theme.fg("warning", "loading older…")}` : "";
-		return `${theme.fg("muted", "filter")} ${query}  ${pidStatus}${loading}`;
+			? theme.fg("success", t("tui.apps.logViewer.pidOn", "pid on"))
+			: theme.fg("muted", t("tui.apps.logViewer.pidOff", "pid off"));
+		const loading = this.#loadingOlder
+			? `  ${theme.fg("warning", t("tui.apps.logViewer.loadingOlder", "loading older…"))}`
+			: "";
+		return `${theme.fg("muted", t("tui.apps.logViewer.filter", "filter"))} ${query}  ${pidStatus}${loading}`;
 	}
 
 	#statusText(): string {
 		return this.#statusMessage
 			? theme.fg("success", this.#statusMessage)
-			: theme.fg("dim", `${formatKeyHint("enter")} loads older when highlighted; printable keys update filter`);
+			: theme.fg(
+					"dim",
+					t(
+						"tui.apps.logViewer.loadOlderHint",
+						"{key} loads older when highlighted; printable keys update filter",
+						{ key: formatKeyHint("enter") },
+					),
+				);
 	}
 
 	async #handleLoadOlder(additionalCount: number = LOAD_OLDER_CHUNK): Promise<void> {
@@ -1104,8 +1137,8 @@ export class DebugLogViewerComponent implements Component {
 			return await this.#model.loadOlder(additionalCount);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
-			this.#statusMessage = `Load older failed: ${message}`;
-			this.#onError?.(`Failed to load older logs: ${message}`);
+			this.#statusMessage = t("tui.apps.logViewer.loadOlderFailed", "Load older failed: {message}", { message });
+			this.#onError?.(t("tui.apps.logViewer.loadOlderError", "Failed to load older logs: {message}", { message }));
 			this.#onUpdate?.();
 			return false;
 		} finally {
@@ -1136,7 +1169,15 @@ export class DebugLogViewerComponent implements Component {
 			if (row.kind === "warning") {
 				rendered.push({
 					rowIndex,
-					lines: [theme.fg("muted", truncateToWidth(SESSION_BOUNDARY_WARNING, innerWidth))],
+					lines: [
+						theme.fg(
+							"muted",
+							truncateToWidth(
+								t("tui.apps.logViewer.sessionBoundaryWarning", SESSION_BOUNDARY_WARNING),
+								innerWidth,
+							),
+						),
+					],
 				});
 				continue;
 			}
@@ -1146,7 +1187,7 @@ export class DebugLogViewerComponent implements Component {
 				const marker = active ? theme.fg("accent", "❯") : " ";
 				const prefix = `${marker}  `;
 				const contentWidth = Math.max(1, innerWidth - visibleWidth(prefix));
-				const label = truncateToWidth(LOAD_OLDER_LABEL, contentWidth);
+				const label = truncateToWidth(t("tui.apps.logViewer.loadOlderMarker", LOAD_OLDER_LABEL), contentWidth);
 				rendered.push({
 					rowIndex,
 					lines: [truncateToWidth(`${prefix}${theme.fg("muted", label)}`, innerWidth)],
@@ -1199,7 +1240,7 @@ export class DebugLogViewerComponent implements Component {
 		const selected = selectedPayload.length === 0 ? [] : selectedPayload.split("\n");
 
 		if (selected.length === 0) {
-			const message = "No log entry selected";
+			const message = t("tui.apps.logViewer.noLogEntrySelected", "No log entry selected");
 			this.#statusMessage = message;
 			this.#onStatus?.(message);
 			return;
@@ -1207,13 +1248,17 @@ export class DebugLogViewerComponent implements Component {
 
 		try {
 			this.#deps.copyToClipboard(selectedPayload);
-			const message = `Copied ${selected.length} log ${selected.length === 1 ? "entry" : "entries"}`;
+			const message = t(
+				"tui.apps.logViewer.copiedEntries",
+				{ one: "Copied {count} log entry", other: "Copied {count} log entries" },
+				{ count: selected.length },
+			);
 			this.#statusMessage = message;
 			this.#onStatus?.(message);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
-			this.#statusMessage = `Copy failed: ${message}`;
-			this.#onError?.(`Failed to copy logs: ${message}`);
+			this.#statusMessage = t("tui.apps.logViewer.copyFailed", "Copy failed: {message}", { message });
+			this.#onError?.(t("tui.apps.logViewer.copyError", "Failed to copy logs: {message}", { message }));
 		}
 	}
 }

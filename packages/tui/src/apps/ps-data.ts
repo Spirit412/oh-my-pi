@@ -1,5 +1,6 @@
 import * as path from "node:path";
 import { formatDuration } from "@oh-my-pi/pi-utils";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import chalk from "@oh-my-pi/pi-utils/chalk";
 import type { DaemonSnapshot, DaemonSpec, DaemonState } from "../tools/daemon";
 
@@ -108,9 +109,15 @@ export function tableCells(row: PsDaemonRow): string[] {
 export function scopeHeader(scope: PsScope): string {
 	const label =
 		scope.kind === "global"
-			? `global ${chalk.bold(scope.service ?? path.basename(scope.runtimeDir))}`
-			: `project ${chalk.bold(scope.projectDir ?? path.basename(scope.runtimeDir))}`;
+			? t("tui.apps.psData.scopeGlobal", "global {name}", {
+					name: chalk.bold(scope.service ?? path.basename(scope.runtimeDir)),
+				})
+			: t("tui.apps.psData.scopeProject", "project {name}", {
+					name: chalk.bold(scope.projectDir ?? path.basename(scope.runtimeDir)),
+				});
 	const broker =
-		scope.brokerPid !== undefined ? chalk.green(`broker pid ${scope.brokerPid}`) : chalk.dim("broker not running");
+		scope.brokerPid !== undefined
+			? chalk.green(t("tui.apps.psData.brokerPid", "broker pid {pid}", { pid: scope.brokerPid }))
+			: chalk.dim(t("tui.apps.psData.brokerNotRunning", "broker not running"));
 	return `${label} ${chalk.dim("—")} ${broker}`;
 }

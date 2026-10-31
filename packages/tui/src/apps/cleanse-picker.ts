@@ -5,6 +5,7 @@
  * prompts, resolved on select/submit/cancel so the command can keep writing
  * plain stdout afterwards.
  */
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import { type SelectItem } from "../components/select-list";
 import { promptStandaloneText, selectStandaloneItem } from "./standalone-picker";
 
@@ -28,7 +29,14 @@ export async function pickCleanseTarget(checkers: readonly CleanseCheckerChoice[
 	const items: SelectItem[] = [
 		{
 			value: "all",
-			label: `Run all ${checkers.length} discovered checker${checkers.length === 1 ? "" : "s"}`,
+			label: t(
+				"tui.apps.cleansePicker.runAll",
+				{
+					one: "Run all {count} discovered checker",
+					other: "Run all {count} discovered checkers",
+				},
+				{ count: checkers.length },
+			),
 		},
 		...checkers.map(checker => ({
 			value: `checker:${checker.id}`,
@@ -37,19 +45,26 @@ export async function pickCleanseTarget(checkers: readonly CleanseCheckerChoice[
 		})),
 		{
 			value: "request",
-			label: "Describe what to fix…",
-			description: "A discovery agent figures out the command to run",
+			label: t("tui.apps.cleansePicker.requestLabel", "Describe what to fix…"),
+			description: t(
+				"tui.apps.cleansePicker.requestDescription",
+				"A discovery agent figures out the command to run",
+			),
 		},
 	];
-	const selection = await selectStandaloneItem("Select what to cleanse:", items, {
-		maxVisible: 12,
-		picker: {
-			icon: "wand",
-			noun: "checkers",
-			subtitle: "Run the checkers, then repair what they find",
-			confirm: "Cleanse",
+	const selection = await selectStandaloneItem(
+		t("tui.apps.cleansePicker.selectTitle", "Select what to cleanse:"),
+		items,
+		{
+			maxVisible: 12,
+			picker: {
+				icon: "wand",
+				noun: t("tui.apps.cleansePicker.noun", "checkers"),
+				subtitle: t("tui.apps.cleansePicker.subtitle", "Run the checkers, then repair what they find"),
+				confirm: t("tui.apps.cleansePicker.confirm", "Cleanse"),
+			},
 		},
-	});
+	);
 	if (selection === null) return { kind: "cancel" };
 	if (selection === "all") return { kind: "all" };
 	if (selection === "request") {
@@ -61,5 +76,7 @@ export async function pickCleanseTarget(checkers: readonly CleanseCheckerChoice[
 
 /** One-shot text prompt for a free-form cleanse request; `null` when cancelled or left empty. */
 export async function promptCleanseRequest(): Promise<string | null> {
-	return promptStandaloneText('Describe what to detect and fix (e.g. "ts errors"):');
+	return promptStandaloneText(
+		t("tui.apps.cleansePicker.prompt", 'Describe what to detect and fix (e.g. "ts errors"):'),
+	);
 }

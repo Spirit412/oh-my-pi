@@ -8,6 +8,7 @@
  * callers keep a parseable trace.
  */
 
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import { replaceTabs, truncateToWidth } from "../utils";
 import { renderTableRow, type TableColumn } from "../components/table";
 import { formatDuration, formatNumber } from "@oh-my-pi/pi-utils";
@@ -63,13 +64,20 @@ const LABEL_WIDTH = 34;
 const DETAIL_WIDTH = 120;
 
 /** Human-readable verdict for each scored failure mode. */
-const FAILURE_TEXT: Record<IfBenchFailure, string> = {
-	result: "wrong array",
-	cat: "no cat sound",
-	"result+cat": "wrong array + no cat sound",
-	format: "no <result> block",
-	provider: "provider error",
-};
+function failureText(kind: IfBenchFailure): string {
+	switch (kind) {
+		case "result":
+			return t("tui.apps.ifBench.failureResult", "wrong array");
+		case "cat":
+			return t("tui.apps.ifBench.failureCat", "no cat sound");
+		case "result+cat":
+			return t("tui.apps.ifBench.failureResultCat", "wrong array + no cat sound");
+		case "format":
+			return t("tui.apps.ifBench.failureFormat", "no <result> block");
+		case "provider":
+			return t("tui.apps.ifBench.failureProvider", "provider error");
+	}
+}
 
 /** Rendering surface for one `omp if-bench` run. */
 export interface IfBenchBoard extends IfBenchObserver {
@@ -169,15 +177,22 @@ function renderLive(
 	const deepest = Math.max(0, ...[...rows.values()].map(row => row.actions));
 	const header =
 		`${fgOrPlain("accent", spinner)} ${theme ? theme.bold("if-bench") : "if-bench"} ${fgOrPlain("dim", "·")} ` +
-		`${rows.size} live ${fgOrPlain("dim", "·")} ${deepest} actions ${fgOrPlain("dim", "·")} ` +
+		`${t("tui.apps.ifBench.liveCount", "{count} live", { count: rows.size })} ${fgOrPlain("dim", "·")} ${t(
+			"tui.apps.ifBench.actionCount",
+			"{count} actions",
+			{ count: deepest },
+		)} ${fgOrPlain("dim", "·")} ` +
 		`${fgOrPlain("dim", `L=${meta.arrayLength} nya{1,${meta.nyaMax}}`)} ${fgOrPlain("dim", "·")} ` +
 		`${formatDuration(Date.now() - startedAt)}`;
 	const lines = [header];
 	for (const [label, row] of rows) {
 		const meterCells = ladder(row, meta.maxTurns, spinner);
 		const parts = [
-			`turn ${Math.max(row.turn, 1)}/${meta.maxTurns}`,
-			`${row.actions} acts`,
+			t("tui.apps.ifBench.turnProgress", "turn {turn}/{total}", {
+				turn: Math.max(row.turn, 1),
+				total: meta.maxTurns,
+			}),
+			t("tui.apps.ifBench.actions", "{count} acts", { count: row.actions }),
 			formatDuration(Date.now() - row.startedAt),
 		];
 		if (row.placement) parts.push(fgOrPlain("dim", `cat@${row.placement}`));
@@ -227,22 +242,28 @@ function ladder(row: RowState, maxTurns: number, spinner: string): string {
 }
 
 function formatTurnLine(label: string, record: IfBenchTurnRecord): string {
-	const head = `[turn ${record.turn}] ${label} ${record.cumulativeActions} acts cat@${record.placement}`;
-	if (record.passed) return `${head} PASS ${formatDuration(Math.round(record.durationMs))}`;
-	return `${head} FAIL ${record.failure ?? "format"}`;
+	const head = `${t("tui.apps.ifBench.turnTag", "[turn {turn}]", { turn: record.turn })} ${label} ${t("tui.apps.ifBench.actions", "{count} acts", { count: record.cumulativeActions })} cat@${record.placement}`;
+	if (record.passed)
+		return `${head} ${t("tui.apps.ifBench.pass", "PASS")} ${formatDuration(Math.round(record.durationMs))}`;
+	return `${head} ${t("tui.apps.ifBench.fail", "FAIL")} ${record.failure ?? "format"}`;
 }
 
 function formatVerdict(report: IfBenchModelReport, meta: IfBenchBoardMeta): string {
 	const stats = [
-		`${report.turnsPassed}/${meta.maxTurns} turns`,
-		`${report.actionsPassed} actions`,
-		`${formatDuration(Math.round(meanTurnMs(report)))}/turn`,
+		t("tui.apps.ifBench.turnsStat", "{passed}/{total} turns", {
+			passed: report.turnsPassed,
+			total: meta.maxTurns,
+		}),
+		t("tui.apps.ifBench.actionsStat", "{count} actions", { count: report.actionsPassed }),
+		t("tui.apps.ifBench.perTurnStat", "{duration}/turn", {
+			duration: formatDuration(Math.round(meanTurnMs(report))),
+		}),
 	];
 	if (report.outputTokens > 0) stats.push(`${formatNumber(report.outputTokens)} tok`);
 	if (report.cost > 0) stats.push(formatCost(report.cost));
 	const body = `${theme ? theme.bold(report.label) : report.label} ${stats.join(fgOrPlain("dim", " · "))}`;
 	if (!report.failure) return `${fgOrPlain("success", "✓")} ${body}`;
-	return `${fgOrPlain("error", "✗")} ${body} ${fgOrPlain("dim", "·")} ${fgOrPlain("error", `broke on turn ${report.failure.turn}: ${FAILURE_TEXT[report.failure.kind]}`)}`;
+	return `${fgOrPlain("error", "✗")} ${body} ${fgOrPlain("dim", "·")} ${fgOrPlain("error", t("tui.apps.ifBench.brokeOnTurn", "broke on turn {turn}: {failure}", { turn: report.failure.turn, failure: failureText(report.failure.kind) }))}`;
 }
 
 /** Expected/actual pair for the turn that ended a run, clipped for the terminal. */
@@ -252,10 +273,12 @@ function failureDetail(report: IfBenchModelReport): string[] {
 	const oneLine = (text: string): string =>
 		truncateToWidth(replaceTabs(text).replace(/\s+/g, " ").trim(), DETAIL_WIDTH);
 	if (failed.failure === "provider")
-		return [`    ${fgOrPlain("dim", "provider")} ${fgOrPlain("error", oneLine(failed.response))}`];
+		return [
+			`    ${fgOrPlain("dim", t("tui.apps.ifBench.failureProviderLabel", "provider"))} ${fgOrPlain("error", oneLine(failed.response))}`,
+		];
 	return [
-		`    ${fgOrPlain("dim", "expected")} <${failed.expected}>`,
-		`    ${fgOrPlain("dim", "actual  ")} ${oneLine(failed.response)}`,
+		`    ${fgOrPlain("dim", t("tui.apps.ifBench.expectedLabel", "expected"))} <${failed.expected}>`,
+		`    ${fgOrPlain("dim", t("tui.apps.ifBench.actualLabel", "actual  "))} ${oneLine(failed.response)}`,
 	];
 }
 
@@ -283,21 +306,42 @@ export function formatIfBenchScoreboard(summary: IfBenchSummary): string {
 		(a, b) => b.turnsPassed - a.turnsPassed || b.actionsPassed - a.actionsPassed || meanTurnMs(a) - meanTurnMs(b),
 	);
 	const columns: ScoreboardColumn[] = [
-		{ header: "model", value: report => report.label },
-		{ header: "turns", value: report => `${report.turnsPassed}/${summary.maxTurns}`, align: "right" },
-		{ header: "actions", value: report => String(report.actionsPassed), align: "right" },
+		{ header: t("tui.apps.ifBench.columnModel", "model"), value: report => report.label },
 		{
-			header: "broke on",
-			value: report =>
-				report.failure ? `turn ${report.failure.turn} · ${FAILURE_TEXT[report.failure.kind]}` : "survived",
+			header: t("tui.apps.ifBench.columnTurns", "turns"),
+			value: report => `${report.turnsPassed}/${summary.maxTurns}`,
+			align: "right",
 		},
-		{ header: "per turn", value: report => formatDuration(Math.round(meanTurnMs(report))), align: "right" },
 		{
-			header: "tokens",
+			header: t("tui.apps.ifBench.columnActions", "actions"),
+			value: report => String(report.actionsPassed),
+			align: "right",
+		},
+		{
+			header: t("tui.apps.ifBench.columnBrokeOn", "broke on"),
+			value: report =>
+				report.failure
+					? t("tui.apps.ifBench.brokeOn", "turn {turn} · {failure}", {
+							turn: report.failure.turn,
+							failure: failureText(report.failure.kind),
+						})
+					: t("tui.apps.ifBench.survived", "survived"),
+		},
+		{
+			header: t("tui.apps.ifBench.columnPerTurn", "per turn"),
+			value: report => formatDuration(Math.round(meanTurnMs(report))),
+			align: "right",
+		},
+		{
+			header: t("tui.apps.ifBench.columnTokens", "tokens"),
 			value: report => (report.outputTokens > 0 ? formatNumber(report.outputTokens) : "-"),
 			align: "right",
 		},
-		{ header: "cost", value: report => (report.cost > 0 ? formatCost(report.cost) : "-"), align: "right" },
+		{
+			header: t("tui.apps.ifBench.columnCost", "cost"),
+			value: report => (report.cost > 0 ? formatCost(report.cost) : "-"),
+			align: "right",
+		},
 	];
 	const cells = ranked.map(report => columns.map(column => column.value(report)));
 	const widths = columns.map((column, index) =>

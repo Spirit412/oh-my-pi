@@ -1,3 +1,4 @@
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import { formatKeyHint, formatKeyHints } from "../app-keybindings";
 import { matchesKey } from "../keys";
 import { replaceTabs, truncateToWidth, visibleWidth } from "../utils";
@@ -123,8 +124,8 @@ export function createDashboardController(): DashboardController {
 						card({ role: "omp.widget.autoresearch", head: describeTitle(runtime) }, [
 							...describeDashboard(runtime, 8, cx.supports("chart")),
 							hintsRow([
-								{ keys: ["ctrl+x"], label: "collapse" },
-								{ keys: ["ctrl+shift+x"], label: "overlay" },
+								{ keys: ["ctrl+x"], label: t("tui.apps.autoresearch.collapse", "collapse") },
+								{ keys: ["ctrl+shift+x"], label: t("tui.apps.autoresearch.overlay", "overlay") },
 							]),
 						]),
 					);
@@ -176,7 +177,14 @@ export function createDashboardController(): DashboardController {
 								],
 								() => {
 									const children = describeSheet(runtime, chart);
-									children.push(actionBar([null, actionButton("Close", "close", { keys: "escape" })]));
+									children.push(
+										actionBar([
+											null,
+											actionButton(t("tui.apps.autoresearch.close", "Close"), "close", {
+												keys: "escape",
+											}),
+										]),
+									);
 									return { ...col(children, { gap: "md", role: "omp.app.autoresearch" }), scroll };
 								},
 							);
@@ -250,14 +258,17 @@ function describeTitle(runtime: AutoresearchDashboardRuntime): TspSpan[] {
 	const state = runtime.state;
 	const spans = [span(state.name ? `autoresearch: ${replaceTabs(state.name)}` : "autoresearch", "accent")];
 	const status = renderModeStatus(runtime, state);
-	if (status) spans.push(span(` · ${status}`, "muted"));
+	if (status) spans.push(span(` · ${modeStatusText(status)}`, "muted"));
 	return spans;
 }
 
 /** Widget shown while the very first run is in flight. */
 function describeRunningOnly(runtime: AutoresearchDashboardRuntime, state: ExperimentState): NativeNode {
 	const children: NativeNode[] = [
-		node("spinner", { label: [span("autoresearch", "accent"), span(" running", "warning")], tone: "warning" }),
+		node("spinner", {
+			label: [span("autoresearch", "accent"), span(t("tui.apps.autoresearch.runningSuffix", " running"), "warning")],
+			tone: "warning",
+		}),
 	];
 	if (runtime.runningExperiment) children.push(elapsed(Date.now() - runtime.runningExperiment.startedAt));
 	const details: TspSpan[] = [];
@@ -270,12 +281,22 @@ function describeRunningOnly(runtime: AutoresearchDashboardRuntime, state: Exper
 /** One-line collapsed widget: run counts, best/baseline, confidence and mode. */
 function describeCollapsed(runtime: AutoresearchDashboardRuntime, state: ExperimentState): NativeNode {
 	const role = "omp.widget.autoresearch";
-	const hint = hintsRow([{ keys: ["ctrl+x"], label: "expand" }]);
+	const hint = hintsRow([{ keys: ["ctrl+x"], label: t("tui.apps.autoresearch.expand", "expand") }]);
 	if (runtime.lastRunSummary) {
 		const spans = [
 			span("autoresearch", "accent"),
-			span(` pending run #${runtime.lastRunSummary.runNumber}`, "warning"),
-			span(runtime.lastRunSummary.passed ? " pass" : " fail", "dim"),
+			span(
+				t("tui.apps.autoresearch.pendingRun", " pending run #{run}", {
+					run: runtime.lastRunSummary.runNumber,
+				}),
+				"warning",
+			),
+			span(
+				runtime.lastRunSummary.passed
+					? t("tui.apps.autoresearch.passSuffix", " pass")
+					: t("tui.apps.autoresearch.failSuffix", " fail"),
+				"dim",
+			),
 		];
 		if (runtime.lastRunSummary.parsedPrimary !== null) {
 			spans.push(
@@ -285,17 +306,18 @@ function describeCollapsed(runtime: AutoresearchDashboardRuntime, state: Experim
 				),
 			);
 		}
-		spans.push(span(" | log_experiment required", "warning"));
-		if (!runtime.autoresearchMode) spans.push(span(" | mode off", "dim"));
+		spans.push(span(t("tui.apps.autoresearch.logExperimentRequired", " | log_experiment required"), "warning"));
+		if (!runtime.autoresearchMode) spans.push(span(t("tui.apps.autoresearch.modeOffSuffix", " | mode off"), "dim"));
 		return text(spans, { truncate: "end", role });
 	}
 	if (state.results.length === 0) {
 		const spans = [
 			span("autoresearch", "accent"),
-			span(` ${runtime.autoresearchMode ? "baseline pending" : "mode off"}`, "warning"),
+			span(` ${modeStatusText(renderModeStatus(runtime, state))}`, "warning"),
 		];
 		if (state.name) spans.push(span(` | ${replaceTabs(state.name)}`, "dim"));
-		if (runtime.autoresearchMode) spans.push(span(" | run the baseline", "dim"));
+		if (runtime.autoresearchMode)
+			spans.push(span(t("tui.apps.autoresearch.runBaselineSuffix", " | run the baseline"), "dim"));
 		return text(spans, { truncate: "end", role });
 	}
 	const current = currentResults(state.results, state.currentSegment);
@@ -304,30 +326,71 @@ function describeCollapsed(runtime: AutoresearchDashboardRuntime, state: Experim
 	const archivedRuns = Math.max(0, state.results.length - current.length);
 	const spans = [
 		span("autoresearch", "accent"),
-		span(` ${current.length} runs`, "muted"),
-		span(` ${counts.keep} kept`, "success"),
+		span(t("tui.apps.autoresearch.runsSuffix", " {count} runs", { count: current.length }), "muted"),
+		span(t("tui.apps.autoresearch.keptSuffix", " {count} kept", { count: counts.keep }), "success"),
 	];
-	if (archivedRuns > 0) spans.push(span(` +${archivedRuns} archived`, "dim"));
-	if (counts.crash > 0) spans.push(span(` ${counts.crash} crash`, "error"));
-	if (counts.checks_failed > 0) spans.push(span(` ${counts.checks_failed} checks_failed`, "error"));
+	if (archivedRuns > 0)
+		spans.push(span(t("tui.apps.autoresearch.archivedSuffix", " +{count} archived", { count: archivedRuns }), "dim"));
+	if (counts.crash > 0)
+		spans.push(span(t("tui.apps.autoresearch.crashSuffix", " {count} crash", { count: counts.crash }), "error"));
+	if (counts.checks_failed > 0)
+		spans.push(
+			span(
+				t("tui.apps.autoresearch.checksFailedSuffix", " {count} checks_failed", {
+					count: counts.checks_failed,
+				}),
+				"error",
+			),
+		);
 	spans.push(span(" | ", "dim"));
 	if (best && state.bestMetric !== null && best.result.metric !== state.bestMetric) {
-		spans.push(span(`best ${formatNum(best.result.metric, state.metricUnit)}`, "warning"));
-		spans.push(span(` baseline ${formatNum(state.bestMetric, state.metricUnit)}`, "dim"));
+		spans.push(
+			span(
+				t("tui.apps.autoresearch.bestValue", "best {value}", {
+					value: formatNum(best.result.metric, state.metricUnit),
+				}),
+				"warning",
+			),
+		);
+		spans.push(
+			span(
+				t("tui.apps.autoresearch.baselineValue", " baseline {value}", {
+					value: formatNum(state.bestMetric, state.metricUnit),
+				}),
+				"dim",
+			),
+		);
 	} else if (state.bestMetric !== null) {
-		spans.push(span(`baseline ${formatNum(state.bestMetric, state.metricUnit)}`, "warning"));
+		spans.push(
+			span(
+				t("tui.apps.autoresearch.baselineValuePlain", "baseline {value}", {
+					value: formatNum(state.bestMetric, state.metricUnit),
+				}),
+				"warning",
+			),
+		);
 	} else {
-		spans.push(span("no kept runs yet", "warning"));
+		spans.push(span(t("tui.apps.autoresearch.noKeptRuns", "no kept runs yet"), "warning"));
 	}
 	if (state.confidence !== null) {
 		spans.push(span(" | ", "dim"));
-		spans.push(span(`conf ${state.confidence.toFixed(1)}x`, confidenceToken(state.confidence)));
+		spans.push(
+			span(
+				t("tui.apps.autoresearch.confidence", "conf {value}x", {
+					value: state.confidence.toFixed(1),
+				}),
+				confidenceToken(state.confidence),
+			),
+		);
 	}
 	const children: NativeNode[] = [text(spans, { truncate: "end" })];
 	if (runtime.runningExperiment) {
-		children.push(text([span("| running", "dim")]), elapsed(Date.now() - runtime.runningExperiment.startedAt));
+		children.push(
+			text([span(t("tui.apps.autoresearch.runningPipe", "| running"), "dim")]),
+			elapsed(Date.now() - runtime.runningExperiment.startedAt),
+		);
 	} else if (!runtime.autoresearchMode) {
-		children.push(text([span(`| ${renderModeStatus(runtime, state)}`, "dim")]));
+		children.push(text([span(`| ${modeStatusText(renderModeStatus(runtime, state))}`, "dim")]));
 	}
 	children.push(hint);
 	return row(children, { gap: "sm", role });
@@ -343,14 +406,18 @@ function describeDashboard(runtime: AutoresearchDashboardRuntime, maxRows: numbe
 		const pending = runtime.lastRunSummary;
 		if (pending) {
 			const items: { k: string; v: TspText }[] = [
-				{ k: "Pending run", v: `#${pending.runNumber}` },
+				{ k: t("tui.apps.autoresearch.pendingRunKv", "Pending run"), v: `#${pending.runNumber}` },
 				{
-					k: "Result",
-					v: `${pending.passed ? "passed" : "failed"}${pending.parsedPrimary !== null ? `  ${state.metricName} ${formatNum(pending.parsedPrimary, state.metricUnit)}` : ""}`,
+					k: t("tui.apps.autoresearch.resultKv", "Result"),
+					v: `${pending.passed ? t("tui.apps.autoresearch.passed", "passed") : t("tui.apps.autoresearch.failed", "failed")}${pending.parsedPrimary !== null ? `  ${state.metricName} ${formatNum(pending.parsedPrimary, state.metricUnit)}` : ""}`,
 				},
-				{ k: "Next action", v: "finish log_experiment before starting another run." },
+				{
+					k: t("tui.apps.autoresearch.nextActionKv", "Next action"),
+					v: t("tui.apps.autoresearch.finishLogExperiment", "finish log_experiment before starting another run."),
+				},
 			];
-			if (!runtime.autoresearchMode) items.push({ k: "Mode", v: "off" });
+			if (!runtime.autoresearchMode)
+				items.push({ k: t("tui.apps.autoresearch.modeKv", "Mode"), v: t("tui.apps.autoresearch.off", "off") });
 			return [node("kv", { items, layout: "grid" }, undefined, "summary")];
 		}
 		if (runtime.autoresearchMode) {
@@ -359,9 +426,18 @@ function describeDashboard(runtime: AutoresearchDashboardRuntime, maxRows: numbe
 					"kv",
 					{
 						items: [
-							{ k: "Current segment", v: "0 runs" },
-							{ k: "Baseline", v: "pending" },
-							{ k: "Next action", v: "run and log the baseline experiment." },
+							{
+								k: t("tui.apps.autoresearch.currentSegmentKv", "Current segment"),
+								v: t("tui.apps.autoresearch.zeroRuns", "0 runs"),
+							},
+							{
+								k: t("tui.apps.autoresearch.baselineKv", "Baseline"),
+								v: t("tui.apps.autoresearch.pending", "pending"),
+							},
+							{
+								k: t("tui.apps.autoresearch.nextActionKv", "Next action"),
+								v: t("tui.apps.autoresearch.runAndLogBaseline", "run and log the baseline experiment."),
+							},
 						],
 						layout: "grid",
 					},
@@ -370,7 +446,12 @@ function describeDashboard(runtime: AutoresearchDashboardRuntime, maxRows: numbe
 				),
 			];
 		}
-		return [keyed(text([span("No experiments logged yet.", "dim")]), "summary")];
+		return [
+			keyed(
+				text([span(t("tui.apps.autoresearch.noExperimentsPeriod", "No experiments logged yet."), "dim")]),
+				"summary",
+			),
+		];
 	}
 
 	const current = currentResults(state.results, state.currentSegment);
@@ -381,33 +462,59 @@ function describeDashboard(runtime: AutoresearchDashboardRuntime, maxRows: numbe
 	const best = findBestResult(state);
 	const items: { k: string; v: TspText }[] = [
 		{
-			k: "Current segment",
+			k: t("tui.apps.autoresearch.currentSegmentKv", "Current segment"),
 			v: [
-				span(`${current.length} runs  `),
-				span(`${counts.keep} kept`, "success"),
-				span(`  ${counts.discard} discarded`, "warning"),
-				span(`  ${counts.crash} crashed`, counts.crash > 0 ? "error" : undefined),
-				span(`  ${counts.checks_failed} checks_failed`, counts.checks_failed > 0 ? "error" : undefined),
+				span(t("tui.apps.autoresearch.runsDoubleSpace", "{count} runs  ", { count: current.length })),
+				span(t("tui.apps.autoresearch.keptCount", "{count} kept", { count: counts.keep }), "success"),
+				span(
+					t("tui.apps.autoresearch.discardedCount", "  {count} discarded", { count: counts.discard }),
+					"warning",
+				),
+				span(
+					t("tui.apps.autoresearch.crashedCount", "  {count} crashed", { count: counts.crash }),
+					counts.crash > 0 ? "error" : undefined,
+				),
+				span(
+					t("tui.apps.autoresearch.checksFailedCount", "  {count} checks_failed", {
+						count: counts.checks_failed,
+					}),
+					counts.checks_failed > 0 ? "error" : undefined,
+				),
 			],
 		},
 		{
-			k: "Baseline",
+			k: t("tui.apps.autoresearch.baselineKv", "Baseline"),
 			v: `${formatNum(baseline, state.metricUnit)}${baselineRunNumber ? ` (#${baselineRunNumber})` : ""}`,
 		},
 	];
 	if (state.results.length > current.length) {
-		items.push({ k: "Archived", v: `${state.results.length - current.length} runs from earlier segments` });
+		items.push({
+			k: t("tui.apps.autoresearch.archivedKv", "Archived"),
+			v: t("tui.apps.autoresearch.archivedRuns", "{count} runs from earlier segments", {
+				count: state.results.length - current.length,
+			}),
+		});
 	}
 	if (runtime.lastRunSummary) {
 		items.push({
-			k: "Pending run",
+			k: t("tui.apps.autoresearch.pendingRunKv", "Pending run"),
 			v: [
-				span(`#${runtime.lastRunSummary.runNumber} (${runtime.lastRunSummary.passed ? "passed" : "failed"})`),
-				span(" — log_experiment required", "warning"),
+				span(
+					`#${runtime.lastRunSummary.runNumber} (${
+						runtime.lastRunSummary.passed
+							? t("tui.apps.autoresearch.passed", "passed")
+							: t("tui.apps.autoresearch.failed", "failed")
+					})`,
+				),
+				span(t("tui.apps.autoresearch.logExperimentRequiredPeriod", " — log_experiment required"), "warning"),
 			],
 		});
 	}
-	if (!runtime.autoresearchMode) items.push({ k: "Mode", v: renderModeStatus(runtime, state) });
+	if (!runtime.autoresearchMode)
+		items.push({
+			k: t("tui.apps.autoresearch.modeKv", "Mode"),
+			v: modeStatusText(renderModeStatus(runtime, state)),
+		});
 	if (best) {
 		const bestRunNumber = best.result.runNumber ?? best.index + 1;
 		const value: TspSpan[] = [
@@ -418,9 +525,16 @@ function describeDashboard(runtime: AutoresearchDashboardRuntime, maxRows: numbe
 			value.push(span(` ${delta > 0 ? "+" : ""}${delta.toFixed(1)}%`, "num"));
 		}
 		if (state.confidence !== null) {
-			value.push(span(`  conf ${state.confidence.toFixed(1)}x`, confidenceToken(state.confidence)));
+			value.push(
+				span(
+					t("tui.apps.autoresearch.confidenceDoubleSpace", "  conf {value}x", {
+						value: state.confidence.toFixed(1),
+					}),
+					confidenceToken(state.confidence),
+				),
+			);
 		}
-		items.push({ k: "Best", v: value });
+		items.push({ k: t("tui.apps.autoresearch.bestKv", "Best"), v: value });
 		const details = state.secondaryMetrics
 			.map(metric =>
 				renderSecondarySummary(
@@ -431,12 +545,18 @@ function describeDashboard(runtime: AutoresearchDashboardRuntime, maxRows: numbe
 				),
 			)
 			.filter((detail): detail is string => Boolean(detail));
-		if (details.length > 0) items.push({ k: "Secondary", v: details.join("  ") });
+		if (details.length > 0)
+			items.push({ k: t("tui.apps.autoresearch.secondaryKv", "Secondary"), v: details.join("  ") });
 	}
 
 	const cols: TspTableColumn[] = [
 		{ id: "run", head: [span("#", "muted")], align: "end", priority: 3 },
-		{ id: "commit", head: [span("commit", "muted")], truncate: "end", priority: 2 },
+		{
+			id: "commit",
+			head: [span(t("tui.apps.autoresearch.columnCommit", "commit"), "muted")],
+			truncate: "end",
+			priority: 2,
+		},
 		{ id: "metric", head: [span(state.metricName, "warning")], align: "end", priority: 5 },
 		...state.secondaryMetrics.map((metric, index): TspTableColumn => ({
 			id: `secondary${index}`,
@@ -445,8 +565,14 @@ function describeDashboard(runtime: AutoresearchDashboardRuntime, maxRows: numbe
 			truncate: "end",
 			priority: 1,
 		})),
-		{ id: "status", head: [span("status", "muted")], priority: 4 },
-		{ id: "description", head: [span("description", "muted")], truncate: "end", grow: 1, priority: 2 },
+		{ id: "status", head: [span(t("tui.apps.autoresearch.columnStatus", "status"), "muted")], priority: 4 },
+		{
+			id: "description",
+			head: [span(t("tui.apps.autoresearch.columnDescription", "description"), "muted")],
+			truncate: "end",
+			grow: 1,
+			priority: 2,
+		},
 	];
 	const indexed = state.results
 		.map((result, index) => ({ result, index }))
@@ -487,8 +613,17 @@ function describeDashboard(runtime: AutoresearchDashboardRuntime, maxRows: numbe
 					}),
 					token: "accent",
 					summary: [
-						span(`${state.metricName} per run`, "muted"),
-						...(best ? [span(` · best ${formatNum(best.result.metric, state.metricUnit)}`, "success")] : []),
+						span(t("tui.apps.autoresearch.perRun", "{metric} per run", { metric: state.metricName }), "muted"),
+						...(best
+							? [
+									span(
+										t("tui.apps.autoresearch.bestSuffix", " · best {value}", {
+											value: formatNum(best.result.metric, state.metricUnit),
+										}),
+										"success",
+									),
+								]
+							: []),
 					],
 					size: "md",
 					role: "omp.autoresearch.trend",
@@ -499,7 +634,19 @@ function describeDashboard(runtime: AutoresearchDashboardRuntime, maxRows: numbe
 		);
 	}
 	if (visible.length < indexed.length) {
-		children.push(keyed(text([span(`… ${indexed.length - visible.length} earlier runs hidden`, "dim")]), "hidden"));
+		children.push(
+			keyed(
+				text([
+					span(
+						t("tui.apps.autoresearch.earlierRunsHidden", "… {count} earlier runs hidden", {
+							count: indexed.length - visible.length,
+						}),
+						"dim",
+					),
+				]),
+				"hidden",
+			),
+		);
 	}
 	children.push(node("table", { cols, rows, role: "omp.autoresearch.runs" }, undefined, "runs"));
 	return [keyed(col(children, { gap: "sm" }), "dashboard")];
@@ -513,12 +660,19 @@ function describeSheetHead(runtime: AutoresearchDashboardRuntime): TspSpan[] {
 	return name ? [span(replaceTabs(name)), span(" · Autoresearch", "muted")] : [span("Autoresearch")];
 }
 
-const STATUS_LABEL: Record<ExperimentResult["status"], string> = {
-	keep: "kept",
-	discard: "discarded",
-	crash: "crashed",
-	checks_failed: "checks failed",
-};
+/** Operator-facing outcome label for a run status. */
+function statusLabel(status: ExperimentResult["status"]): string {
+	switch (status) {
+		case "keep":
+			return t("tui.apps.autoresearch.statusKept", "kept");
+		case "discard":
+			return t("tui.apps.autoresearch.statusDiscarded", "discarded");
+		case "crash":
+			return t("tui.apps.autoresearch.statusCrashed", "crashed");
+		case "checks_failed":
+			return t("tui.apps.autoresearch.statusChecksFailed", "checks failed");
+	}
+}
 
 const STATUS_TOKEN: Record<ExperimentResult["status"], string> = {
 	keep: "success",
@@ -555,13 +709,13 @@ function modeLabel(runtime: AutoresearchDashboardRuntime): [label: string, token
 	const status = renderModeStatus(runtime, runtime.state);
 	switch (status) {
 		case "mode on":
-			return ["Mode on", "success"];
+			return [modeStatusLabel(status), "success"];
 		case "baseline pending":
-			return ["Baseline pending", "warning"];
+			return [modeStatusLabel(status), "warning"];
 		case "segment complete":
-			return ["Segment complete", "muted"];
+			return [modeStatusLabel(status), "muted"];
 		default:
-			return ["Mode off", "muted"];
+			return [modeStatusLabel(status), "muted"];
 	}
 }
 
@@ -590,9 +744,23 @@ function describeSheet(runtime: AutoresearchDashboardRuntime, chart: boolean): N
 	if (archived > 0) {
 		children.push(
 			keyed(
-				text([span(`${archived} ${archived === 1 ? "run" : "runs"} archived from earlier segments`)], {
-					role: "omp.autoresearch.note",
-				}),
+				text(
+					[
+						span(
+							t(
+								"tui.apps.autoresearch.archivedNote",
+								{
+									one: "{count} run archived from earlier segments",
+									other: "{count} runs archived from earlier segments",
+								},
+								{ count: archived },
+							),
+						),
+					],
+					{
+						role: "omp.autoresearch.note",
+					},
+				),
 				"archived",
 			),
 		);
@@ -612,10 +780,26 @@ function describeIntro(runtime: AutoresearchDashboardRuntime, segmented: boolean
 		span(mode),
 		span("  ·  "),
 		span(state.metricName, "mono"),
-		span(`, ${state.bestDirection} is better`),
+		span(
+			t("tui.apps.autoresearch.directionBetter", ", {direction} is better", {
+				direction: directionLabel(state.bestDirection),
+			}),
+		),
 	];
-	if (segmented) meta.push(span("  ·  "), span(`Segment ${state.currentSegment + 1}`));
-	if (state.maxExperiments !== null) meta.push(span("  ·  "), span(`${state.maxExperiments} runs per segment`));
+	if (segmented)
+		meta.push(
+			span("  ·  "),
+			span(t("tui.apps.autoresearch.segmentNumber", "Segment {number}", { number: state.currentSegment + 1 })),
+		);
+	if (state.maxExperiments !== null)
+		meta.push(
+			span("  ·  "),
+			span(
+				t("tui.apps.autoresearch.runsPerSegment", "{count} runs per segment", {
+					count: state.maxExperiments,
+				}),
+			),
+		);
 	if (state.branch) meta.push(span("  ·  "), span(replaceTabs(state.branch), "mono"));
 	children.push(keyed(text(meta, { truncate: "end", role: "omp.autoresearch.meta" }), "meta"));
 	return keyed(col(children, { gap: "xs", role: "omp.autoresearch.intro" }), "intro");
@@ -629,7 +813,7 @@ function describeNow(runtime: AutoresearchDashboardRuntime): NativeNode | undefi
 		return keyed(
 			row(
 				[
-					node("spinner", { label: [span("Running")], tone: "pending" }),
+					node("spinner", { label: [span(t("tui.apps.autoresearch.runningLabel", "Running"))], tone: "pending" }),
 					elapsed(Date.now() - running.startedAt),
 					text([span(replaceTabs(running.command), "mono")], {
 						truncate: "end",
@@ -643,7 +827,17 @@ function describeNow(runtime: AutoresearchDashboardRuntime): NativeNode | undefi
 	}
 	const pending = runtime.lastRunSummary;
 	if (!pending) return undefined;
-	const result: TspSpan[] = [span(`Run #${pending.runNumber} ${pending.passed ? "passed" : "failed"}`, "strong")];
+	const result: TspSpan[] = [
+		span(
+			t("tui.apps.autoresearch.runResult", "Run #{run} {result}", {
+				run: pending.runNumber,
+				result: pending.passed
+					? t("tui.apps.autoresearch.passed", "passed")
+					: t("tui.apps.autoresearch.failed", "failed"),
+			}),
+			"strong",
+		),
+	];
 	if (pending.parsedPrimary !== null) {
 		result.push(
 			span(`  ·  ${state.metricName} `),
@@ -654,10 +848,17 @@ function describeNow(runtime: AutoresearchDashboardRuntime): NativeNode | undefi
 		row(
 			[
 				text(result, { truncate: "end" }),
-				text([span("Log it with "), span("log_experiment", "mono"), span(" before the next run")], {
-					truncate: "end",
-					role: "omp.autoresearch.next",
-				}),
+				text(
+					[
+						span(t("tui.apps.autoresearch.logItWith", "Log it with ")),
+						span("log_experiment", "mono"),
+						span(t("tui.apps.autoresearch.beforeNextRun", " before the next run")),
+					],
+					{
+						truncate: "end",
+						role: "omp.autoresearch.next",
+					},
+				),
 			],
 			{ gap: "md", align: "center", role: "omp.autoresearch.pending", tone: "warning" },
 		),
@@ -668,24 +869,50 @@ function describeNow(runtime: AutoresearchDashboardRuntime): NativeNode | undefi
 /** No runs in this segment yet: what the dashboard is waiting for. */
 function describeEmpty(runtime: AutoresearchDashboardRuntime, archived: number): NativeNode {
 	const [title, detail] = runtime.lastRunSummary
-		? ["Waiting for the first log", "Log the finished run to set this segment's baseline."]
+		? [
+				t("tui.apps.autoresearch.waitingForFirstLog", "Waiting for the first log"),
+				t("tui.apps.autoresearch.waitingForFirstLogDetail", "Log the finished run to set this segment's baseline."),
+			]
 		: runtime.runningExperiment
-			? ["Measuring the baseline", "Every later run is compared with this first one."]
+			? [
+					t("tui.apps.autoresearch.measuringBaseline", "Measuring the baseline"),
+					t("tui.apps.autoresearch.measuringBaselineDetail", "Every later run is compared with this first one."),
+				]
 			: runtime.autoresearchMode
 				? [
-						"No baseline yet",
-						"Run the benchmark once and log it as the baseline. Every later run is compared with it.",
+						t("tui.apps.autoresearch.noBaselineYet", "No baseline yet"),
+						t(
+							"tui.apps.autoresearch.noBaselineYetDetail",
+							"Run the benchmark once and log it as the baseline. Every later run is compared with it.",
+						),
 					]
-				: ["No experiments logged yet", "Turn autoresearch mode on to start measuring."];
+				: [
+						t("tui.apps.autoresearch.noExperiments", "No experiments logged yet"),
+						t("tui.apps.autoresearch.noExperimentsDetail", "Turn autoresearch mode on to start measuring."),
+					];
 	const children: NativeNode[] = [
 		text([span(title)], { role: "omp.autoresearch.empty.title" }),
 		text([span(detail)], { wrap: "word", role: "omp.autoresearch.empty.detail" }),
 	];
 	if (archived > 0) {
 		children.push(
-			text([span(`${archived} ${archived === 1 ? "run" : "runs"} archived from earlier segments`)], {
-				role: "omp.autoresearch.note",
-			}),
+			text(
+				[
+					span(
+						t(
+							"tui.apps.autoresearch.archivedNote",
+							{
+								one: "{count} run archived from earlier segments",
+								other: "{count} runs archived from earlier segments",
+							},
+							{ count: archived },
+						),
+					),
+				],
+				{
+					role: "omp.autoresearch.note",
+				},
+			),
 		);
 	}
 	return keyed(col(children, { gap: "xs", align: "center", role: "omp.autoresearch.empty" }), "empty");
@@ -729,32 +956,56 @@ function describeStats(runtime: AutoresearchDashboardRuntime, current: readonly 
 		const change = percentChange(best.result.metric, baseline);
 		const better = baseline !== null && isBetter(best.result.metric, baseline, state.bestDirection);
 		tiles.push(
-			stat("best", "Best", metricSpans(best.result.metric, unit, digits), [
+			stat("best", t("tui.apps.autoresearch.bestKv", "Best"), metricSpans(best.result.metric, unit, digits), [
 				statDetail(
 					change
-						? [span(change, better ? "success" : "error"), span(` vs baseline · run #${run}`)]
-						: [span(`The baseline · run #${run}`)],
+						? [
+								span(change, better ? "success" : "error"),
+								span(
+									t("tui.apps.autoresearch.vsBaselineRun", " vs baseline · run #{run}", {
+										run,
+									}),
+								),
+							]
+						: [span(t("tui.apps.autoresearch.theBaselineRun", "The baseline · run #{run}", { run }))],
 				),
 			]),
 		);
 	} else {
-		tiles.push(stat("best", "Best", [span("—", "muted")], [statDetail([span("No kept run yet")])]));
+		tiles.push(
+			stat(
+				"best",
+				t("tui.apps.autoresearch.bestKv", "Best"),
+				[span("—", "muted")],
+				[statDetail([span(t("tui.apps.autoresearch.noKeptRunYet", "No kept run yet"))])],
+			),
+		);
 	}
 
 	const baselineDetail: TspSpan[] = [];
-	if (baselineRun !== null) baselineDetail.push(span(`Run #${baselineRun}`));
+	if (baselineRun !== null)
+		baselineDetail.push(span(t("tui.apps.autoresearch.runNumber", "Run #{run}", { run: baselineRun })));
 	if (baselineResult?.commit) baselineDetail.push(span(" · "), span(baselineResult.commit.slice(0, 7), "mono"));
 	tiles.push(
-		stat("baseline", "Baseline", baseline === null ? [span("—", "muted")] : metricSpans(baseline, unit, digits), [
-			statDetail(baselineDetail.length > 0 ? baselineDetail : [span("Not logged yet")]),
-		]),
+		stat(
+			"baseline",
+			t("tui.apps.autoresearch.baselineKv", "Baseline"),
+			baseline === null ? [span("—", "muted")] : metricSpans(baseline, unit, digits),
+			[
+				statDetail(
+					baselineDetail.length > 0
+						? baselineDetail
+						: [span(t("tui.apps.autoresearch.notLoggedYet", "Not logged yet"))],
+				),
+			],
+		),
 	);
 
 	const confidence = state.confidence;
 	tiles.push(
 		stat(
 			"confidence",
-			"Confidence",
+			t("tui.apps.autoresearch.confidenceKv", "Confidence"),
 			confidence === null
 				? [span("—", "muted")]
 				: [span(confidence.toFixed(1), confidenceToken(confidence)), span("×", "muted")],
@@ -762,12 +1013,12 @@ function describeStats(runtime: AutoresearchDashboardRuntime, current: readonly 
 				statDetail([
 					span(
 						confidence === null
-							? "Needs three runs and a gain"
+							? t("tui.apps.autoresearch.needsThreeRuns", "Needs three runs and a gain")
 							: confidence >= 2
-								? "Gain is clear of run noise"
+								? t("tui.apps.autoresearch.gainClear", "Gain is clear of run noise")
 								: confidence >= 1
-									? "Gain is near run noise"
-									: "Gain is within run noise",
+									? t("tui.apps.autoresearch.gainNear", "Gain is near run noise")
+									: t("tui.apps.autoresearch.gainWithin", "Gain is within run noise"),
 					),
 				]),
 			],
@@ -776,12 +1027,23 @@ function describeStats(runtime: AutoresearchDashboardRuntime, current: readonly 
 
 	const total = Math.max(state.maxExperiments ?? 0, current.length);
 	const failed = counts.crash + counts.checks_failed;
-	const tally: TspSpan[] = [span(`${counts.keep} kept · ${counts.discard} discarded`)];
-	if (failed > 0) tally.push(span(" · "), span(`${failed} failed`, "error"));
+	const tally: TspSpan[] = [
+		span(
+			t("tui.apps.autoresearch.tallyKeptDiscarded", "{kept} kept · {discarded} discarded", {
+				kept: counts.keep,
+				discarded: counts.discard,
+			}),
+		),
+	];
+	if (failed > 0)
+		tally.push(
+			span(" · "),
+			span(t("tui.apps.autoresearch.failedCount", "{count} failed", { count: failed }), "error"),
+		);
 	tiles.push(
 		stat(
 			"runs",
-			"Runs",
+			t("tui.apps.autoresearch.runsKv", "Runs"),
 			state.maxExperiments !== null
 				? [span(String(current.length)), span(` / ${state.maxExperiments}`, "muted")]
 				: [span(String(current.length))],
@@ -789,12 +1051,29 @@ function describeStats(runtime: AutoresearchDashboardRuntime, current: readonly 
 				node("meter", {
 					value: current.length / total,
 					parts: [
-						{ value: counts.keep / total, token: "success", label: `${counts.keep} kept` },
-						{ value: counts.discard / total, token: "muted", label: `${counts.discard} discarded` },
+						{
+							value: counts.keep / total,
+							token: "success",
+							label: t("tui.apps.autoresearch.keptCount", "{count} kept", { count: counts.keep }),
+						},
+						{
+							value: counts.discard / total,
+							token: "muted",
+							label: t("tui.apps.autoresearch.discardedCountPlain", "{count} discarded", {
+								count: counts.discard,
+							}),
+						},
 						{
 							value: failed / total,
 							token: "error",
-							label: `${counts.crash} crashed · ${counts.checks_failed} checks failed`,
+							label: t(
+								"tui.apps.autoresearch.crashedChecksFailed",
+								"{crash} crashed · {checksFailed} checks failed",
+								{
+									crash: counts.crash,
+									checksFailed: counts.checks_failed,
+								},
+							),
 						},
 					],
 					size: "sm",
@@ -812,7 +1091,7 @@ function describeStats(runtime: AutoresearchDashboardRuntime, current: readonly 
 		for (const metric of state.secondaryMetrics) {
 			const value = best.result.metrics[metric.name];
 			if (value === undefined) continue;
-			spans.push(span(spans.length === 0 ? "At best  " : "   ·   "));
+			spans.push(span(spans.length === 0 ? t("tui.apps.autoresearch.atBest", "At best  ") : "   ·   "));
 			spans.push(
 				span(`${metric.name} `, "mono muted"),
 				...metricSpans(value, metric.unit, fractionDigits([value]), "mono"),
@@ -842,11 +1121,18 @@ function describeTrend(
 				return {
 					label: `#${run}`,
 					value: result.metric,
-					title: `#${run} ${STATUS_LABEL[result.status]} · ${formatNum(result.metric, state.metricUnit)} · ${replaceTabs(result.description)}`,
+					title: `#${run} ${statusLabel(result.status)} · ${formatNum(result.metric, state.metricUnit)} · ${replaceTabs(result.description)}`,
 				};
 			}),
 			token: "accent",
-			summary: [span(`${state.metricName} per run, ${state.bestDirection} is better`)],
+			summary: [
+				span(
+					t("tui.apps.autoresearch.perRunDirection", "{metric} per run, {direction} is better", {
+						metric: state.metricName,
+						direction: directionLabel(state.bestDirection),
+					}),
+				),
+			],
 			size: "md",
 			role: "omp.autoresearch.trend",
 		},
@@ -877,17 +1163,23 @@ function describeRuns(
 	);
 	const cols: TspTableColumn[] = [
 		{ id: "run", head: "#", align: "end", priority: 3 },
-		{ id: "status", head: "Outcome", priority: 4 },
+		{ id: "status", head: t("tui.apps.autoresearch.columnOutcome", "Outcome"), priority: 4 },
 		{ id: "metric", head: head(state.metricName, state.metricUnit), align: "end", priority: 5 },
-		{ id: "change", head: "vs baseline", align: "end", priority: 4 },
+		{ id: "change", head: t("tui.apps.autoresearch.columnVsBaseline", "vs baseline"), align: "end", priority: 4 },
 		...state.secondaryMetrics.map((metric, index): TspTableColumn => ({
 			id: `secondary${index}`,
 			head: head(metric.name, metric.unit),
 			align: "end",
 			priority: 1,
 		})),
-		{ id: "commit", head: "Commit", priority: 2 },
-		{ id: "description", head: "Change", truncate: "end", grow: 1, priority: 3 },
+		{ id: "commit", head: t("tui.apps.autoresearch.columnCommitTitle", "Commit"), priority: 2 },
+		{
+			id: "description",
+			head: t("tui.apps.autoresearch.columnChange", "Change"),
+			truncate: "end",
+			grow: 1,
+			priority: 3,
+		},
 	];
 	const rows = indexed
 		.slice()
@@ -901,13 +1193,13 @@ function describeRuns(
 			const cells: Record<string, TspText> = {
 				run: [span(String(result.runNumber ?? index + 1), "mono")],
 				status: isBest
-					? [span("● ", "success"), span("best", "strong")]
-					: [span("● ", STATUS_TOKEN[result.status]), span(STATUS_LABEL[result.status])],
+					? [span("● ", "success"), span(t("tui.apps.autoresearch.bestCell", "best"), "strong")]
+					: [span("● ", STATUS_TOKEN[result.status]), span(statusLabel(result.status))],
 				metric: crashed
 					? [span("—", "muted")]
 					: [span(fmtNum(result.metric, metricDigits), isBest ? "mono strong" : "mono")],
 				change: isBaseline
-					? [span("baseline", "muted")]
+					? [span(t("tui.apps.autoresearch.baselineCell", "baseline"), "muted")]
 					: change
 						? [span(change, `mono ${result.status === "keep" ? (better ? "success" : "error") : "muted"}`)]
 						: [span("—", "muted")],
@@ -939,7 +1231,10 @@ function confidenceToken(confidence: number): string {
 // -- ANSI --------------------------------------------------------------------
 
 function renderRunningOnly(runtime: AutoresearchDashboardRuntime, state: ExperimentState, theme: Theme): string {
-	const parts = [theme.fg("accent", "autoresearch"), theme.fg("warning", " running...")];
+	const parts = [
+		theme.fg("accent", "autoresearch"),
+		theme.fg("warning", t("tui.apps.autoresearch.runningEllipsis", " running...")),
+	];
 	if (state.name) {
 		parts.push(theme.fg("dim", ` | ${replaceTabs(state.name)}`));
 	}
@@ -964,7 +1259,7 @@ function renderExpandedHeader(runtime: AutoresearchDashboardRuntime, width: numb
 	const label = state.name ? ` autoresearch: ${replaceTabs(state.name)} ` : " autoresearch ";
 	const hint = theme.fg(
 		"dim",
-		` ${formatKeyHint("ctrl+x")} collapse  ${formatKeyHint("ctrl+shift+x")} overlay${status ? `  ${status}` : ""} `,
+		` ${formatKeyHint("ctrl+x")} ${t("tui.apps.autoresearch.collapse", "collapse")}  ${formatKeyHint("ctrl+shift+x")} ${t("tui.apps.autoresearch.overlay", "overlay")}${status ? `  ${modeStatusText(status)}` : ""} `,
 	);
 	const fillWidth = Math.max(0, width - visibleWidth(label) - visibleWidth(hint));
 	return truncateToWidth(theme.fg("accent", label) + theme.fg("borderMuted", "-".repeat(fillWidth)) + hint, width);
@@ -974,8 +1269,18 @@ function renderCollapsedLine(runtime: AutoresearchDashboardRuntime, state: Exper
 	if (runtime.lastRunSummary) {
 		const parts = [
 			theme.fg("accent", "autoresearch"),
-			theme.fg("warning", ` pending run #${runtime.lastRunSummary.runNumber}`),
-			theme.fg("dim", runtime.lastRunSummary.passed ? " pass" : " fail"),
+			theme.fg(
+				"warning",
+				t("tui.apps.autoresearch.pendingRun", " pending run #{run}", {
+					run: runtime.lastRunSummary.runNumber,
+				}),
+			),
+			theme.fg(
+				"dim",
+				runtime.lastRunSummary.passed
+					? t("tui.apps.autoresearch.passSuffix", " pass")
+					: t("tui.apps.autoresearch.failSuffix", " fail"),
+			),
 		];
 		if (runtime.lastRunSummary.parsedPrimary !== null) {
 			parts.push(
@@ -985,20 +1290,20 @@ function renderCollapsedLine(runtime: AutoresearchDashboardRuntime, state: Exper
 				),
 			);
 		}
-		parts.push(theme.fg("warning", " | log_experiment required"));
+		parts.push(theme.fg("warning", t("tui.apps.autoresearch.logExperimentRequired", " | log_experiment required")));
 		if (!runtime.autoresearchMode) {
-			parts.push(theme.fg("dim", " | mode off"));
+			parts.push(theme.fg("dim", t("tui.apps.autoresearch.modeOffSuffix", " | mode off")));
 		}
 		return parts.join("");
 	}
 	if (state.results.length === 0) {
-		const modeStatus = runtime.autoresearchMode ? "baseline pending" : "mode off";
+		const modeStatus = modeStatusText(renderModeStatus(runtime, state));
 		const parts = [theme.fg("accent", "autoresearch"), theme.fg("warning", ` ${modeStatus}`)];
 		if (state.name) {
 			parts.push(theme.fg("dim", ` | ${replaceTabs(state.name)}`));
 		}
 		if (runtime.autoresearchMode) {
-			parts.push(theme.fg("dim", " | run the baseline"));
+			parts.push(theme.fg("dim", t("tui.apps.autoresearch.runBaselineSuffix", " | run the baseline")));
 		}
 		return parts.join("");
 	}
@@ -1010,32 +1315,77 @@ function renderCollapsedLine(runtime: AutoresearchDashboardRuntime, state: Exper
 	const archivedRuns = Math.max(0, state.results.length - current.length);
 	const parts = [
 		theme.fg("accent", "autoresearch"),
-		theme.fg("muted", ` ${current.length} runs`),
-		theme.fg("success", ` ${kept} kept`),
+		theme.fg("muted", t("tui.apps.autoresearch.runsSuffix", " {count} runs", { count: current.length })),
+		theme.fg("success", t("tui.apps.autoresearch.keptSuffix", " {count} kept", { count: kept })),
 	];
-	if (archivedRuns > 0) parts.push(theme.fg("dim", ` +${archivedRuns} archived`));
-	if (crashed > 0) parts.push(theme.fg("error", ` ${crashed} crash`));
-	if (checksFailed > 0) parts.push(theme.fg("error", ` ${checksFailed} checks_failed`));
+	if (archivedRuns > 0)
+		parts.push(
+			theme.fg("dim", t("tui.apps.autoresearch.archivedSuffix", " +{count} archived", { count: archivedRuns })),
+		);
+	if (crashed > 0)
+		parts.push(theme.fg("error", t("tui.apps.autoresearch.crashSuffix", " {count} crash", { count: crashed })));
+	if (checksFailed > 0)
+		parts.push(
+			theme.fg(
+				"error",
+				t("tui.apps.autoresearch.checksFailedSuffix", " {count} checks_failed", { count: checksFailed }),
+			),
+		);
 	parts.push(theme.fg("dim", " | "));
 	if (best && state.bestMetric !== null && best.result.metric !== state.bestMetric) {
-		parts.push(theme.fg("warning", `best ${formatNum(best.result.metric, state.metricUnit)}`));
-		parts.push(theme.fg("dim", ` baseline ${formatNum(state.bestMetric, state.metricUnit)}`));
+		parts.push(
+			theme.fg(
+				"warning",
+				t("tui.apps.autoresearch.bestValue", "best {value}", {
+					value: formatNum(best.result.metric, state.metricUnit),
+				}),
+			),
+		);
+		parts.push(
+			theme.fg(
+				"dim",
+				t("tui.apps.autoresearch.baselineValue", " baseline {value}", {
+					value: formatNum(state.bestMetric, state.metricUnit),
+				}),
+			),
+		);
 	} else if (state.bestMetric !== null) {
-		parts.push(theme.fg("warning", `baseline ${formatNum(state.bestMetric, state.metricUnit)}`));
+		parts.push(
+			theme.fg(
+				"warning",
+				t("tui.apps.autoresearch.baselineValuePlain", "baseline {value}", {
+					value: formatNum(state.bestMetric, state.metricUnit),
+				}),
+			),
+		);
 	} else {
-		parts.push(theme.fg("warning", `no kept runs yet`));
+		parts.push(theme.fg("warning", t("tui.apps.autoresearch.noKeptRuns", "no kept runs yet")));
 	}
 	if (state.confidence !== null) {
 		const confidenceColor = state.confidence >= 2 ? "success" : state.confidence >= 1 ? "warning" : "error";
 		parts.push(theme.fg("dim", " | "));
-		parts.push(theme.fg(confidenceColor, `conf ${state.confidence.toFixed(1)}x`));
+		parts.push(
+			theme.fg(
+				confidenceColor,
+				t("tui.apps.autoresearch.confidence", "conf {value}x", {
+					value: state.confidence.toFixed(1),
+				}),
+			),
+		);
 	}
 	if (runtime.runningExperiment) {
-		parts.push(theme.fg("dim", ` | running ${formatElapsed(Date.now() - runtime.runningExperiment.startedAt)}`));
+		parts.push(
+			theme.fg(
+				"dim",
+				t("tui.apps.autoresearch.runningWithTime", " | running {time}", {
+					time: formatElapsed(Date.now() - runtime.runningExperiment.startedAt),
+				}),
+			),
+		);
 	} else if (!runtime.autoresearchMode) {
-		parts.push(theme.fg("dim", ` | ${renderModeStatus(runtime, state)}`));
+		parts.push(theme.fg("dim", ` | ${modeStatusText(renderModeStatus(runtime, state))}`));
 	}
-	parts.push(theme.fg("dim", ` | ${formatKeyHint("ctrl+x")} expand`));
+	parts.push(theme.fg("dim", ` | ${formatKeyHint("ctrl+x")} ${t("tui.apps.autoresearch.expand", "expand")}`));
 	return parts.join("");
 }
 
@@ -1050,26 +1400,44 @@ export function renderDashboardLines(
 	if (state.results.length === 0) {
 		if (runtime.lastRunSummary) {
 			const lines = [
-				truncateToWidth(`Pending run: #${runtime.lastRunSummary.runNumber}`, width),
 				truncateToWidth(
-					`Result: ${runtime.lastRunSummary.passed ? "passed" : "failed"}${runtime.lastRunSummary.parsedPrimary !== null ? `  ${state.metricName} ${formatNum(runtime.lastRunSummary.parsedPrimary, state.metricUnit)}` : ""}`,
+					t("tui.apps.autoresearch.pendingRunLine", "Pending run: #{run}", {
+						run: runtime.lastRunSummary.runNumber,
+					}),
 					width,
 				),
-				truncateToWidth("Next action: finish log_experiment before starting another run.", width),
+				truncateToWidth(
+					`${t("tui.apps.autoresearch.resultLine", "Result: {result}", {
+						result: runtime.lastRunSummary.passed
+							? t("tui.apps.autoresearch.passed", "passed")
+							: t("tui.apps.autoresearch.failed", "failed"),
+					})}${runtime.lastRunSummary.parsedPrimary !== null ? `  ${state.metricName} ${formatNum(runtime.lastRunSummary.parsedPrimary, state.metricUnit)}` : ""}`,
+					width,
+				),
+				truncateToWidth(
+					t(
+						"tui.apps.autoresearch.nextActionAnsi",
+						"Next action: finish log_experiment before starting another run.",
+					),
+					width,
+				),
 			];
 			if (!runtime.autoresearchMode) {
-				lines.push(truncateToWidth("Mode: off", width));
+				lines.push(truncateToWidth(t("tui.apps.autoresearch.modeOffLine", "Mode: off"), width));
 			}
 			return lines;
 		}
 		if (runtime.autoresearchMode) {
 			return [
-				truncateToWidth("Current segment: 0 runs", width),
-				truncateToWidth("Baseline: pending", width),
-				truncateToWidth("Next action: run and log the baseline experiment.", width),
+				truncateToWidth(t("tui.apps.autoresearch.currentSegmentZero", "Current segment: 0 runs"), width),
+				truncateToWidth(t("tui.apps.autoresearch.baselinePendingLine", "Baseline: pending"), width),
+				truncateToWidth(
+					t("tui.apps.autoresearch.nextActionBaselineAnsi", "Next action: run and log the baseline experiment."),
+					width,
+				),
 			];
 		}
-		return [theme.fg("dim", "No experiments logged yet.")];
+		return [theme.fg("dim", t("tui.apps.autoresearch.noExperimentsPeriod", "No experiments logged yet."))];
 	}
 
 	const current = currentResults(state.results, state.currentSegment);
@@ -1084,40 +1452,77 @@ export function renderDashboardLines(
 	const columns = experimentColumns(state, width);
 	const lines = [
 		truncateToWidth(
-			`Current segment: ${current.length} runs  ${kept} kept  ${discarded} discarded  ${crashed} crashed  ${checksFailed} checks_failed`,
+			t(
+				"tui.apps.autoresearch.currentSegmentSummary",
+				"Current segment: {runs} runs  {kept} kept  {discarded} discarded  {crashed} crashed  {checksFailed} checks_failed",
+				{
+					runs: current.length,
+					kept,
+					discarded,
+					crashed,
+					checksFailed,
+				},
+			),
 			width,
 		),
 		truncateToWidth(
-			`Baseline: ${formatNum(baseline, state.metricUnit)}${baselineRunNumber ? ` (#${baselineRunNumber})` : ""}`,
+			t("tui.apps.autoresearch.baselineLine", "Baseline: {value}", {
+				value: `${formatNum(baseline, state.metricUnit)}${baselineRunNumber ? ` (#${baselineRunNumber})` : ""}`,
+			}),
 			width,
 		),
 	];
 	if (state.results.length > current.length) {
 		lines.push(
-			truncateToWidth(`Archived from earlier segments: ${state.results.length - current.length} runs`, width),
+			truncateToWidth(
+				t("tui.apps.autoresearch.archivedFromEarlier", "Archived from earlier segments: {count} runs", {
+					count: state.results.length - current.length,
+				}),
+				width,
+			),
 		);
 	}
 	if (runtime.lastRunSummary) {
 		lines.push(
 			truncateToWidth(
-				`Pending run: #${runtime.lastRunSummary.runNumber} (${runtime.lastRunSummary.passed ? "passed" : "failed"}) — log_experiment required`,
+				t(
+					"tui.apps.autoresearch.pendingRunLineDetail",
+					"Pending run: #{run} ({result}) — log_experiment required",
+					{
+						run: runtime.lastRunSummary.runNumber,
+						result: runtime.lastRunSummary.passed
+							? t("tui.apps.autoresearch.passed", "passed")
+							: t("tui.apps.autoresearch.failed", "failed"),
+					},
+				),
 				width,
 			),
 		);
 	}
 	if (!runtime.autoresearchMode) {
-		lines.push(truncateToWidth(`Mode: ${renderModeStatus(runtime, state)}`, width));
+		lines.push(
+			truncateToWidth(
+				t("tui.apps.autoresearch.modeLine", "Mode: {status}", {
+					status: modeStatusText(renderModeStatus(runtime, state)),
+				}),
+				width,
+			),
+		);
 	}
 	if (best) {
 		const bestRunNumber = best.result.runNumber ?? best.index + 1;
-		let progress = `Best: ${formatNum(best.result.metric, state.metricUnit)} (#${bestRunNumber})`;
+		let progress = t("tui.apps.autoresearch.bestLine", "Best: {value}", {
+			value: `${formatNum(best.result.metric, state.metricUnit)} (#${bestRunNumber})`,
+		});
 		if (baseline !== null && baseline !== 0 && best.result.metric !== baseline) {
 			const delta = ((best.result.metric - baseline) / baseline) * 100;
 			const sign = delta > 0 ? "+" : "";
 			progress += ` ${sign}${delta.toFixed(1)}%`;
 		}
 		if (state.confidence !== null) {
-			progress += `  conf ${state.confidence.toFixed(1)}x`;
+			progress += t("tui.apps.autoresearch.confidenceDoubleSpace", "  conf {value}x", {
+				value: state.confidence.toFixed(1),
+			});
 		}
 		lines.push(truncateToWidth(progress, width));
 		if (state.secondaryMetrics.length > 0) {
@@ -1132,7 +1537,14 @@ export function renderDashboardLines(
 				)
 				.filter((value): value is string => Boolean(value));
 			if (details.length > 0) {
-				lines.push(truncateToWidth(`Secondary: ${details.join("  ")}`, width));
+				lines.push(
+					truncateToWidth(
+						t("tui.apps.autoresearch.secondaryLine", "Secondary: {details}", {
+							details: details.join("  "),
+						}),
+						width,
+					),
+				);
 			}
 		}
 	}
@@ -1142,7 +1554,14 @@ export function renderDashboardLines(
 
 	const visible = maxRows > 0 ? current.slice(-maxRows) : current;
 	if (visible.length < current.length) {
-		lines.push(theme.fg("dim", `... ${current.length - visible.length} earlier runs hidden ...`));
+		lines.push(
+			theme.fg(
+				"dim",
+				t("tui.apps.autoresearch.earlierRunsHiddenDots", "... {count} earlier runs hidden ...", {
+					count: current.length - visible.length,
+				}),
+			),
+		);
 	}
 	for (const result of visible) {
 		lines.push(renderResultRow(result, state, baselineSecondary, columns, width, theme));
@@ -1171,11 +1590,11 @@ function renderTableHeader(
 	const muted = (text: string): string => theme.fg("muted", text);
 	const cells: TableCell[] = [
 		{ text: "#", style: muted },
-		{ text: "commit", style: muted },
+		{ text: t("tui.apps.autoresearch.columnCommit", "commit"), style: muted },
 		{ text: state.metricName, style: text => theme.fg("warning", text) },
 		...state.secondaryMetrics.map((metric): TableCell => ({ text: truncateToWidth(metric.name, 10), style: muted })),
-		{ text: "status", style: muted },
-		{ text: "description", style: muted },
+		{ text: t("tui.apps.autoresearch.columnStatus", "status"), style: muted },
+		{ text: t("tui.apps.autoresearch.columnDescription", "description"), style: muted },
 	];
 	return truncateToWidth(renderTableRow(cells, columns, width, { gap: "" }), width);
 }
@@ -1256,6 +1675,41 @@ function renderOverlayFooter(width: number, theme: Theme): string {
 	);
 	const fill = Math.max(0, width - visibleWidth(hint));
 	return theme.fg("borderMuted", "-".repeat(fill)) + hint;
+}
+
+/** Operator-facing word for the metric's optimization direction. */
+function directionLabel(direction: string): string {
+	return direction === "lower"
+		? t("tui.apps.autoresearch.directionLower", "lower")
+		: t("tui.apps.autoresearch.directionHigher", "higher");
+}
+
+/** Capitalized operator-facing label for a mode status. */
+function modeStatusLabel(status: string): string {
+	switch (status) {
+		case "mode on":
+			return t("tui.apps.autoresearch.modeOn", "Mode on");
+		case "baseline pending":
+			return t("tui.apps.autoresearch.baselinePending", "Baseline pending");
+		case "segment complete":
+			return t("tui.apps.autoresearch.segmentComplete", "Segment complete");
+		default:
+			return t("tui.apps.autoresearch.modeOff", "Mode off");
+	}
+}
+
+/** Lowercase mode status as it reads inside a status line. */
+function modeStatusText(status: string): string {
+	switch (status) {
+		case "mode on":
+			return t("tui.apps.autoresearch.modeOnLower", "mode on");
+		case "baseline pending":
+			return t("tui.apps.autoresearch.baselinePendingLower", "baseline pending");
+		case "segment complete":
+			return t("tui.apps.autoresearch.segmentCompleteLower", "segment complete");
+		default:
+			return t("tui.apps.autoresearch.modeOffLower", "mode off");
+	}
 }
 
 function renderModeStatus(runtime: AutoresearchDashboardRuntime, state: ExperimentState): string {

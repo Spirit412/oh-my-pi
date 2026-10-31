@@ -1,4 +1,5 @@
 import type { TspScrollBy } from "@oh-my-pi/pi-wire";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import { formatKeyHint } from "../../app-keybindings";
 import type { Component } from "../../tui";
 import { matchesKey } from "../../keys";
@@ -126,7 +127,7 @@ export class RawSseViewerComponent implements Component {
 			this.#onUpdate?.();
 		});
 		this.#frame = new DebugViewerFrame({
-			title: "Raw Provider Stream",
+			title: t("tui.apps.rawSse.frameTitle", "Raw Provider Stream"),
 			getHeight: () => process.stdout.rows || this.#terminalRows || 24,
 			headerRows: 1,
 			footerRows: 1,
@@ -278,9 +279,17 @@ export class RawSseViewerComponent implements Component {
 				: keyed(
 						col(
 							[
-								text("No raw SSE frames captured yet", { role: "omp.app.empty-title" }),
+								text(t("tui.apps.rawSse.emptyTitle", "No raw SSE frames captured yet"), {
+									role: "omp.app.empty-title",
+								}),
 								text([
-									span("HTTP SSE providers populate this view while a model response is streaming.", "muted"),
+									span(
+										t(
+											"tui.apps.rawSse.emptyDetail",
+											"HTTP SSE providers populate this view while a model response is streaming.",
+										),
+										"muted",
+									),
 								]),
 							],
 							{ gap: "xs", align: "center", role: "omp.app.empty" },
@@ -305,9 +314,12 @@ export class RawSseViewerComponent implements Component {
 							"status",
 						),
 					actionBar([
-						actionButton("Copy raw", "copy-raw", { keys: "ctrl+c", tone: "accent" }),
+						actionButton(t("tui.apps.rawSse.copyRaw", "Copy raw"), "copy-raw", {
+							keys: "ctrl+c",
+							tone: "accent",
+						}),
 						null,
-						actionButton("Close", "close", { keys: "escape" }),
+						actionButton(t("tui.apps.rawSse.close", "Close"), "close", { keys: "escape" }),
 					]),
 				]),
 				{ role: "omp.debug.bar", gap: "sm" },
@@ -317,25 +329,39 @@ export class RawSseViewerComponent implements Component {
 
 	#describeHead(snapshot: RawSseDebugSnapshot): NativeNode {
 		const stats = [
-			span(`${snapshot.totalEvents} events`, "num"),
+			span(t("tui.apps.rawSse.eventsCount", "{count} events", { count: snapshot.totalEvents }), "num"),
 			span(" · ", "dim"),
-			span(`${snapshot.records.length} records`, "num"),
+			span(t("tui.apps.rawSse.recordsCount", "{count} records", { count: snapshot.records.length }), "num"),
 		];
 		if (snapshot.droppedRecords > 0) {
-			stats.push(span(" · ", "dim"), span(`${snapshot.droppedRecords} dropped`, "warning"));
+			stats.push(
+				span(" · ", "dim"),
+				span(t("tui.apps.rawSse.droppedCount", "{count} dropped", { count: snapshot.droppedRecords }), "warning"),
+			);
 		}
 		stats.push(
 			span(" · ", "dim"),
 			snapshot.lastUpdatedAt
-				? span(`last ${formatRawSseIsoTime(snapshot.lastUpdatedAt)}`, "muted")
-				: span("waiting for first frame", "muted"),
+				? span(
+						t("tui.apps.rawSse.lastUpdated", "last {time}", {
+							time: formatRawSseIsoTime(snapshot.lastUpdatedAt),
+						}),
+						"muted",
+					)
+				: span(t("tui.apps.rawSse.waitingForFrame", "waiting for first frame"), "muted"),
 		);
 		return keyed(
-			row([text("Raw provider stream", { role: "omp.app.title" }), text(stats, { truncate: "end" })], {
-				gap: "sm",
-				align: "center",
-				role: "omp.app.head",
-			}),
+			row(
+				[
+					text(t("tui.apps.rawSse.title", "Raw provider stream"), { role: "omp.app.title" }),
+					text(stats, { truncate: "end" }),
+				],
+				{
+					gap: "sm",
+					align: "center",
+					role: "omp.app.head",
+				},
+			),
 			"head",
 		);
 	}
@@ -411,8 +437,14 @@ export class RawSseViewerComponent implements Component {
 	#formatRawLines(snapshot: RawSseDebugSnapshot, innerWidth: number): string[] {
 		if (snapshot.records.length === 0) {
 			return [
-				theme.fg("muted", "No raw SSE frames captured yet."),
-				theme.fg("muted", "HTTP SSE providers populate this view while a model response is streaming."),
+				theme.fg("muted", t("tui.apps.rawSse.emptyTitlePeriod", "No raw SSE frames captured yet.")),
+				theme.fg(
+					"muted",
+					t(
+						"tui.apps.rawSse.emptyDetail",
+						"HTTP SSE providers populate this view while a model response is streaming.",
+					),
+				),
 			];
 		}
 		const lines: string[] = [];
@@ -457,16 +489,16 @@ export class RawSseViewerComponent implements Component {
 	#summaryText(): string {
 		const snapshot = this.#currentSnapshot();
 		const last = snapshot.lastUpdatedAt
-			? `${theme.fg("muted", "last")} ${theme.fg("accent", formatRawSseIsoTime(snapshot.lastUpdatedAt))}`
-			: theme.fg("muted", "waiting for first frame");
+			? `${theme.fg("muted", t("tui.apps.rawSse.last", "last"))} ${theme.fg("accent", formatRawSseIsoTime(snapshot.lastUpdatedAt))}`
+			: theme.fg("muted", t("tui.apps.rawSse.waitingForFrame", "waiting for first frame"));
 		const follow = this.#frame.isFollowingTail()
-			? theme.fg("success", "follow on")
-			: theme.fg("warning", "follow off");
-		return `${theme.fg("muted", "events")} ${theme.fg("accent", String(snapshot.totalEvents))}  ${theme.fg("muted", "records")} ${theme.fg("accent", String(snapshot.records.length))}  ${last}  ${follow}`;
+			? theme.fg("success", t("tui.apps.rawSse.followOn", "follow on"))
+			: theme.fg("warning", t("tui.apps.rawSse.followOff", "follow off"));
+		return `${theme.fg("muted", t("tui.apps.rawSse.events", "events"))} ${theme.fg("accent", String(snapshot.totalEvents))}  ${theme.fg("muted", t("tui.apps.rawSse.records", "records"))} ${theme.fg("accent", String(snapshot.records.length))}  ${last}  ${follow}`;
 	}
 
 	#statusText(): string {
-		const help = `${formatKeyHint("escape")} close · ${formatKeyHint("ctrl+c")} copy raw · ${formatKeyHint("end")} follow tail · wheel scroll · click summary toggles follow`;
+		const help = `${formatKeyHint("escape")} ${t("tui.apps.rawSse.hintClose", "close")} · ${formatKeyHint("ctrl+c")} ${t("tui.apps.rawSse.hintCopyRaw", "copy raw")} · ${formatKeyHint("end")} ${t("tui.apps.rawSse.hintFollowTail", "follow tail")} · ${t("tui.apps.rawSse.hintWheelScroll", "wheel scroll")} · ${t("tui.apps.rawSse.hintClickToggle", "click summary toggles follow")}`;
 		return this.#statusMessage
 			? `${theme.fg("success", this.#statusMessage)}  ${theme.fg("dim", help)}`
 			: theme.fg("dim", help);
@@ -475,7 +507,7 @@ export class RawSseViewerComponent implements Component {
 	#copyAll(): void {
 		const payload = this.#buffer.toRawText();
 		if (payload.trim().length === 0) {
-			const message = "No raw SSE frames to copy";
+			const message = t("tui.apps.rawSse.nothingToCopy", "No raw SSE frames to copy");
 			this.#statusMessage = message;
 			this.#statusFailed = true;
 			this.#onStatus?.(message);
@@ -485,13 +517,13 @@ export class RawSseViewerComponent implements Component {
 
 		try {
 			this.#deps.copyToClipboard(payload);
-			const message = "Copied raw SSE stream";
+			const message = t("tui.apps.rawSse.copied", "Copied raw SSE stream");
 			this.#statusMessage = message;
 			this.#statusFailed = false;
 			this.#onStatus?.(message);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
-			this.#statusMessage = `Copy failed: ${message}`;
+			this.#statusMessage = t("tui.apps.rawSse.copyFailed", "Copy failed: {message}", { message });
 			this.#statusFailed = true;
 		}
 		this.#onUpdate?.();

@@ -1,3 +1,4 @@
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import { formatKeyHint } from "../app-keybindings";
 import type { Component } from "../tui";
 import { OverlayPanel, PanelRows } from "../chrome/overlay-box";
@@ -38,6 +39,24 @@ const PHASE_TONES: Record<LivePhase, TspTone> = {
 	muted: "muted",
 	error: "error",
 };
+
+/** Operator-facing name of the current call phase. */
+function phaseLabel(phase: LivePhase): string {
+	switch (phase) {
+		case "connecting":
+			return t("tui.apps.liveVisualizer.connecting", "connecting");
+		case "listening":
+			return t("tui.apps.liveVisualizer.listening", "listening");
+		case "working":
+			return t("tui.apps.liveVisualizer.working", "working");
+		case "speaking":
+			return t("tui.apps.liveVisualizer.speaking", "speaking");
+		case "muted":
+			return t("tui.apps.liveVisualizer.muted", "muted");
+		case "error":
+			return t("tui.apps.liveVisualizer.error", "error");
+	}
+}
 const SPECTRUM_BLOCKS = [" ", "▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"] as const;
 /** Native mic meter resolution: the level snaps to 1/20 steps so decay ticks don't rebuild every frame. */
 const METER_STEPS = 20;
@@ -172,15 +191,15 @@ export class LiveVisualizer implements Component {
 			const phase = this.#phase;
 			const status =
 				phase === "working"
-					? node("spinner", { label: [span(phase, PHASE_COLORS[phase])], tone: PHASE_TONES[phase] })
-					: text([span(`${PHASE_ICONS[phase]} ${phase}`, PHASE_COLORS[phase])]);
+					? node("spinner", { label: [span(phaseLabel(phase), PHASE_COLORS[phase])], tone: PHASE_TONES[phase] })
+					: text([span(`${PHASE_ICONS[phase]} ${phaseLabel(phase)}`, PHASE_COLORS[phase])]);
 			const tone = phase === "muted" ? "muted" : phase === "error" ? "error" : "success";
 			return card({ role: "omp.app.live", tone: PHASE_TONES[phase] }, [
 				node("row", { gap: "sm", align: "center" }, [status], "head"),
 				meter
 					? row(
 							[
-								text([span("mic", "muted")]),
+								text([span(t("tui.apps.liveVisualizer.mic", "mic"), "muted")]),
 								node("meter", { value: level, style: "bar", size: "md", tone, grow: 1 }),
 							],
 							{
@@ -189,12 +208,22 @@ export class LiveVisualizer implements Component {
 								role: "omp.app.live.level",
 							},
 						)
-					: node("progress", { value: level, tone, label: [span("mic", "muted")] }),
+					: node("progress", {
+							value: level,
+							tone,
+							label: [span(t("tui.apps.liveVisualizer.mic", "mic"), "muted")],
+						}),
 				text([span(this.#userTranscript, "accent")], { wrap: "none", truncate: "start" }),
 				actionBar([
 					null,
-					actionButton(phase === "muted" ? "Unmute" : "Mute", "mute", { keys: "space" }),
-					actionButton("End call", "end", { keys: "escape", tone: "error" }),
+					actionButton(
+						phase === "muted"
+							? t("tui.apps.liveVisualizer.unmute", "Unmute")
+							: t("tui.apps.liveVisualizer.mute", "Mute"),
+						"mute",
+						{ keys: "space" },
+					),
+					actionButton(t("tui.apps.liveVisualizer.endCall", "End call"), "end", { keys: "escape", tone: "error" }),
 				]),
 			]);
 		});
@@ -262,8 +291,8 @@ export class LiveVisualizer implements Component {
 	#renderFooter(width: number, innerWidth: number): string {
 		const frames = theme.spinnerFrames;
 		const icon = this.#phase === "working" ? frames[this.#frame % frames.length] : PHASE_ICONS[this.#phase];
-		const status = `${icon} ${this.#phase}`;
-		const fullLabel = ` ${status} · ${formatKeyHint("space")} mute · ${formatKeyHint("escape")} end `;
+		const status = `${icon} ${phaseLabel(this.#phase)}`;
+		const fullLabel = ` ${status} · ${formatKeyHint("space")} ${t("tui.apps.liveVisualizer.hintMute", "mute")} · ${formatKeyHint("escape")} ${t("tui.apps.liveVisualizer.hintEnd", "end")} `;
 		const shortLabel = ` ${status} `;
 		const label =
 			innerWidth >= visibleWidth(fullLabel) + 1

@@ -6,6 +6,7 @@
  * `x` kill, `r` restart, `a` toggle all scopes, `q`/`esc`/`ctrl+c` quit.
  * Sub-views (info, logs): `esc`/`q` back.
  */
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import * as path from "node:path";
 import { formatKeyHint, formatKeyHints } from "../app-keybindings";
 import { KeyValueList, type KeyValueRow } from "../components/key-value-list";
@@ -33,7 +34,6 @@ import {
 	type PsTarget,
 	scopeHeader,
 	flagsCell,
-	TABLE_HEADER,
 	TERMINAL_STATES,
 	tableCells,
 } from "./ps-data";
@@ -57,6 +57,30 @@ const STATUS_PAINT: Record<PsStatusTone, (text: string) => string> = {
 	error: chalk.red,
 	muted: chalk.dim,
 };
+
+/** Operator-facing name of a process action. */
+function actionVerb(verb: "stop" | "kill" | "restart"): string {
+	switch (verb) {
+		case "stop":
+			return t("tui.apps.psTop.verbStop", "stop");
+		case "kill":
+			return t("tui.apps.psTop.verbKill", "kill");
+		case "restart":
+			return t("tui.apps.psTop.verbRestart", "restart");
+	}
+}
+
+/** Past-tense confirmation of a completed process action. */
+function actionDone(verb: "stop" | "kill" | "restart"): string {
+	switch (verb) {
+		case "stop":
+			return t("tui.apps.psTop.stopped", "Stopped");
+		case "kill":
+			return t("tui.apps.psTop.killed", "Killed");
+		case "restart":
+			return t("tui.apps.psTop.restarted", "Restarted");
+	}
+}
 
 /** Options accepted by the interactive monitor: scope selection from the list flags. */
 export interface PsTopOptions extends PsTarget {
@@ -176,16 +200,20 @@ export class PsTopComponent implements Component {
 		const entry = this.#flat[this.#selected];
 		if (!entry) return;
 		const name = entry.row.snapshot.name;
-		this.#setStatus("warning", `${verb} ${name}…`);
+		this.#setStatus("warning", `${actionVerb(verb)} ${name}…`);
 		try {
 			const daemon = await this.#host.act(entry.scope, name, verb);
-			this.#setStatus(
-				"success",
-				`${verb === "restart" ? "Restarted" : verb === "kill" ? "Killed" : "Stopped"} ${daemonLabel(daemon)}`,
-			);
+			this.#setStatus("success", `${actionDone(verb)} ${daemonLabel(daemon)}`);
 			void this.#refresh();
 		} catch (error) {
-			this.#setStatus("error", `${verb} ${name} failed: ${error instanceof Error ? error.message : String(error)}`);
+			this.#setStatus(
+				"error",
+				t("tui.apps.psTop.actionFailed", "{verb} {name} failed: {error}", {
+					verb: actionVerb(verb),
+					name,
+					error: error instanceof Error ? error.message : String(error),
+				}),
+			);
 		}
 	}
 
@@ -270,7 +298,12 @@ export class PsTopComponent implements Component {
 
 	#toggleAll(): void {
 		this.#all = !this.#all;
-		this.#setStatus("muted", this.#all ? "Showing all scopes" : "Showing current scope");
+		this.#setStatus(
+			"muted",
+			this.#all
+				? t("tui.apps.psTop.showingAllScopes", "Showing all scopes")
+				: t("tui.apps.psTop.showingCurrentScope", "Showing current scope"),
+		);
 		void this.#refresh();
 	}
 
@@ -398,12 +431,27 @@ export class PsTopComponent implements Component {
 			const running = this.#flat.filter(flat => !TERMINAL_STATES[flat.row.snapshot.state]).length;
 			const stopped = this.#flat.length - running;
 			left.push(
-				text("Processes", { role: "omp.app.title" }),
+				text(t("tui.apps.psTop.processesTitle", "Processes"), { role: "omp.app.title" }),
 				text(
 					[
-						span(`${running} running`, running > 0 ? "success" : "muted"),
-						...(stopped > 0 ? [span(` · ${stopped} stopped`, "muted")] : []),
-						span(` · ${this.#reports.length} scope${this.#reports.length === 1 ? "" : "s"}`, "muted"),
+						span(
+							t("tui.apps.psTop.runningCount", "{count} running", { count: running }),
+							running > 0 ? "success" : "muted",
+						),
+						...(stopped > 0
+							? [span(t("tui.apps.psTop.stoppedCount", " · {count} stopped", { count: stopped }), "muted")]
+							: []),
+						span(
+							t(
+								"tui.apps.psTop.scopeCount",
+								{
+									one: " · {count} scope",
+									other: " · {count} scopes",
+								},
+								{ count: this.#reports.length },
+							),
+							"muted",
+						),
 					],
 					{ truncate: "end" },
 				),
@@ -413,12 +461,14 @@ export class PsTopComponent implements Component {
 				node("icon", {
 					name: "back",
 					role: "omp.app.ibtn",
-					title: "Back  esc",
-					aria: "Back",
+					title: t("tui.apps.psTop.backTitle", "Back  esc"),
+					aria: t("tui.apps.psTop.back", "Back"),
 					actions: { click: "back" },
 				}),
 				text(
-					this.#view === "logs" ? `Logs · ${entry?.row.snapshot.name ?? "?"}` : (entry?.row.snapshot.name ?? "?"),
+					this.#view === "logs"
+						? t("tui.apps.psTop.logsTitle", "Logs · {name}", { name: entry?.row.snapshot.name ?? "?" })
+						: (entry?.row.snapshot.name ?? "?"),
 					{
 						role: "omp.app.title",
 						truncate: "end",
@@ -440,10 +490,10 @@ export class PsTopComponent implements Component {
 								id: "current",
 								label:
 									this.#target.dir !== undefined || this.#target.global !== undefined
-										? "Target"
-										: "This project",
+										? t("tui.apps.psTop.targetTab", "Target")
+										: t("tui.apps.psTop.thisProjectTab", "This project"),
 							},
-							{ id: "all", label: "All scopes" },
+							{ id: "all", label: t("tui.apps.psTop.allScopesTab", "All scopes") },
 						],
 						active: this.#all ? "all" : "current",
 						role: "omp.app.seg",
@@ -456,19 +506,29 @@ export class PsTopComponent implements Component {
 		right.push(
 			this.#lastRefresh
 				? row(
-						[text([span("updated", "dim")]), elapsed(Date.now() - this.#lastRefresh), text([span("ago", "dim")])],
+						[
+							text([span(t("tui.apps.psTop.updated", "updated"), "dim")]),
+							elapsed(Date.now() - this.#lastRefresh),
+							text([span(t("tui.apps.psTop.ago", "ago"), "dim")]),
+						],
 						{
 							gap: "xs",
 							align: "center",
 							role: "omp.app.fresh",
 						},
 					)
-				: row([node("spinner", { style: "dots" }), text([span("updating", "dim")])], {
+				: row([node("spinner", { style: "dots" }), text([span(t("tui.apps.psTop.updating", "updating"), "dim")])], {
 						gap: "xs",
 						align: "center",
 						role: "omp.app.fresh",
 					}),
-			node("icon", { name: "x", role: "omp.app.ibtn", title: "Quit  q", aria: "Quit", actions: { click: "quit" } }),
+			node("icon", {
+				name: "x",
+				role: "omp.app.ibtn",
+				title: t("tui.apps.psTop.quitTitle", "Quit  q"),
+				aria: t("tui.apps.psTop.quit", "Quit"),
+				actions: { click: "quit" },
+			}),
 		);
 		return keyed(
 			row(
@@ -497,13 +557,18 @@ export class PsTopComponent implements Component {
 					[
 						text(
 							[
-								span(`Kill ${entry.row.snapshot.name}${pid === undefined ? "" : ` (pid ${pid})`}?`, "strong"),
-								span("  It stops at once, without cleanup.", "muted"),
+								span(
+									t("tui.apps.psTop.killConfirm", "Kill {target}?", {
+										target: `${entry.row.snapshot.name}${pid === undefined ? "" : ` (pid ${pid})`}`,
+									}),
+									"strong",
+								),
+								span(t("tui.apps.psTop.killWarning", "  It stops at once, without cleanup."), "muted"),
 							],
 							{ truncate: "end", grow: 1 },
 						),
-						actionButton("Cancel", "kill-cancel"),
-						actionButton("Kill", "kill-confirm", { tone: "error" }),
+						actionButton(t("tui.apps.psTop.cancel", "Cancel"), "kill-cancel"),
+						actionButton(t("tui.apps.psTop.kill", "Kill"), "kill-confirm", { tone: "error" }),
 					],
 					{ gap: "sm", align: "center", role: "omp.app.confirm", tone: "error" },
 				),
@@ -512,19 +577,23 @@ export class PsTopComponent implements Component {
 		}
 		if (this.#view !== "table") {
 			return actionBar([
-				actionButton("Back", "back", { keys: "escape", tone: "accent" }),
-				...(this.#view === "info" ? [actionButton("Logs", "logs")] : []),
+				actionButton(t("tui.apps.psTop.back", "Back"), "back", { keys: "escape", tone: "accent" }),
+				...(this.#view === "info" ? [actionButton(t("tui.apps.psTop.logs", "Logs"), "logs")] : []),
 			]);
 		}
-		if (!entry) return actionBar([null, actionButton("Quit", "quit", { keys: "q" })]);
+		if (!entry) return actionBar([null, actionButton(t("tui.apps.psTop.quit", "Quit"), "quit", { keys: "q" })]);
 		return actionBar([
-			actionButton("Info", "info", { keys: "enter", tone: "accent" }),
-			actionButton("Logs", "logs", { keys: "l" }),
-			actionButton("Restart", "restart", { keys: "r" }),
-			actionButton("Stop", "stop", { keys: "s" }),
-			actionButton("Kill", "kill", { keys: "x", tone: "error", title: "Kill the process (asks first)" }),
+			actionButton(t("tui.apps.psTop.info", "Info"), "info", { keys: "enter", tone: "accent" }),
+			actionButton(t("tui.apps.psTop.logs", "Logs"), "logs", { keys: "l" }),
+			actionButton(t("tui.apps.psTop.restart", "Restart"), "restart", { keys: "r" }),
+			actionButton(t("tui.apps.psTop.stop", "Stop"), "stop", { keys: "s" }),
+			actionButton(t("tui.apps.psTop.kill", "Kill"), "kill", {
+				keys: "x",
+				tone: "error",
+				title: t("tui.apps.psTop.killTooltip", "Kill the process (asks first)"),
+			}),
 			null,
-			actionButton("Quit", "quit", { keys: "q" }),
+			actionButton(t("tui.apps.psTop.quit", "Quit"), "quit", { keys: "q" }),
 		]);
 	}
 
@@ -533,10 +602,15 @@ export class PsTopComponent implements Component {
 			return keyed(
 				col(
 					[
-						text("No broker scopes", { role: "omp.app.empty-title" }),
+						text(t("tui.apps.psTop.noBrokerScopes", "No broker scopes"), { role: "omp.app.empty-title" }),
 						text([
-							span("No omp process broker runs here. ", "muted"),
-							span(this.#all ? "Nothing runs anywhere." : "Show every scope with ", "muted"),
+							span(t("tui.apps.psTop.noBrokerRuns", "No omp process broker runs here. "), "muted"),
+							span(
+								this.#all
+									? t("tui.apps.psTop.nothingRuns", "Nothing runs anywhere.")
+									: t("tui.apps.psTop.showEveryScope", "Show every scope with "),
+								"muted",
+							),
 							...(this.#all ? [] : [span("a", "key"), span(".", "muted")]),
 						]),
 					],
@@ -558,7 +632,7 @@ export class PsTopComponent implements Component {
 								selected && selected.scope.runtimeDir === report.scope.runtimeDir
 									? stableKey(flatKey(selected))
 									: null,
-							empty: "No processes",
+							empty: t("tui.apps.psTop.noProcesses", "No processes"),
 							role: "omp.ps.processes",
 						},
 						report.daemons.map(daemon => describeProcess(report.scope, daemon)),
@@ -574,26 +648,37 @@ export class PsTopComponent implements Component {
 		const info = this.#info;
 		if (!info) {
 			return keyed(
-				row([node("spinner", { style: "dots" }), text([span("Loading…", "muted")])], { gap: "sm" }),
+				row([node("spinner", { style: "dots" }), text([span(t("tui.apps.psTop.loading", "Loading…"), "muted")])], {
+					gap: "sm",
+				}),
 				"info",
 			);
 		}
 		const { daemon, spec } = info;
 		const items: { k: string; v: TspText }[] = [
-			{ k: "Command", v: [span(collapseCommand(formatCommand(spec)), "mono")] },
-			{ k: "Directory", v: [span(spec.cwd, "path")] },
+			{ k: t("tui.apps.psTop.command", "Command"), v: [span(collapseCommand(formatCommand(spec)), "mono")] },
+			{ k: t("tui.apps.psTop.directory", "Directory"), v: [span(spec.cwd, "path")] },
 		];
 		if (daemon.pid !== undefined && !TERMINAL_STATES[daemon.state])
 			items.push({ k: "PID", v: [span(String(daemon.pid), "num")] });
-		if (daemon.exitReason) items.push({ k: "Exit", v: [span(daemon.exitReason, "error")] });
-		items.push({ k: "Restarts", v: `${daemon.restartCount} (policy ${spec.restart})` });
-		items.push({ k: "Owner", v: daemon.owner ?? "—" });
+		if (daemon.exitReason) items.push({ k: t("tui.apps.psTop.exit", "Exit"), v: [span(daemon.exitReason, "error")] });
+		items.push({
+			k: t("tui.apps.psTop.restarts", "Restarts"),
+			v: t("tui.apps.psTop.restartsValue", "{count} (policy {policy})", {
+				count: daemon.restartCount,
+				policy: spec.restart,
+			}),
+		});
+		items.push({ k: t("tui.apps.psTop.owner", "Owner"), v: daemon.owner ?? "—" });
 		const flags = [spec.pty && "pty", spec.persist && "persist", spec.detached && "detached"].filter(Boolean);
-		items.push({ k: "Flags", v: flags.length > 0 ? flags.join(" · ") : "—" });
+		items.push({
+			k: t("tui.apps.psTop.flags", "Flags"),
+			v: flags.length > 0 ? flags.join(" · ") : "—",
+		});
 		const body: NativeNode[] = [];
 		if (!TERMINAL_STATES[daemon.state]) {
 			body.push(
-				row([text([span("Up for", "muted")]), elapsed(Date.now() - daemon.startedAt)], {
+				row([text([span(t("tui.apps.psTop.upFor", "Up for"), "muted")]), elapsed(Date.now() - daemon.startedAt)], {
 					gap: "xs",
 					role: "omp.app.fresh",
 				}),
@@ -630,7 +715,11 @@ export class PsTopComponent implements Component {
 	}
 
 	#header(width: number, title: string): string {
-		const age = this.#lastRefresh ? `updated ${formatDuration(Date.now() - this.#lastRefresh)} ago` : "updating…";
+		const age = this.#lastRefresh
+			? t("tui.apps.psTop.updatedAgo", "updated {duration} ago", {
+					duration: formatDuration(Date.now() - this.#lastRefresh),
+				})
+			: t("tui.apps.psTop.updatingEllipsis", "updating…");
 		const left = ` ${chalk.bold("omp ps")} ${chalk.dim("·")} ${title}`;
 		const right = chalk.dim(age);
 		const pad = Math.max(1, width - Bun.stringWidth(left) - Bun.stringWidth(right) - 1);
@@ -644,20 +733,43 @@ export class PsTopComponent implements Component {
 
 	#renderTable(width: number, height: number): string[] {
 		const scopeKind = this.#all
-			? "(all)"
+			? t("tui.apps.psTop.scopeAll", "(all)")
 			: this.#target.dir !== undefined || this.#target.global !== undefined
-				? "(target)"
-				: "(current + global)";
-		const scopesLabel = `${this.#flat.length} process${this.#flat.length === 1 ? "" : "es"} in ${this.#reports.length} scope${this.#reports.length === 1 ? "" : "s"} ${chalk.dim(scopeKind)}`;
+				? t("tui.apps.psTop.scopeTarget", "(target)")
+				: t("tui.apps.psTop.scopeCurrentGlobal", "(current + global)");
+		const processes = t(
+			"tui.apps.psTop.processCount",
+			{ one: "{count} process", other: "{count} processes" },
+			{ count: this.#flat.length },
+		);
+		const scopes = t(
+			"tui.apps.psTop.scopeCountPlain",
+			{ one: "{count} scope", other: "{count} scopes" },
+			{ count: this.#reports.length },
+		);
+		const scopesLabel = t("tui.apps.psTop.processScopeSummary", "{processes} in {scopes} {kind}", {
+			processes,
+			scopes,
+			kind: chalk.dim(scopeKind),
+		});
 		const header = this.#header(width, scopesLabel);
 		const footer = this.#footer(
 			width,
-			`${formatKeyHints(["up", "down"])} select · ${formatKeyHint("enter")} info · ${formatKeyHint("l")} logs · ${formatKeyHint("s")} stop · ${formatKeyHint("x")} kill · ${formatKeyHint("r")} restart · ${formatKeyHint("a")} all scopes · ${formatKeyHint("q")} quit`,
+			`${formatKeyHints(["up", "down"])} ${t("tui.apps.psTop.hintSelect", "select")} · ${formatKeyHint("enter")} ${t("tui.apps.psTop.hintInfo", "info")} · ${formatKeyHint("l")} ${t("tui.apps.psTop.hintLogs", "logs")} · ${formatKeyHint("s")} ${t("tui.apps.psTop.hintStop", "stop")} · ${formatKeyHint("x")} ${t("tui.apps.psTop.hintKill", "kill")} · ${formatKeyHint("r")} ${t("tui.apps.psTop.hintRestart", "restart")} · ${formatKeyHint("a")} ${t("tui.apps.psTop.hintAllScopes", "all scopes")} · ${formatKeyHint("q")} ${t("tui.apps.psTop.hintQuit", "quit")}`,
 		);
 		const bodyHeight = height - 1 - footer.length;
 
 		const cells = this.#flat.map(entry => tableCells(entry.row));
-		const widths = TABLE_HEADER.map((title, column) =>
+		const headers = [
+			t("tui.apps.psTop.columnName", "NAME"),
+			t("tui.apps.psTop.columnState", "STATE"),
+			t("tui.apps.psTop.columnPid", "PID"),
+			t("tui.apps.psTop.columnUptime", "UPTIME"),
+			t("tui.apps.psTop.columnRestarts", "RESTARTS"),
+			t("tui.apps.psTop.columnFlags", "FLAGS"),
+			t("tui.apps.psTop.columnCommand", "COMMAND"),
+		];
+		const widths = headers.map((title, column) =>
 			Math.max(title.length, ...cells.map(row => Bun.stringWidth(row[column]))),
 		);
 		const columns: TableColumn[] = widths.map((columnWidth): TableColumn => ({
@@ -679,9 +791,9 @@ export class PsTopComponent implements Component {
 		for (const report of this.#reports) {
 			body.push({ text: ` ${scopeHeader(report.scope)}` });
 			if (report.daemons.length === 0) {
-				body.push({ text: chalk.dim("   no processes") });
+				body.push({ text: chalk.dim(`   ${t("tui.apps.psTop.noProcessesInline", "no processes")}`) });
 			} else {
-				body.push({ text: chalk.dim(renderRow([...TABLE_HEADER])) });
+				body.push({ text: chalk.dim(renderRow([...headers])) });
 				for (const row of report.daemons) {
 					const line = renderRow(tableCells(row));
 					body.push({
@@ -693,7 +805,8 @@ export class PsTopComponent implements Component {
 			}
 			body.push({ text: "" });
 		}
-		if (body.length === 0) body.push({ text: chalk.dim(" No daemon broker scopes found.") });
+		if (body.length === 0)
+			body.push({ text: chalk.dim(t("tui.apps.psTop.noScopesFound", " No daemon broker scopes found.")) });
 
 		// Keep the selected logical row visible through refreshes and resizes.
 		const selectedLine = body.findIndex(line => line.flat === this.#selected);
@@ -716,27 +829,48 @@ export class PsTopComponent implements Component {
 
 	#renderInfo(width: number, height: number): string[] {
 		const info = this.#info;
-		const header = this.#header(width, "process info");
-		const footer = this.#footer(width, `${formatKeyHint("escape")} back · ${formatKeyHint("q")} back`);
+		const header = this.#header(width, t("tui.apps.psTop.processInfoTitle", "process info"));
+		const footer = this.#footer(
+			width,
+			`${formatKeyHint("escape")} ${t("tui.apps.psTop.hintBack", "back")} · ${formatKeyHint("q")} ${t("tui.apps.psTop.hintBack", "back")}`,
+		);
 		const body = [""];
 		if (info) {
 			const daemon = info.daemon;
 			body.push(` ${chalk.bold(daemonLabel(daemon))}`);
 			body.push("");
 			const rows: KeyValueRow[] = [
-				{ label: "command:", value: collapseCommand(formatCommand(info.spec)) },
-				{ label: "cwd:", value: info.spec.cwd },
+				{
+					label: t("tui.apps.psTop.commandLabel", "command:"),
+					value: collapseCommand(formatCommand(info.spec)),
+				},
+				{ label: t("tui.apps.psTop.cwdLabel", "cwd:"), value: info.spec.cwd },
 			];
 			if (!TERMINAL_STATES[daemon.state])
-				rows.push({ label: "uptime:", value: formatDuration(Date.now() - daemon.startedAt) });
-			if (daemon.exitReason) rows.push({ label: "exit:", value: daemon.exitReason });
-			rows.push({ label: "restarts:", value: `${daemon.restartCount} (policy: ${info.spec.restart})` });
-			rows.push({ label: "owner:", value: daemon.owner ?? "-" });
+				rows.push({
+					label: t("tui.apps.psTop.uptimeLabel", "uptime:"),
+					value: formatDuration(Date.now() - daemon.startedAt),
+				});
+			if (daemon.exitReason) rows.push({ label: t("tui.apps.psTop.exitLabel", "exit:"), value: daemon.exitReason });
+			rows.push({
+				label: t("tui.apps.psTop.restartsLabel", "restarts:"),
+				value: t("tui.apps.psTop.restartsColonValue", "{count} (policy: {policy})", {
+					count: daemon.restartCount,
+					policy: info.spec.restart,
+				}),
+			});
+			rows.push({ label: t("tui.apps.psTop.ownerLabel", "owner:"), value: daemon.owner ?? "-" });
 			this.#infoList.setRows(rows);
 			body.push(...this.#infoList.render(width));
-			body.push(`   pty: ${info.spec.pty}  persist: ${info.spec.persist}  detached: ${info.spec.detached}`);
+			body.push(
+				t("tui.apps.psTop.flagsLine", "   pty: {pty}  persist: {persist}  detached: {detached}", {
+					pty: String(info.spec.pty),
+					persist: String(info.spec.persist),
+					detached: String(info.spec.detached),
+				}),
+			);
 		} else {
-			body.push(chalk.dim(" loading…"));
+			body.push(chalk.dim(t("tui.apps.psTop.loadingIndented", " loading…")));
 		}
 		this.#infoView.setLines(body);
 		this.#infoView.setHeight(height - 1 - footer.length);
@@ -748,11 +882,12 @@ export class PsTopComponent implements Component {
 		const name = entry?.row.snapshot.name ?? "?";
 		const header = this.#header(
 			width,
-			`logs ${chalk.bold(name)}${this.#logsState ? chalk.dim(` · ${this.#logsState}`) : ""}`,
+			t("tui.apps.psTop.logsHeader", "logs {name}", { name: chalk.bold(name) }) +
+				(this.#logsState ? chalk.dim(` · ${this.#logsState}`) : ""),
 		);
 		const footer = this.#footer(
 			width,
-			`${formatKeyHint("escape")} back · ${formatKeyHint("q")} back · view refreshes live`,
+			`${formatKeyHint("escape")} ${t("tui.apps.psTop.hintBack", "back")} · ${formatKeyHint("q")} ${t("tui.apps.psTop.hintBack", "back")} · ${t("tui.apps.psTop.hintRefreshesLive", "view refreshes live")}`,
 		);
 		const bodyHeight = height - 1 - footer.length;
 		this.#logsView.setLines(this.#logsLines.map(line => ` ${line}`));
@@ -779,13 +914,19 @@ function daemonTone(snapshot: DaemonSnapshot): TspTone {
 function scopeSpans(scope: PsScope): TspSpan[] {
 	const spans =
 		scope.kind === "global"
-			? [span("global "), span(scope.service ?? path.basename(scope.runtimeDir), "strong")]
-			: [span("project "), span(scope.projectDir ?? path.basename(scope.runtimeDir), "strong path")];
+			? [
+					span(t("tui.apps.psTop.scopeGlobal", "global ")),
+					span(scope.service ?? path.basename(scope.runtimeDir), "strong"),
+				]
+			: [
+					span(t("tui.apps.psTop.scopeProject", "project ")),
+					span(scope.projectDir ?? path.basename(scope.runtimeDir), "strong path"),
+				];
 	spans.push(span(" — ", "dim"));
 	spans.push(
 		scope.brokerPid !== undefined
-			? span(`broker pid ${scope.brokerPid}`, "success")
-			: span("broker not running", "dim"),
+			? span(t("tui.apps.psTop.brokerPid", "broker pid {pid}", { pid: scope.brokerPid }), "success")
+			: span(t("tui.apps.psTop.brokerNotRunning", "broker not running"), "dim"),
 	);
 	return spans;
 }
@@ -818,7 +959,11 @@ function describeProcess(scope: PsScope, daemon: PsDaemonRow): NativeNode {
 	const meta = [
 		snapshot.pid !== undefined && !terminal ? `pid ${snapshot.pid}` : undefined,
 		terminal ? undefined : formatDuration(Date.now() - snapshot.startedAt),
-		`${snapshot.restartCount} restart${snapshot.restartCount === 1 ? "" : "s"}`,
+		t(
+			"tui.apps.psTop.restartCount",
+			{ one: "{count} restart", other: "{count} restarts" },
+			{ count: snapshot.restartCount },
+		),
 		flagsCell(daemon) || undefined,
 	].filter(part => part !== undefined);
 	const command = collapseCommand(daemon.command);
