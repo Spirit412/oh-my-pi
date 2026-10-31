@@ -1,9 +1,11 @@
 import { registerCatalog } from "@oh-my-pi/pi-utils/i18n";
 import { ru } from "./catalogs/ru";
+import { ruSettings } from "./catalogs/ru-settings";
 
 /** Register catalogs bundled with the coding agent. Safe to call repeatedly. */
 export function registerCoreCatalogs(): void {
 	registerCatalog("ru", ru, "omp-core");
+	registerCatalog("ru", ruSettings, "omp-settings");
 }
 
 export {
