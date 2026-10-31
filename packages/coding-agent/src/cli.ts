@@ -129,6 +129,15 @@ async function showHelp(config: CliConfig<CommandMetadata>): Promise<void> {
 		process.stdout.write(`\n${extra}\n`);
 	}
 }
+
+/** Resolve the UI locale before help renders; catalogs load only on help paths. */
+async function prepareHelpLocale(argv: readonly string[]): Promise<void> {
+	const [{ setLocale }, { resolveLocale }] = await Promise.all([import("./i18n"), import("./i18n/locale")]);
+	const inline = argv.find(arg => arg.startsWith("--lang="));
+	const index = argv.indexOf("--lang");
+	const cli = inline ? inline.slice("--lang=".length) : index >= 0 ? argv[index + 1] : undefined;
+	setLocale(resolveLocale({ cli, configured: process.env.OMP_LANG, env: process.env }));
+}
 /**
  * Smoke-test entry. Spawns bundled workers, serves the stats dashboard once,
  * pings everything, then exits.
@@ -568,7 +577,15 @@ export async function runCli(argv: string[]): Promise<void> {
 			return;
 		}
 		runningCommand = resolved.argv[0];
-		await run({ bin: APP_NAME, version: VERSION, argv: resolved.argv, commands, metadataHelp: showHelp });
+		await run({
+			bin: APP_NAME,
+			version: VERSION,
+			argv: resolved.argv,
+			commands,
+			metadataHelp: showHelp,
+			rootCommandName: "launch",
+			prepareHelp: () => prepareHelpLocale(resolved.argv),
+		});
 	} finally {
 		stopStartupComposer?.();
 	}

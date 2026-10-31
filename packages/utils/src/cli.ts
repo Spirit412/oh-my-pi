@@ -10,6 +10,7 @@
  *   - Typed `this.parse()` output matching oclif's API shape
  */
 import * as fs from "node:fs";
+import { t } from "./i18n";
 import { parseArgs as nodeParseArgs } from "node:util";
 
 /**
@@ -292,28 +293,42 @@ export abstract class Command {
 // Help rendering
 // ---------------------------------------------------------------------------
 
-/** Render full root help: header, default command details, subcommand list. */
+/** Command description from module metadata, translated at render time. */
+function commandDescription(id: string, command: CommandMetadata): string {
+	return command.description ? t(`omp.cli.command.${id}.description`, command.description) : "";
+}
+
+/** Flag copy from module metadata, keyed by the stable flag name. */
+function flagDescription(id: string, name: string, description: string | undefined): string {
+	return description ? t(`omp.cli.command.${id}.flag.${name}.description`, description) : "";
+}
+
+/** Positional-argument copy, keyed by the stable argument name. */
+function argumentDescription(id: string, name: string, description: string): string {
+	return t(`omp.cli.command.${id}.arg.${name}.description`, description);
+}
+
 export function renderRootHelp(config: CliConfig<CommandMetadata>): void {
 	const { bin, version, commands } = config;
 	const lines: string[] = [];
 	lines.push(`${bin} v${version}\n`);
-	lines.push("USAGE");
+	lines.push(t("omp.cli.section.usage", "USAGE"));
 	lines.push(`  $ ${bin} [COMMAND]\n`);
 
 	// Show the default command's flags/args/examples inline.
 	// The default command is the one marked hidden (it's the implicit entry point).
 	const defaultCmd = [...commands.values()].find(command => command.hidden);
 	if (defaultCmd) {
-		renderCommandBody(lines, defaultCmd);
+		renderCommandBody(lines, defaultCmd, "default");
 	}
 
 	// List visible subcommands
 	const visible = [...commands.entries()].filter(([, C]) => !C.hidden);
 	if (visible.length > 0) {
-		lines.push("COMMANDS");
+		lines.push(t("omp.cli.section.commands", "COMMANDS"));
 		const maxLen = Math.max(...visible.map(([n]) => n.length));
 		for (const [name, command] of visible.sort((a, b) => a[0].localeCompare(b[0]))) {
-			lines.push(`  ${name.padEnd(maxLen + 2)}${command.description ?? ""}`);
+			lines.push(`  ${name.padEnd(maxLen + 2)}${commandDescription(name, command)}`);
 		}
 		lines.push("");
 	}
@@ -340,31 +355,34 @@ function formatUsageArgs(Cmd: CommandCtor): string {
 /** Build the single USAGE line for a command (without the leading label). */
 export function commandUsageLine(bin: string, id: string, Cmd: CommandCtor): string {
 	const hasFlags = Object.keys(Cmd.flags ?? {}).length > 0;
-	return `$ ${bin} ${id}${formatUsageArgs(Cmd)}${hasFlags ? " [FLAGS]" : ""}`;
+	return `$ ${bin} ${id}${formatUsageArgs(Cmd)}${hasFlags ? ` ${t("omp.cli.usage.flags", "[FLAGS]")}` : ""}`;
 }
 
-/** Render help for a single command. */
-export function renderCommandHelp(bin: string, id: string, Cmd: CommandCtor): void {
+/**
+ * Render help for a single command. `catalogId` selects the translation keys;
+ * the usage line keeps the id the user actually invoked.
+ */
+export function renderCommandHelp(bin: string, id: string, Cmd: CommandCtor, catalogId = id): void {
 	const lines: string[] = [];
-	if (Cmd.description) lines.push(`${Cmd.description}\n`);
-	lines.push("USAGE");
+	if (Cmd.description) lines.push(`${commandDescription(catalogId, Cmd)}\n`);
+	lines.push(t("omp.cli.section.usage", "USAGE"));
 	lines.push(`  ${commandUsageLine(bin, id, Cmd)}\n`);
-	renderCommandBody(lines, Cmd);
+	renderCommandBody(lines, Cmd, catalogId);
 	process.stdout.write(lines.join("\n"));
 }
 
-function renderCommandBody(lines: string[], command: CommandMetadata): void {
+function renderCommandBody(lines: string[], command: CommandMetadata, id: string): void {
 	const argDefs = command.args ?? {};
 	const flagDefs = command.flags ?? {};
 
 	// Arguments
 	const argEntries = Object.entries(argDefs);
 	if (argEntries.length > 0) {
-		lines.push("ARGUMENTS");
+		lines.push(t("omp.cli.section.arguments", "ARGUMENTS"));
 		const maxLen = Math.max(...argEntries.map(([n]) => n.length));
 		for (const [name, desc] of argEntries) {
 			const parts = [name.toUpperCase().padEnd(maxLen + 2)];
-			if (desc.description) parts.push(desc.description);
+			if (desc.description) parts.push(argumentDescription(id, name, desc.description));
 			if (desc.options) parts.push(`(${[...desc.options].join("|")})`);
 			lines.push(`  ${parts.join(" ")}`);
 		}
@@ -374,13 +392,13 @@ function renderCommandBody(lines: string[], command: CommandMetadata): void {
 	// Flags
 	const flagEntries = Object.entries(flagDefs);
 	if (flagEntries.length > 0) {
-		lines.push("FLAGS");
+		lines.push(t("omp.cli.section.flags", "FLAGS"));
 		const formatted: [string, string][] = [];
 		for (const [name, desc] of flagEntries) {
 			const charPart = desc.char ? `-${desc.char}, ` : "    ";
 			const namePart = `--${name}`;
 			const typePart = desc.kind === "boolean" ? "" : desc.kind === "integer" ? "=<int>" : "=<value>";
-			formatted.push([`  ${charPart}${namePart}${typePart}`, desc.description ?? ""]);
+			formatted.push([`  ${charPart}${namePart}${typePart}`, flagDescription(id, name, desc.description)]);
 		}
 		const maxLeft = Math.max(...formatted.map(([l]) => l.length));
 		for (const [left, right] of formatted) {
@@ -391,7 +409,7 @@ function renderCommandBody(lines: string[], command: CommandMetadata): void {
 
 	// Examples
 	if (command.examples && command.examples.length > 0) {
-		lines.push("EXAMPLES");
+		lines.push(t("omp.cli.section.examples", "EXAMPLES"));
 		for (const ex of command.examples) {
 			for (const line of ex.split("\n")) {
 				lines.push(`  ${line}`);
@@ -422,6 +440,10 @@ export interface RunOptions {
 	help?: (config: CliConfig) => Promise<void> | void;
 	/** Lightweight help renderer backed by static command metadata. */
 	metadataHelp?: (config: CliConfig<CommandMetadata>) => Promise<void> | void;
+	/** Runs before any help rendering so the host can set the UI locale. */
+	prepareHelp?: () => Promise<void> | void;
+	/** Root command name; its help keys are rendered as the default surface. */
+	rootCommandName?: string;
 }
 
 /** Find a command entry by exact name or alias. */
@@ -443,9 +465,11 @@ export async function run(opts: RunOptions): Promise<void> {
 
 	// Top-level help
 	if (commandId === "--help" || commandId === "-h" || commandId === "help" || commandId === "") {
-		if (opts.help) {
+	if (opts.help) {
+			await opts.prepareHelp?.();
 			await opts.help(await loadAllCommands(opts));
 		} else {
+			await opts.prepareHelp?.();
 			const config = await loadAllCommandMetadata(opts);
 			if (opts.metadataHelp) {
 				await opts.metadataHelp(config);
@@ -468,8 +492,10 @@ export async function run(opts: RunOptions): Promise<void> {
 	if (commandArgv.includes("--help") || commandArgv.includes("-h")) {
 		const entry = findEntry(opts.commands, commandId);
 		if (entry) {
+			await opts.prepareHelp?.();
 			const Cmd = await loadEntry(entry);
-			renderCommandHelp(bin, entry.name, Cmd);
+			const helpId = opts.rootCommandName && entry.name === opts.rootCommandName ? "default" : entry.name;
+			renderCommandHelp(bin, entry.name, Cmd, helpId);
 		} else {
 			process.stderr.write(`Unknown command: ${commandId}\n`);
 		}

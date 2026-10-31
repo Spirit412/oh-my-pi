@@ -18,6 +18,7 @@ import type { ArgDescriptor, CliConfig, CommandMetadata, FlagDescriptor } from "
 import { BUILTIN_TOOL_NAMES } from "../tools/builtin-names";
 
 export type Shell = "bash" | "zsh" | "fish";
+import { t } from "../i18n";
 
 /** How a flag/positional value should be completed. */
 export type ValueSource =
@@ -88,7 +89,7 @@ function argValue(desc: ArgDescriptor): ValueSource {
 	return { kind: "file" };
 }
 
-function buildFlags(command: CommandMetadata): CompletionFlag[] {
+function buildFlags(command: CommandMetadata, id: string): CompletionFlag[] {
 	const out: CompletionFlag[] = [];
 	const flags = command.flags ?? {};
 	for (const name in flags) {
@@ -96,7 +97,9 @@ function buildFlags(command: CommandMetadata): CompletionFlag[] {
 		out.push({
 			name,
 			char: desc.char,
-			description: desc.description ?? "",
+			description: desc.description
+				? t(`omp.cli.command.${id}.flag.${name}.description`, desc.description)
+				: "",
 			value: flagValue(name, desc),
 			repeatable: Boolean(desc.multiple),
 		});
@@ -104,12 +107,16 @@ function buildFlags(command: CommandMetadata): CompletionFlag[] {
 	return out;
 }
 
-function buildArgs(command: CommandMetadata): CompletionArg[] {
+function buildArgs(command: CommandMetadata, id: string): CompletionArg[] {
 	const out: CompletionArg[] = [];
 	const args = command.args ?? {};
 	for (const name in args) {
 		const desc = args[name];
-		out.push({ name, description: desc.description ?? "", value: argValue(desc) });
+		out.push({
+			name,
+			description: desc.description ? t(`omp.cli.command.${id}.arg.${name}.description`, desc.description) : "",
+			value: argValue(desc),
+		});
 	}
 	return out;
 }
@@ -130,8 +137,11 @@ export function buildSpec(
 	const commands: CompletionCommand[] = [];
 	let root: CompletionSpec["root"] = { flags: [], args: [] };
 	for (const [name, Cmd] of config.commands) {
-		const flags = buildFlags(Cmd);
-		const args = buildArgs(Cmd);
+		// The default command's flags are the top-level flags; key them as `default`
+		// to match the help renderer.
+		const keyId = name === rootName ? "default" : name;
+		const flags = buildFlags(Cmd, keyId);
+		const args = buildArgs(Cmd, keyId);
 		if (name === rootName) {
 			root = { flags, args };
 			continue;
@@ -140,7 +150,7 @@ export function buildSpec(
 		commands.push({
 			name,
 			aliases: aliasMap.get(name) ?? [],
-			description: Cmd.description ?? "",
+			description: Cmd.description ? t(`omp.cli.command.${name}.description`, Cmd.description) : "",
 			flags,
 			args,
 		});
