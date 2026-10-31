@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [18.14.2] - 2026-10-31
+
+### Changed
+
+- Install scripts and the README now target the `Spirit412/oh-my-pi` fork: source installs clone and build the repository checkout, binary installs download from this fork's GitHub Releases with SHA-256 verification, and the README documents the `curl`, `bun`, and PowerShell commands.
+
 ## [18.14.1] - 2026-10-31
 
 ### Added

@@ -1,24 +1,28 @@
 #!/bin/sh
 set -e
 
-# OMP Coding Agent Installer
-# Usage: curl -fsSL https://omp.sh/install | sh
-#        curl -fsSL https://omp.sh/install | sh -s -- --binary --ref v18.8.9
+# OMP Coding Agent Installer (Spirit412/oh-my-pi fork)
+# Usage: curl -fsSL https://raw.githubusercontent.com/Spirit412/oh-my-pi/main/scripts/install.sh | sh
+#        curl -fsSL .../scripts/install.sh | sh -s -- --binary --ref v18.8.9
 #
 # Options:
-#   --source       Install via bun (installs bun if needed)
-#   --binary       Always install prebuilt binary
+#   --source       Install from source (clones the repo, builds the native
+#                  addon, links omp; installs bun if needed)
+#   --binary       Install a prebuilt binary instead of building from source
 #   --ref <ref>    Install specific tag/commit/branch (source mode); binary
 #                  mode takes a release tag (v<version>)
 #   -r <ref>       Shorthand for --ref
 #
-# Prebuilt binaries come from the build service (PI_BUILD_URL, default
-# https://build.stencil.so) and are checked against its sha256 before install.
+# Other branches of the same repository can install from their own ref with
+# --ref/--source. Override the fork with PI_REPO, the source checkout with
+# PI_SOURCE_DIR, or send binary installs to the upstream build service with
+# PI_BUILD_URL. Without PI_BUILD_URL, binaries come from this repository's
+# GitHub Releases and are checked against SHA256SUMS.txt.
 
-REPO="can1357/oh-my-pi"
-PACKAGE="@oh-my-pi/pi-coding-agent"
+REPO="${PI_REPO:-Spirit412/oh-my-pi}"
 INSTALL_DIR="${PI_INSTALL_DIR:-$HOME/.local/bin}"
-BUILD_URL="${PI_BUILD_URL:-https://build.stencil.so}"
+SOURCE_DIR="${PI_SOURCE_DIR:-$HOME/.omp/source}"
+BUILD_URL="${PI_BUILD_URL:-}"
 while [ "${BUILD_URL%/}" != "$BUILD_URL" ]; do
     BUILD_URL="${BUILD_URL%/}"
 done
@@ -180,47 +184,89 @@ has_git_lfs() {
     command -v git-lfs >/dev/null 2>&1
 }
 
-# Install via bun
+# Install from source: clone the fork, install the workspace, build the native
+# addon, and link the coding-agent package. The checkout is kept under
+# SOURCE_DIR because `bun link` points the global `omp` binary at its source.
 install_via_bun() {
-    echo "Installing via bun..."
-    if [ -n "$REF" ]; then
-        if ! has_git; then
-            echo "git is required for --ref when installing from source"
+    echo "Installing from source (${REPO})..."
+    if ! has_git; then
+        echo "git is required for source installs"
+        exit 1
+    fi
+    if ! command -v cargo >/dev/null 2>&1; then
+        echo "A Rust toolchain is required to build the native addon."
+        echo "Install Rust from https://rustup.rs and re-run this installer,"
+        echo "or use --binary to install a prebuilt release instead."
+        exit 1
+    fi
+
+    case "$SOURCE_DIR" in
+        ""|"/"|"$HOME")
+            echo "Refusing to use PI_SOURCE_DIR=${SOURCE_DIR}"
             exit 1
-        fi
+            ;;
+    esac
 
-        TMP_DIR="$(mktemp -d)"
-        trap 'rm -rf "$TMP_DIR"' EXIT
+    TMP_DIR="$(mktemp -d)"
+    trap 'rm -rf "$TMP_DIR"' EXIT
 
-        if git clone --depth 1 --branch "$REF" "https://github.com/${REPO}.git" "$TMP_DIR" >/dev/null 2>&1; then
+    REPO_URL="https://github.com/${REPO}.git"
+    if [ -n "$REF" ]; then
+        if git clone --depth 1 --branch "$REF" "$REPO_URL" "$TMP_DIR" >/dev/null 2>&1; then
             :
         else
-            git clone "https://github.com/${REPO}.git" "$TMP_DIR"
-            (cd "$TMP_DIR" && git checkout "$REF")
+            # A failed --branch clone (e.g. a commit sha) can leave a partial
+            # directory behind; the fallback needs an empty destination.
+            rm -rf "$TMP_DIR"
+            mkdir -p "$TMP_DIR"
+            git clone "$REPO_URL" "$TMP_DIR" || {
+                echo "Failed to clone ${REPO_URL}"
+                exit 1
+            }
+            (cd "$TMP_DIR" && git checkout "$REF") || {
+                echo "Failed to checkout ${REF}"
+                exit 1
+            }
         fi
-
-        # Pull LFS files
-        if has_git_lfs; then
-            (cd "$TMP_DIR" && git lfs pull)
-        fi
-
-        if [ ! -d "$TMP_DIR/packages/coding-agent" ]; then
-            echo "Expected package at ${TMP_DIR}/packages/coding-agent"
-            exit 1
-        fi
-
-        bun install -g "$TMP_DIR/packages/coding-agent" || {
-            echo "Failed to install from source"
-            exit 1
-        }
     else
-        bun install -g "$PACKAGE" || {
-            echo "Failed to install $PACKAGE"
+        git clone --depth 1 "$REPO_URL" "$TMP_DIR" || {
+            echo "Failed to clone ${REPO_URL}"
             exit 1
         }
     fi
+
+    # Pull LFS files
+    if has_git_lfs; then
+        (cd "$TMP_DIR" && git lfs pull)
+    fi
+
+    if [ ! -d "$TMP_DIR/packages/coding-agent" ]; then
+        echo "Expected package at ${TMP_DIR}/packages/coding-agent"
+        exit 1
+    fi
+
+    # `bun link` symlinks the global binary into the package, so keep the
+    # checkout instead of deleting it with the temporary directory.
+    rm -rf "$SOURCE_DIR"
+    mkdir -p "$(dirname "$SOURCE_DIR")"
+    mv "$TMP_DIR" "$SOURCE_DIR"
+    trap - 0
+
+    (cd "$SOURCE_DIR" && bun install --frozen-lockfile) || {
+        echo "Failed to install workspace dependencies"
+        exit 1
+    }
+    (cd "$SOURCE_DIR" && bun --cwd=packages/natives run build) || {
+        echo "Failed to build the native addon"
+        exit 1
+    }
+    (cd "$SOURCE_DIR/packages/coding-agent" && bun link) || {
+        echo "Failed to link omp"
+        exit 1
+    }
+
     echo ""
-    echo "✓ Installed omp via bun"
+    echo "✓ Installed omp from ${REPO} via bun"
     echo "Run 'omp' to get started!"
 }
 
@@ -276,37 +322,76 @@ install_binary() {
         fi
     fi
 
-    TARGET="${PLATFORM}-${TARGET_ARCH}"
-    if [ -n "$REF" ]; then
-        if ! printf '%s\n' "$REF" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
-            echo "Binary installs take a release tag (v<version>) for --ref, got: $REF"
-            echo "For branch/commit installs, use --source with --ref."
+    SERVICE_TARGET="${PLATFORM}-${TARGET_ARCH}"
+    case "$PLATFORM" in
+        macos)      RELEASE_PLATFORM="darwin" ;;
+        *)          RELEASE_PLATFORM="$PLATFORM" ;;
+    esac
+    case "$ARCH" in
+        x64)   RELEASE_ARCH="x64" ;;
+        arm64) RELEASE_ARCH="arm64" ;;
+    esac
+    BINARY="omp-${RELEASE_PLATFORM}-${RELEASE_ARCH}"
+
+    if [ -n "$BUILD_URL" ]; then
+        if [ -n "$REF" ]; then
+            if ! printf '%s\n' "$REF" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+                echo "Binary installs take a release tag (v<version>) for --ref, got: $REF"
+                echo "For branch/commit installs, use --source with --ref."
+                exit 1
+            fi
+            echo "Fetching omp ${REF#v}..."
+            API_URL="${BUILD_URL}/api/products/omp/versions/${REF#v}/${SERVICE_TARGET}"
+        else
+            echo "Fetching latest release..."
+            API_URL="${BUILD_URL}/api/products/omp/latest/${SERVICE_TARGET}?channel=stable"
+        fi
+        if ! BUILD_JSON=$(curl -fsSL --connect-timeout 10 --max-time 60 "$API_URL"); then
+            echo "Failed to resolve an omp build for ${SERVICE_TARGET} from ${API_URL}"
             exit 1
         fi
-        echo "Fetching omp ${REF#v}..."
-        API_URL="${BUILD_URL}/api/products/omp/versions/${REF#v}/${TARGET}"
-    else
-        echo "Fetching latest release..."
-        API_URL="${BUILD_URL}/api/products/omp/latest/${TARGET}?channel=stable"
-    fi
-    if ! BUILD_JSON=$(curl -fsSL --connect-timeout 10 --max-time 60 "$API_URL"); then
-        echo "Failed to resolve an omp build for ${TARGET} from ${API_URL}"
-        exit 1
-    fi
-    BUILD_JSON=$(printf '%s' "$BUILD_JSON" | tr -d '\r\n')
+        BUILD_JSON=$(printf '%s' "$BUILD_JSON" | tr -d '\r\n')
 
-    VERSION=$(printf '%s\n' "$BUILD_JSON" | json_string version)
-    FILE_JSON=$(printf '%s\n' "$BUILD_JSON" | json_file_object)
-    BINARY=$(printf '%s\n' "$FILE_JSON" | json_string name)
-    EXPECTED_SHA256=$(printf '%s\n' "$FILE_JSON" | json_string sha256)
-    # Go's JSON encoder writes `&` in the presigned URL as \u0026.
-    DOWNLOAD_URL=$(printf '%s\n' "$BUILD_JSON" | json_string download | sed 's/\\u0026/\&/g')
-    if [ -z "$VERSION" ] || [ -z "$BINARY" ] || [ -z "$DOWNLOAD_URL" ] ||
-        ! printf '%s\n' "$EXPECTED_SHA256" | grep -Eq '^[0-9a-f]{64}$'; then
-        echo "Unexpected answer from ${API_URL}"
-        exit 1
+        VERSION=$(printf '%s\n' "$BUILD_JSON" | json_string version)
+        FILE_JSON=$(printf '%s\n' "$BUILD_JSON" | json_file_object)
+        BINARY=$(printf '%s\n' "$FILE_JSON" | json_string name)
+        EXPECTED_SHA256=$(printf '%s\n' "$FILE_JSON" | json_string sha256)
+        # Go's JSON encoder writes `&` in the presigned URL as \u0026.
+        DOWNLOAD_URL=$(printf '%s\n' "$BUILD_JSON" | json_string download | sed 's/\\u0026/\&/g')
+        if [ -z "$VERSION" ] || [ -z "$BINARY" ] || [ -z "$DOWNLOAD_URL" ] ||
+            ! printf '%s\n' "$EXPECTED_SHA256" | grep -Eq '^[0-9a-f]{64}$'; then
+            echo "Unexpected answer from ${API_URL}"
+            exit 1
+        fi
+        echo "Using version: $VERSION"
+    else
+        if [ -n "$REF" ]; then
+            if ! printf '%s\n' "$REF" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+                echo "Binary installs take a release tag (v<version>) for --ref, got: $REF"
+                echo "For branch/commit installs, use --source with --ref."
+                exit 1
+            fi
+            RELEASE_BASE="https://github.com/${REPO}/releases/download/${REF}"
+            echo "Fetching omp ${REF#v}..."
+        else
+            RELEASE_BASE="https://github.com/${REPO}/releases/latest/download"
+            echo "Fetching the latest release of ${REPO}..."
+        fi
+        DOWNLOAD_URL="${RELEASE_BASE}/${BINARY}"
+        CHECKSUM_URL="${RELEASE_BASE}/SHA256SUMS.txt"
+        if ! CHECKSUMS=$(curl -fsSL --connect-timeout 10 --max-time 60 "$CHECKSUM_URL"); then
+            echo "No release assets found at ${RELEASE_BASE}"
+            echo "Publish a release first, or install from source with --source."
+            exit 1
+        fi
+        EXPECTED_SHA256=$(printf '%s\n' "$CHECKSUMS" | tr -d '\r' | awk -v name="$BINARY" '$2 == name { print $1; exit }')
+        if ! printf '%s\n' "$EXPECTED_SHA256" | grep -Eq '^[0-9a-f]{64}$'; then
+            echo "No SHA-256 for ${BINARY} in ${CHECKSUM_URL}"
+            echo "Publish a release first, or install from source with --source."
+            exit 1
+        fi
+        echo "Using ${BINARY} from ${REPO}"
     fi
-    echo "Using version: $VERSION"
 
     mkdir -p "$INSTALL_DIR"
     # Download next to the destination and move it into place only once the
@@ -365,7 +450,7 @@ case "$MODE" in
             echo "Error: bun reports architecture '$(bun_arch)' but this host is '$(host_arch)'."
             echo "Installing from source with this bun would produce a mismatched binary"
             echo "(e.g. x86_64 under Rosetta on Apple Silicon), causing slow startup and AVX warnings."
-            echo "Install a native bun for your architecture, or re-run without --source to fetch the prebuilt $(host_arch) binary."
+            echo "Install a native bun for your architecture, or install the prebuilt $(host_arch) binary with --binary."
             exit 1
         fi
         install_via_bun
@@ -374,16 +459,18 @@ case "$MODE" in
         install_binary
         ;;
     *)
-        # Default: use bun only when it matches the host architecture, otherwise
-        # fall back to the prebuilt binary so Rosetta bun can't force an x86_64 build.
-        if has_bun && bun_arch_matches_host; then
-            require_bun_version
-            install_via_bun
-        else
-            if has_bun; then
-                echo "Detected bun with architecture '$(bun_arch)' on a '$(host_arch)' host; using the prebuilt binary instead."
-            fi
-            install_binary
+        # Default: build from source so the installed code is exactly this
+        # fork's checkout. A prebuilt binary is opt-in via --binary because it
+        # only exists once this repository publishes release assets.
+        if ! has_bun; then
+            install_bun
         fi
+        require_bun_version
+        if ! bun_arch_matches_host; then
+            echo "Detected bun with architecture '$(bun_arch)' on a '$(host_arch)' host."
+            echo "Install a native bun, or install the prebuilt $(host_arch) binary with --binary."
+            exit 1
+        fi
+        install_via_bun
         ;;
 esac

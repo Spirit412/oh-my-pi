@@ -34,63 +34,51 @@ The most capable agent surface that ships. Continuously tuned by real-world use 
 
 ## Install
 
+These commands install **this fork** (`Spirit412/oh-my-pi`). Source installs clone the repository, build the native addon, and link `omp`, so the installed code is exactly this fork's checkout. Prebuilt binaries are pulled from this repository's GitHub Releases when a release publishes them.
+
 **macOS · Linux**
 
 ```sh
-curl -fsSL https://omp.sh/install | sh
+curl -fsSL https://raw.githubusercontent.com/Spirit412/oh-my-pi/main/scripts/install.sh | sh
 ```
 
-Without a usable bun (or with `--binary`), the install scripts fetch the prebuilt binary from `build.stencil.so` and check its SHA-256 before installing it. Pin a release with `curl -fsSL https://omp.sh/install | sh -s -- --binary --ref v<version>` (PowerShell: `-Binary -Ref v<version>`).
+The installer installs [bun](https://bun.sh) if needed, clones the repository to `~/.omp/source`, runs `bun install --frozen-lockfile`, builds the native addon, and links `omp`. Source builds need `git` and a Rust toolchain — install Rust from https://rustup.rs before running the installer.
+
+To install a prebuilt binary instead (only available once this repository publishes release assets):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/Spirit412/oh-my-pi/main/scripts/install.sh | sh -s -- --binary
+```
+
+Pin a release with `--binary --ref v<version>`. Binary installs verify the asset against the release's `SHA256SUMS.txt` before installing it.
 
 > **Alpine / musl:** the prebuilt musl binary links `libstdc++`/`libgcc` dynamically, which stock Alpine does not ship. Install them first: `apk add libstdc++ libgcc`.
 
-**Homebrew**
+**Bun**
 
 ```sh
-brew install can1357/tap/omp
+git clone --depth 1 https://github.com/Spirit412/oh-my-pi.git
+cd oh-my-pi
+bun install --frozen-lockfile
+bun --cwd=packages/natives run build
+cd packages/coding-agent && bun link
 ```
 
-**Bun (recommended)**
-
-```sh
-bun install -g @oh-my-pi/pi-coding-agent
-```
-
-**Nix**
-
-```sh
-# Run without installing
-nix run github:can1357/oh-my-pi
-
-# Or install into the active profile (Nix < 2.30: `nix profile install`)
-nix profile add github:can1357/oh-my-pi
-```
-
-Flake consumers can use `packages.<system>.omp`, `overlays.default`, `nixosModules.default`, or `homeManagerModules.default`. A Home Manager configuration can install OMP and own its settings declaratively:
-
-```nix
-{
-  inputs.omp.url = "github:can1357/oh-my-pi";
-
-  # In your Home Manager module:
-  imports = [ inputs.omp.homeManagerModules.default ];
-  programs.omp = {
-    enable = true;
-    settings.startup.quiet = true;
-  };
-}
-```
+This links `omp` into Bun's global bin directory (`~/.bun/bin` on macOS/Linux). Source builds need `git`, bun ≥ 1.4.4, and a Rust toolchain for the native addon.
 
 **Windows (PowerShell)**
 
 ```powershell
-irm https://omp.sh/install.ps1 | iex
+irm https://raw.githubusercontent.com/Spirit412/oh-my-pi/main/scripts/install.ps1 | iex
 ```
 
-**Pinned versions (mise)**
+The installer clones this repository to `%LOCALAPPDATA%\omp\source`, installs the workspace with bun, builds the native addon, and links `omp`. It needs `git`, bun ≥ 1.4.4, Rust, and the Visual Studio C++ build tools (installed with the Visual Studio Build Tools workload).
 
-```sh
-mise use -g github:can1357/oh-my-pi
+For a prebuilt release binary:
+
+```powershell
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/Spirit412/oh-my-pi/main/scripts/install.ps1))) -Binary
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/Spirit412/oh-my-pi/main/scripts/install.ps1))) -Binary -Ref v<version>
 ```
 
 macOS · Linux · Windows · bun ≥ 1.4.4

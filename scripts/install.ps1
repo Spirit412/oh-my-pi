@@ -1,17 +1,19 @@
-# OMP Coding Agent Installer for Windows
-# Usage: irm https://omp.sh/install.ps1 | iex
+# OMP Coding Agent Installer for Windows (Spirit412/oh-my-pi fork)
+# Usage: irm https://raw.githubusercontent.com/Spirit412/oh-my-pi/main/scripts/install.ps1 | iex
 #
 # Or with options:
-#   & ([scriptblock]::Create((irm https://omp.sh/install.ps1))) -Source
-#   & ([scriptblock]::Create((irm https://omp.sh/install.ps1))) -Binary
-#   & ([scriptblock]::Create((irm https://omp.sh/install.ps1))) -Source -Ref v18.8.9
-#   & ([scriptblock]::Create((irm https://omp.sh/install.ps1))) -Source -Ref main
-#   & ([scriptblock]::Create((irm https://omp.sh/install.ps1))) -Binary -Ref v18.8.9
+#   & ([scriptblock]::Create((irm .../scripts/install.ps1))) -Source
+#   & ([scriptblock]::Create((irm .../scripts/install.ps1))) -Binary
+#   & ([scriptblock]::Create((irm .../scripts/install.ps1))) -Source -Ref v18.8.9
+#   & ([scriptblock]::Create((irm .../scripts/install.ps1))) -Source -Ref main
+#   & ([scriptblock]::Create((irm .../scripts/install.ps1))) -Binary -Ref v18.8.9
 #
-# -Ref takes any tag/commit/branch with -Source; binary installs take a release
-# tag (v<version>). Prebuilt binaries come from the build service
-# ($env:PI_BUILD_URL, default https://build.stencil.so) and are checked against
-# its sha256 before install.
+# -Source clones this repository, installs the workspace, builds the native
+# addon, and links omp. -Ref takes any tag/commit/branch with -Source; binary
+# installs take a release tag (v<version>). Without PI_BUILD_URL, binaries come
+# from this repository's GitHub Releases and are checked against
+# SHA256SUMS.txt. Override the fork with PI_REPO or the source checkout with
+# PI_SOURCE_DIR.
 
 param(
     [switch]$Source,
@@ -29,10 +31,10 @@ if ($PSVersionTable.PSVersion -lt [version]"5.1") {
     throw "Windows PowerShell 5.1 or newer is required (found $($PSVersionTable.PSVersion)). Install PowerShell 7 from https://aka.ms/powershell and re-run the installer."
 }
 
-$Repo = "can1357/oh-my-pi"
-$Package = "@oh-my-pi/pi-coding-agent"
+$Repo = if ($env:PI_REPO) { $env:PI_REPO } else { "Spirit412/oh-my-pi" }
 $InstallDir = if ($env:PI_INSTALL_DIR) { $env:PI_INSTALL_DIR } else { "$env:LOCALAPPDATA\omp" }
-$BuildUrl = if ($env:PI_BUILD_URL) { $env:PI_BUILD_URL.TrimEnd("/") } else { "https://build.stencil.so" }
+$SourceDir = if ($env:PI_SOURCE_DIR) { $env:PI_SOURCE_DIR } else { "$env:LOCALAPPDATA\omp\source" }
+$BuildUrl = if ($env:PI_BUILD_URL) { $env:PI_BUILD_URL.TrimEnd("/") } else { "" }
 # Windows PowerShell 5.1 (.NET Framework) does not reliably resolve
 # [System.Runtime.InteropServices.RuntimeInformation] without an
 # assembly-qualified name, while PowerShell 7+ (Core) loads that type from a
@@ -221,19 +223,25 @@ function Install-Bun {
 }
 
 function Install-ViaBun {
-    Write-Host "Installing via bun..."
-    if ($Ref) {
-        if (-not (Test-GitInstalled)) {
-            throw "git is required for -Ref when installing from source"
-        }
+    Write-Host "Installing from source ($Repo)..."
+    if (-not (Test-GitInstalled)) {
+        throw "git is required for source installs"
+    }
+    if (-not (Get-Command cargo -ErrorAction SilentlyContinue)) {
+        throw "A Rust toolchain is required to build the native addon. Install Rust from https://rustup.rs and re-run, or use -Binary to install a prebuilt release."
+    }
 
-        $tmpRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("omp-install-" + [System.Guid]::NewGuid().ToString("N"))
-        New-Item -ItemType Directory -Force -Path $tmpRoot | Out-Null
+    $tmpRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("omp-install-" + [System.Guid]::NewGuid().ToString("N"))
+    $moved = $false
 
-        try {
-            $repoUrl = "https://github.com/$Repo.git"
+    try {
+        $repoUrl = "https://github.com/$Repo.git"
+        if ($Ref) {
             Invoke-Native { git clone --depth 1 --branch $Ref $repoUrl $tmpRoot 2>&1 | Out-Null }
             if ($LASTEXITCODE -ne 0) {
+                # A failed --branch clone (e.g. a commit sha) can leave a
+                # partial directory behind; the fallback needs an empty one.
+                Remove-Item -Recurse -Force $tmpRoot -ErrorAction SilentlyContinue
                 Invoke-Native { git clone $repoUrl $tmpRoot 2>&1 | Out-Null }
                 if ($LASTEXITCODE -ne 0) {
                     throw "Failed to clone $repoUrl"
@@ -248,38 +256,67 @@ function Install-ViaBun {
                     Pop-Location
                 }
             }
-
-            # Pull LFS files
-            if (Test-GitLfsInstalled) {
-                Push-Location $tmpRoot
-                try {
-                    Invoke-Native { git lfs pull 2>&1 | Out-Null }
-                } finally {
-                    Pop-Location
-                }
-            }
-
-            $packagePath = Join-Path $tmpRoot "packages\coding-agent"
-            if (-not (Test-Path $packagePath)) {
-                throw "Expected package at $packagePath"
-            }
-
-            Invoke-Native { bun install -g $packagePath }
+        } else {
+            Invoke-Native { git clone --depth 1 $repoUrl $tmpRoot 2>&1 | Out-Null }
             if ($LASTEXITCODE -ne 0) {
-                throw "Failed to install from $packagePath via bun"
+                throw "Failed to clone $repoUrl"
+            }
+        }
+
+        # Pull LFS files
+        if (Test-GitLfsInstalled) {
+            Push-Location $tmpRoot
+            try {
+                Invoke-Native { git lfs pull 2>&1 | Out-Null }
+            } finally {
+                Pop-Location
+            }
+        }
+
+        $packagePath = Join-Path $tmpRoot "packages\coding-agent"
+        if (-not (Test-Path $packagePath)) {
+            throw "Expected package at $packagePath"
+        }
+
+        # `bun link` symlinks the global omp command into the checkout, so keep
+        # the source at a stable path instead of deleting it after linking.
+        if (Test-Path $SourceDir) {
+            Remove-Item -Recurse -Force $SourceDir
+        }
+        New-Item -ItemType Directory -Force -Path (Split-Path $SourceDir -Parent) | Out-Null
+        Move-Item -LiteralPath $tmpRoot -Destination $SourceDir
+        $moved = $true
+
+        Push-Location $SourceDir
+        try {
+            Invoke-Native { bun install --frozen-lockfile }
+            if ($LASTEXITCODE -ne 0) {
+                throw "Failed to install workspace dependencies"
+            }
+            Invoke-Native { bun --cwd=packages/natives run build }
+            if ($LASTEXITCODE -ne 0) {
+                throw "Failed to build the native addon"
+            }
+            Push-Location (Join-Path $SourceDir "packages\coding-agent")
+            try {
+                Invoke-Native { bun link }
+                if ($LASTEXITCODE -ne 0) {
+                    throw "Failed to link omp"
+                }
+            } finally {
+                Pop-Location
             }
         } finally {
-            Remove-Item -Recurse -Force $tmpRoot -ErrorAction SilentlyContinue
+            Pop-Location
         }
-    } else {
-        Invoke-Native { bun install -g $Package }
-        if ($LASTEXITCODE -ne 0) {
-            throw "Failed to install $Package via bun"
+    } finally {
+        if (-not $moved) {
+            Remove-Item -Recurse -Force $tmpRoot -ErrorAction SilentlyContinue
         }
     }
 
     Write-Host ""
-    Write-Host "[OK] Installed omp via bun" -ForegroundColor Green
+    Write-Host "[OK] Installed omp from $Repo via bun" -ForegroundColor Green
 
     Configure-BashShell
 
@@ -292,26 +329,58 @@ function Install-Binary {
             throw "Binary installs take a release tag (v<version>) for -Ref, got: $Ref`nFor branch/commit installs, use -Source with -Ref."
         }
         $RequestedVersion = $Matches[1]
-        Write-Host "Fetching omp $RequestedVersion..."
-        $ApiUrl = "$BuildUrl/api/products/omp/versions/$RequestedVersion/$BuildTarget"
-    } else {
-        Write-Host "Fetching latest release..."
-        $ApiUrl = "$BuildUrl/api/products/omp/latest/${BuildTarget}?channel=stable"
-    }
-    try {
-        $Answer = Invoke-RestMethod -Uri $ApiUrl -TimeoutSec 60
-    } catch {
-        throw "Failed to resolve an omp build for $BuildTarget from ${ApiUrl}: $_"
     }
 
-    $Version = $Answer.build.version
-    $BinaryName = $Answer.file.name
-    $ExpectedSha256 = "$($Answer.file.sha256)".ToLowerInvariant()
-    $DownloadUrl = $Answer.download
-    if (-not $Version -or -not $BinaryName -or -not $DownloadUrl -or $ExpectedSha256 -notmatch '^[0-9a-f]{64}$') {
-        throw "Unexpected answer from $ApiUrl"
+    if ($BuildUrl) {
+        if ($Ref) {
+            Write-Host "Fetching omp $RequestedVersion..."
+            $ApiUrl = "$BuildUrl/api/products/omp/versions/$RequestedVersion/$BuildTarget"
+        } else {
+            Write-Host "Fetching latest release..."
+            $ApiUrl = "$BuildUrl/api/products/omp/latest/${BuildTarget}?channel=stable"
+        }
+        try {
+            $Answer = Invoke-RestMethod -Uri $ApiUrl -TimeoutSec 60
+        } catch {
+            throw "Failed to resolve an omp build for $BuildTarget from ${ApiUrl}: $_"
+        }
+
+        $Version = $Answer.build.version
+        $BinaryName = $Answer.file.name
+        $ExpectedSha256 = "$($Answer.file.sha256)".ToLowerInvariant()
+        $DownloadUrl = $Answer.download
+        if (-not $Version -or -not $BinaryName -or -not $DownloadUrl -or $ExpectedSha256 -notmatch '^[0-9a-f]{64}$') {
+            throw "Unexpected answer from $ApiUrl"
+        }
+        Write-Host "Using version: $Version"
+    } else {
+        if ($Ref) {
+            $ReleaseBase = "https://github.com/$Repo/releases/download/$Ref"
+            Write-Host "Fetching omp $RequestedVersion..."
+        } else {
+            $ReleaseBase = "https://github.com/$Repo/releases/latest/download"
+            Write-Host "Fetching the latest release of $Repo..."
+        }
+        $BinaryName = if ($BuildTarget -eq "windows-arm64") { "omp-windows-arm64.exe" } else { "omp-windows-x64.exe" }
+        $DownloadUrl = "$ReleaseBase/$BinaryName"
+        $ChecksumUrl = "$ReleaseBase/SHA256SUMS.txt"
+        try {
+            $Checksums = Invoke-RestMethod -Uri $ChecksumUrl -TimeoutSec 60
+        } catch {
+            throw "No release assets found at $ReleaseBase. Publish a release first, or install from source with -Source."
+        }
+        foreach ($line in ($Checksums -split "`n")) {
+            $parts = $line.Trim() -split '\s+'
+            if ($parts.Length -ge 2 -and $parts[1] -eq $BinaryName) {
+                $ExpectedSha256 = $parts[0].ToLowerInvariant()
+                break
+            }
+        }
+        if ($ExpectedSha256 -notmatch '^[0-9a-f]{64}$') {
+            throw "No SHA-256 for $BinaryName in $ChecksumUrl. Publish a release first, or install from source with -Source."
+        }
+        Write-Host "Using $BinaryName from $Repo"
     }
-    Write-Host "Using version: $Version"
 
     New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 
@@ -365,11 +434,12 @@ if ($Source) {
 } elseif ($Binary) {
     Install-Binary
 } else {
-    # Default: use bun if available, otherwise binary
-    if (Test-BunInstalled) {
-        Assert-BunVersion $MinimumBunVersion
-        Install-ViaBun
-    } else {
-        Install-Binary
+    # Default: build from source so the installed code is exactly this fork's
+    # checkout. A prebuilt binary is opt-in via -Binary because it only exists
+    # once this repository publishes release assets.
+    if (-not (Test-BunInstalled)) {
+        Install-Bun
     }
+    Assert-BunVersion $MinimumBunVersion
+    Install-ViaBun
 }
