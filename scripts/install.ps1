@@ -280,8 +280,33 @@ function Install-ViaBun {
 
         # `bun link` symlinks the global omp command into the checkout, so keep
         # the source at a stable path instead of deleting it after linking.
-        if (Test-Path $SourceDir) {
-            Remove-Item -Recurse -Force $SourceDir
+        # The path is deleted and recreated below: refuse empty, drive-root,
+        # home/profile, current-directory, and parent-of-current-directory
+        # values so a typo cannot wipe a system or user directory.
+        if ([string]::IsNullOrWhiteSpace($SourceDir)) {
+            throw "Refusing to use an empty PI_SOURCE_DIR"
+        }
+        $sourceFull = ([System.IO.Path]::GetFullPath($SourceDir)).TrimEnd([char[]]@('\', '/'))
+        $cwdFull = ([System.IO.Path]::GetFullPath((Get-Location).Path)).TrimEnd([char[]]@('\', '/'))
+        $protectedPaths = @(
+            ([System.IO.Path]::GetPathRoot($sourceFull)).TrimEnd([char[]]@('\', '/')),
+            $cwdFull
+        )
+        foreach ($candidate in @($HOME, $env:USERPROFILE, $env:LOCALAPPDATA)) {
+            if (-not [string]::IsNullOrWhiteSpace($candidate)) {
+                $protectedPaths += ([System.IO.Path]::GetFullPath($candidate)).TrimEnd([char[]]@('\', '/'))
+            }
+        }
+        if ($protectedPaths -contains $sourceFull -or
+            $cwdFull.StartsWith($sourceFull + [System.IO.Path]::DirectorySeparatorChar)) {
+            throw "Refusing to use PI_SOURCE_DIR=$SourceDir; choose a dedicated directory"
+        }
+        if (Test-Path -LiteralPath $SourceDir) {
+            $sourceItem = Get-Item -LiteralPath $SourceDir -Force
+            if ($sourceItem.Attributes -band [System.IO.FileAttributes]::ReparsePoint) {
+                throw "Refusing to replace symlinked PI_SOURCE_DIR=$SourceDir"
+            }
+            Remove-Item -LiteralPath $SourceDir -Recurse -Force
         }
         New-Item -ItemType Directory -Force -Path (Split-Path $SourceDir -Parent) | Out-Null
         Move-Item -LiteralPath $tmpRoot -Destination $SourceDir

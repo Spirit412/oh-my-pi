@@ -200,12 +200,42 @@ install_via_bun() {
         exit 1
     fi
 
-    case "$SOURCE_DIR" in
-        ""|"/"|"$HOME")
+    # This path is deleted and recreated below: refuse roots, home, the current
+    # directory, top-level directories (/tmp, /home, ...), traversal, and links.
+    SOURCE_DIR_NORM=$(printf '%s' "$SOURCE_DIR" | sed 's:/*$::')
+    HOME_NORM=$(printf '%s' "${HOME:-}" | sed 's:/*$::')
+    PWD_NORM=$(printf '%s' "${PWD:-}" | sed 's:/*$::')
+    case "$SOURCE_DIR_NORM" in
+        ""|"."|".."|"$HOME_NORM"|"$PWD_NORM")
             echo "Refusing to use PI_SOURCE_DIR=${SOURCE_DIR}"
             exit 1
             ;;
+        *"/../"*|*"/.."|*"/./"*|*"/.")
+            echo "Refusing to use PI_SOURCE_DIR=${SOURCE_DIR}; remove '..' and '.' components"
+            exit 1
+            ;;
+        /*)
+            if [ "$(printf '%s' "$SOURCE_DIR_NORM" | awk -F/ '{ print NF - 1 }')" -lt 2 ]; then
+                echo "Refusing to use PI_SOURCE_DIR=${SOURCE_DIR}; choose a dedicated directory"
+                exit 1
+            fi
+            ;;
+        *)
+            echo "PI_SOURCE_DIR must be an absolute path"
+            exit 1
+            ;;
     esac
+    case "${PWD:-}/" in
+        "$SOURCE_DIR_NORM/"*)
+            echo "Refusing to use PI_SOURCE_DIR=${SOURCE_DIR}; it contains the current directory"
+            exit 1
+            ;;
+    esac
+    if [ -L "$SOURCE_DIR_NORM" ]; then
+        echo "Refusing to replace symlinked PI_SOURCE_DIR=${SOURCE_DIR}"
+        exit 1
+    fi
+    SOURCE_DIR="$SOURCE_DIR_NORM"
 
     TMP_DIR="$(mktemp -d)"
     trap 'rm -rf "$TMP_DIR"' EXIT

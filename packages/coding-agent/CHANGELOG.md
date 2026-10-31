@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [18.14.3] - 2026-10-31
+
+### Fixed
+
+- Installers now refuse an empty, root, home, current-directory, symlink, traversal, or top-level `PI_SOURCE_DIR` before deleting and recreating the source checkout.
+
 ## [18.14.2] - 2026-10-31
 
 ### Changed
