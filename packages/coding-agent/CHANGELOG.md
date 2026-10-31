@@ -11,6 +11,8 @@
 - Added the bundled Russian catalog for the approval flow: prompt headers, grant and choice labels, folder listings, elision markers, and denial errors.
 - Added [docs/i18n.md](docs/i18n.md) with the phased rollout plan, key conventions, locale precedence, plugin format, test strategy, and the remaining TUI/CLI/settings surfaces.
 - Added a Localization section to the README covering `--lang`, `OMP_LANG`, the `language` setting, plugin catalogs, and the phased rollout status.
+- Added Russian localization for builtin slash-command metadata: command and subcommand descriptions, ACP-specific copy, and live autocomplete status lines (todos, jobs, tools, context, modes, models, toggles) with plural forms and state labels.
+- Added Russian copy for ACP config selectors (mode, model, thinking) and the plan-approval prompt. Wire ids such as `default`, `plan`, and the Approve/Refine option strings stay English.
 
 ### Changed
 
