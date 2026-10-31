@@ -97,9 +97,7 @@ function buildFlags(command: CommandMetadata, id: string): CompletionFlag[] {
 		out.push({
 			name,
 			char: desc.char,
-			description: desc.description
-				? t(`omp.cli.command.${id}.flag.${name}.description`, desc.description)
-				: "",
+			description: desc.description ? t(`omp.cli.command.${id}.flag.${name}.description`, desc.description) : "",
 			value: flagValue(name, desc),
 			repeatable: Boolean(desc.multiple),
 		});

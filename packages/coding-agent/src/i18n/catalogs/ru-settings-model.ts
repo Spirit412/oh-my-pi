@@ -5,27 +5,37 @@ export const ruSettingsModel: TranslationCatalog = {
 	"omp.setting.modelRoleStorage.label": "Хранение ролей моделей",
 	"omp.setting.modelRoleStorage.description": "Где сохраняются назначения ролей в селекторе моделей",
 	"omp.setting.modelRoleStorage.option.global.label": "Глобально",
-	"omp.setting.modelRoleStorage.option.global.description": "Сохранять модели ролей в конфигурации активного профиля (текущее поведение)",
+	"omp.setting.modelRoleStorage.option.global.description":
+		"Сохранять модели ролей в конфигурации активного профиля (текущее поведение)",
 	"omp.setting.modelRoleStorage.option.project.label": "Для проекта",
-	"omp.setting.modelRoleStorage.option.project.description": "Сохранять модели ролей проекта в .omp/config.yml; отсутствующие роли проекта используют глобальные значения по умолчанию",
+	"omp.setting.modelRoleStorage.option.project.description":
+		"Сохранять модели ролей проекта в .omp/config.yml; отсутствующие роли проекта используют глобальные значения по умолчанию",
 	"omp.setting.prewalk.enabled.label": "Включать Prewalk",
-	"omp.setting.prewalk.enabled.description": "Начинать на активной модели, затем переключаться на быструю/дешёвую модель (по умолчанию роль 'smol') при первом редактировании/записи после того, как подсказка плана создаст список задач — сильная модель планирует, фиксирует задачи и начинает реализацию, а затем передаёт работу. Можно переопределить для сессии с помощью --prewalk / --no-prewalk.",
+	"omp.setting.prewalk.enabled.description":
+		"Начинать на активной модели, затем переключаться на быструю/дешёвую модель (по умолчанию роль 'smol') при первом редактировании/записи после того, как подсказка плана создаст список задач — сильная модель планирует, фиксирует задачи и начинает реализацию, а затем передаёт работу. Можно переопределить для сессии с помощью --prewalk / --no-prewalk.",
 	"omp.setting.prewalk.from.label": "Модель планирования Prewalk",
-	"omp.setting.prewalk.from.description": "Модель или роль (по умолчанию '@default'), к которой /prewalk restart возвращается для планирования.",
+	"omp.setting.prewalk.from.description":
+		"Модель или роль (по умолчанию '@default'), к которой /prewalk restart возвращается для планирования.",
 	"omp.setting.prewalk.into.label": "Цель Prewalk",
-	"omp.setting.prewalk.into.description": "Модель или роль (по умолчанию '@smol'), которой Prewalk передаёт работу при первом редактировании/записи: /prewalk, /prewalk restart, «Включать Prewalk» и --prewalk. Авто-prewalk использует собственную цель.",
+	"omp.setting.prewalk.into.description":
+		"Модель или роль (по умолчанию '@smol'), которой Prewalk передаёт работу при первом редактировании/записи: /prewalk, /prewalk restart, «Включать Prewalk» и --prewalk. Авто-prewalk использует собственную цель.",
 	"omp.setting.prewalk.auto.label": "Авто-Prewalk",
-	"omp.setting.prewalk.auto.description": "Спрашивать у нативного судьи, выбранного через роль 'judge', выносит ли каждая новая задача верхнего уровня пользователя свои сложные рассуждения на начальный этап. Требуется нативный судья; без него ничего не классифицируется. Не зависит от «Включать Prewalk».",
+	"omp.setting.prewalk.auto.description":
+		"Спрашивать у нативного судьи, выбранного через роль 'judge', выносит ли каждая новая задача верхнего уровня пользователя свои сложные рассуждения на начальный этап. Требуется нативный судья; без него ничего не классифицируется. Не зависит от «Включать Prewalk».",
 	"omp.setting.prewalk.auto.option.off.label": "Выкл.",
 	"omp.setting.prewalk.auto.option.off.description": "Никогда не классифицировать промпты для prewalk",
 	"omp.setting.prewalk.auto.option.suggest.label": "Предлагать",
-	"omp.setting.prewalk.auto.option.suggest.description": "Классифицировать каждую задачу и сообщать решение, не включая prewalk",
+	"omp.setting.prewalk.auto.option.suggest.description":
+		"Классифицировать каждую задачу и сообщать решение, не включая prewalk",
 	"omp.setting.prewalk.auto.option.on.label": "Вкл.",
-	"omp.setting.prewalk.auto.option.on.description": "Для задач с уверенным выносом рассуждений на начальный этап включать передачу от активной модели к авто-цели; следующая задача снова начинается на модели планирования",
+	"omp.setting.prewalk.auto.option.on.description":
+		"Для задач с уверенным выносом рассуждений на начальный этап включать передачу от активной модели к авто-цели; следующая задача снова начинается на модели планирования",
 	"omp.setting.prewalk.autoTarget.label": "Цель авто-prewalk",
-	"omp.setting.prewalk.autoTarget.description": "Модель или роль (по умолчанию '@smol'), которой авто-prewalk передаёт работу при первом редактировании/записи.",
+	"omp.setting.prewalk.autoTarget.description":
+		"Модель или роль (по умолчанию '@smol'), которой авто-prewalk передаёт работу при первом редактировании/записи.",
 	"omp.setting.images.describeForTextModels.label": "Описывать изображения для текстовых моделей",
-	"omp.setting.images.describeForTextModels.description": "Если изображение прикреплено к модели без поддержки зрения, сохранять его в local:// и подставлять описание от модели со зрением вместо того, чтобы отбрасывать его",
+	"omp.setting.images.describeForTextModels.description":
+		"Если изображение прикреплено к модели без поддержки зрения, сохранять его в local:// и подставлять описание от модели со зрением вместо того, чтобы отбрасывать его",
 	"omp.setting.defaultThinkingLevel.label": "Уровень рассуждений",
 	"omp.setting.defaultThinkingLevel.description": "Глубина рассуждений для моделей с поддержкой рассуждений",
 	"omp.setting.defaultThinkingLevel.option.auto.label": "авто",
@@ -45,52 +55,72 @@ export const ruSettingsModel: TranslationCatalog = {
 	"omp.setting.hideThinkingBlock.label": "Скрывать блоки рассуждений",
 	"omp.setting.hideThinkingBlock.description": "Скрывать блоки рассуждений в ответах ассистента",
 	"omp.setting.expandThinkingBlocks.label": "Разворачивать блоки рассуждений",
-	"omp.setting.expandThinkingBlocks.description": "Оставлять завершённые блоки рассуждений развёрнутыми, а не сворачивать их по окончании хода",
+	"omp.setting.expandThinkingBlocks.description":
+		"Оставлять завершённые блоки рассуждений развёрнутыми, а не сворачивать их по окончании хода",
 	"omp.setting.proseOnlyThinking.label": "Рассуждения только текстом",
 	"omp.setting.proseOnlyThinking.description": "Убирать блоки кода из сводок рассуждений и заменять их многоточием",
 	"omp.setting.omitThinking.label": "Не включать сводки рассуждений",
-	"omp.setting.omitThinking.description": "Просить вышестоящих провайдеров полностью исключать сводки рассуждений из ответов (где поддерживается)",
+	"omp.setting.omitThinking.description":
+		"Просить вышестоящих провайдеров полностью исключать сводки рассуждений из ответов (где поддерживается)",
 	"omp.setting.externalThinking.label": "Внешние рассуждения",
-	"omp.setting.externalThinking.description": "Приватный черновик; не показывается пользователю. Отключает поддерживаемые рассуждения GPT, Claude и Gemini",
-	"omp.setting.externalThinking.warning": "На ваш риск: провайдеры помечали такую форму запроса как злоупотребление, вплоть до санкций на уровне аккаунта",
+	"omp.setting.externalThinking.description":
+		"Приватный черновик; не показывается пользователю. Отключает поддерживаемые рассуждения GPT, Claude и Gemini",
+	"omp.setting.externalThinking.warning":
+		"На ваш риск: провайдеры помечали такую форму запроса как злоупотребление, вплоть до санкций на уровне аккаунта",
 	"omp.setting.model.loopGuard.enabled.label": "Защита от циклов",
-	"omp.setting.model.loopGuard.enabled.description": "Включать автоматическое обнаружение циклов в потоке рассуждений и текста модели",
+	"omp.setting.model.loopGuard.enabled.description":
+		"Включать автоматическое обнаружение циклов в потоке рассуждений и текста модели",
 	"omp.setting.model.loopGuard.checkAssistantContent.label": "Защита от циклов: проверка текста",
-	"omp.setting.model.loopGuard.checkAssistantContent.description": "Применять защиту от циклов к текстовым сообщениям ассистента помимо журналов рассуждений",
+	"omp.setting.model.loopGuard.checkAssistantContent.description":
+		"Применять защиту от циклов к текстовым сообщениям ассистента помимо журналов рассуждений",
 	"omp.setting.model.loopGuard.toolCallReminder.label": "Защита от циклов: напоминание о вызове инструмента",
-	"omp.setting.model.loopGuard.toolCallReminder.description": "Когда поток рассуждений Gemini выдаёт много подряд заголовков планирования без вызова инструмента, прерывать его и вставлять напоминание сделать вызов инструмента (требуется защита от циклов)",
+	"omp.setting.model.loopGuard.toolCallReminder.description":
+		"Когда поток рассуждений Gemini выдаёт много подряд заголовков планирования без вызова инструмента, прерывать его и вставлять напоминание сделать вызов инструмента (требуется защита от циклов)",
 	"omp.setting.model.toolCallLoopGuard.enabled.label": "Защита от циклов вызовов инструментов",
-	"omp.setting.model.toolCallLoopGuard.enabled.description": "Обнаруживать подряд идущие идентичные вызовы инструментов между ходами и вставлять корректирующее указание",
+	"omp.setting.model.toolCallLoopGuard.enabled.description":
+		"Обнаруживать подряд идущие идентичные вызовы инструментов между ходами и вставлять корректирующее указание",
 	"omp.setting.model.toolCallLoopGuard.threshold.label": "Порог цикла вызовов инструментов",
-	"omp.setting.model.toolCallLoopGuard.threshold.description": "Сколько подряд идентичных вызовов инструментов нужно до вставки корректирующего указания",
+	"omp.setting.model.toolCallLoopGuard.threshold.description":
+		"Сколько подряд идентичных вызовов инструментов нужно до вставки корректирующего указания",
 	"omp.setting.model.toolCallLoopGuard.exemptTools.label": "Исключения для защиты от циклов вызовов",
-	"omp.setting.model.toolCallLoopGuard.exemptTools.description": "Имена инструментов, которые могут повторяться подряд, не вызывая межходовую защиту от циклов",
+	"omp.setting.model.toolCallLoopGuard.exemptTools.description":
+		"Имена инструментов, которые могут повторяться подряд, не вызывая межходовую защиту от циклов",
 	"omp.setting.inlineToolDescriptors.label": "Встроенные описания инструментов",
-	"omp.setting.inlineToolDescriptors.description": "Выводить полные описания инструментов в системном промпте и удалять описания верхнего уровня и вложенные из схем инструментов провайдера, чтобы текст описания отправлялся один раз. «Авто» включает это для моделей Gemini и отключает в остальных случаях",
+	"omp.setting.inlineToolDescriptors.description":
+		"Выводить полные описания инструментов в системном промпте и удалять описания верхнего уровня и вложенные из схем инструментов провайдера, чтобы текст описания отправлялся один раз. «Авто» включает это для моделей Gemini и отключает в остальных случаях",
 	"omp.setting.inlineToolDescriptors.option.auto.label": "Авто",
-	"omp.setting.inlineToolDescriptors.option.auto.description": "Встроенные описания для моделей Gemini; в остальных случаях оставлять их в схемах инструментов",
+	"omp.setting.inlineToolDescriptors.option.auto.description":
+		"Встроенные описания для моделей Gemini; в остальных случаях оставлять их в схемах инструментов",
 	"omp.setting.inlineToolDescriptors.option.on.label": "Вкл.",
 	"omp.setting.inlineToolDescriptors.option.on.description": "Всегда встраивать описания в системный промпт",
 	"omp.setting.inlineToolDescriptors.option.off.label": "Выкл.",
-	"omp.setting.inlineToolDescriptors.option.off.description": "Оставлять описания только в схемах инструментов провайдера",
+	"omp.setting.inlineToolDescriptors.option.off.description":
+		"Оставлять описания только в схемах инструментов провайдера",
 	"omp.setting.includeModelInPrompt.label": "Указывать модель в промпте",
-	"omp.setting.includeModelInPrompt.description": "Указывать идентификатор активной модели в системном промпте, чтобы агент знал, какая это модель",
+	"omp.setting.includeModelInPrompt.description":
+		"Указывать идентификатор активной модели в системном промпте, чтобы агент знал, какая это модель",
 	"omp.setting.includeWorkspaceTree.label": "Включать дерево рабочей области",
-	"omp.setting.includeWorkspaceTree.description": "Выводить дерево каталогов рабочей области в системном промпте. ВНИМАНИЕ: это может сбрасывать кеширование промпта между сессиями при изменении файлов.",
+	"omp.setting.includeWorkspaceTree.description":
+		"Выводить дерево каталогов рабочей области в системном промпте. ВНИМАНИЕ: это может сбрасывать кеширование промпта между сессиями при изменении файлов.",
 	"omp.setting.skillful.label": "Перечислять навыки в промпте",
-	"omp.setting.skillful.description": "Перечислять доступные навыки в системном промпте; отключите, чтобы экономить контекст, и переключайте для сессии с помощью /skillful",
+	"omp.setting.skillful.description":
+		"Перечислять доступные навыки в системном промпте; отключите, чтобы экономить контекст, и переключайте для сессии с помощью /skillful",
 	"omp.setting.personality.label": "Характер",
 	"omp.setting.personality.description": "Стиль общения, выводимый в блок характера системного промпта",
 	"omp.setting.personality.option.default.label": "По умолчанию",
-	"omp.setting.personality.option.default.description": "Лаконичный инженер, опирающийся на факты; плотные ответы, ориентированные на действия",
+	"omp.setting.personality.option.default.description":
+		"Лаконичный инженер, опирающийся на факты; плотные ответы, ориентированные на действия",
 	"omp.setting.personality.option.friendly.label": "Дружелюбный",
-	"omp.setting.personality.option.friendly.description": "Тёплый, поддерживающий соратник, ориентированный на темп и настрой",
+	"omp.setting.personality.option.friendly.description":
+		"Тёплый, поддерживающий соратник, ориентированный на темп и настрой",
 	"omp.setting.personality.option.pragmatic.label": "Прагматичный",
-	"omp.setting.personality.option.pragmatic.description": "Прямой, эффективный инженер, ориентированный на ясность и строгость",
+	"omp.setting.personality.option.pragmatic.description":
+		"Прямой, эффективный инженер, ориентированный на ясность и строгость",
 	"omp.setting.personality.option.none.label": "Нет",
 	"omp.setting.personality.option.none.description": "Полностью исключить блок характера",
 	"omp.setting.temperature.label": "Температура",
-	"omp.setting.temperature.description": "Температура сэмплирования (0 = детерминированно, 1 = креативно, -1 = по умолчанию у провайдера)",
+	"omp.setting.temperature.description":
+		"Температура сэмплирования (0 = детерминированно, 1 = креативно, -1 = по умолчанию у провайдера)",
 	"omp.setting.temperature.option.-1.label": "По умолчанию",
 	"omp.setting.temperature.option.-1.description": "Использовать значение провайдера по умолчанию",
 	"omp.setting.temperature.option.0.label": "0",
@@ -140,7 +170,8 @@ export const ruSettingsModel: TranslationCatalog = {
 	"omp.setting.minP.option.0.1.label": "0.1",
 	"omp.setting.minP.option.0.1.description": "Строго",
 	"omp.setting.presencePenalty.label": "Штраф за присутствие",
-	"omp.setting.presencePenalty.description": "Штраф за введение уже присутствующих токенов (-1 = по умолчанию у провайдера)",
+	"omp.setting.presencePenalty.description":
+		"Штраф за введение уже присутствующих токенов (-1 = по умолчанию у провайдера)",
 	"omp.setting.presencePenalty.option.-1.label": "По умолчанию",
 	"omp.setting.presencePenalty.option.-1.description": "Использовать значение провайдера по умолчанию",
 	"omp.setting.presencePenalty.option.0.label": "0",
@@ -174,7 +205,8 @@ export const ruSettingsModel: TranslationCatalog = {
 	"omp.setting.textVerbosity.option.high.label": "Высокая",
 	"omp.setting.textVerbosity.option.high.description": "Предпочитать подробные ответы",
 	"omp.setting.tier.openai.label": "Уровень сервиса — OpenAI",
-	"omp.setting.tier.openai.description": "Уровень обработки для запросов OpenAI / OpenAI-Codex и моделей семейства OpenAI, маршрутизируемых через OpenRouter (none = не отправлять). Передаётся как `service_tier`.",
+	"omp.setting.tier.openai.description":
+		"Уровень обработки для запросов OpenAI / OpenAI-Codex и моделей семейства OpenAI, маршрутизируемых через OpenRouter (none = не отправлять). Передаётся как `service_tier`.",
 	"omp.setting.tier.openai.option.none.label": "Нет",
 	"omp.setting.tier.openai.option.none.description": "Не отправлять service_tier (стандартная обработка)",
 	"omp.setting.tier.openai.option.auto.label": "Авто",
@@ -188,15 +220,19 @@ export const ruSettingsModel: TranslationCatalog = {
 	"omp.setting.tier.openai.option.priority.label": "Приоритет",
 	"omp.setting.tier.openai.option.priority.description": "Быстрее, дороже (премиум-запрос)",
 	"omp.setting.tier.openai.option.ultrafast.label": "Ultrafast",
-	"omp.setting.tier.openai.option.ultrafast.description": "Обслуживание с минимальной задержкой; предварительный доступ к OpenAI API или модели Codex, которые это поддерживают",
+	"omp.setting.tier.openai.option.ultrafast.description":
+		"Обслуживание с минимальной задержкой; предварительный доступ к OpenAI API или модели Codex, которые это поддерживают",
 	"omp.setting.tier.anthropic.label": "Уровень сервиса — Anthropic",
-	"omp.setting.tier.anthropic.description": "Уровень обработки для запросов Claude. `priority` реализует быстрый режим (`speed: \"fast\"`) на поддерживаемых прямых моделях Anthropic; игнорируется для Claude в Bedrock/Vertex и через OpenRouter.",
+	"omp.setting.tier.anthropic.description":
+		'Уровень обработки для запросов Claude. `priority` реализует быстрый режим (`speed: "fast"`) на поддерживаемых прямых моделях Anthropic; игнорируется для Claude в Bedrock/Vertex и через OpenRouter.',
 	"omp.setting.tier.anthropic.option.none.label": "Нет",
 	"omp.setting.tier.anthropic.option.none.description": "Стандартная обработка",
 	"omp.setting.tier.anthropic.option.priority.label": "Приоритет",
-	"omp.setting.tier.anthropic.option.priority.description": "Быстрый режим (`speed: \"fast\"`) на поддерживаемых прямых моделях Claude; игнорируется в Bedrock/Vertex",
+	"omp.setting.tier.anthropic.option.priority.description":
+		'Быстрый режим (`speed: "fast"`) на поддерживаемых прямых моделях Claude; игнорируется в Bedrock/Vertex',
 	"omp.setting.tier.google.label": "Уровень сервиса — Google",
-	"omp.setting.tier.google.description": "Уровень обработки для запросов Gemini (Google AI Studio + Vertex) и моделей семейства Google, маршрутизируемых через OpenRouter (none = не отправлять). Передаётся в поле верхнего уровня `serviceTier`.",
+	"omp.setting.tier.google.description":
+		"Уровень обработки для запросов Gemini (Google AI Studio + Vertex) и моделей семейства Google, маршрутизируемых через OpenRouter (none = не отправлять). Передаётся в поле верхнего уровня `serviceTier`.",
 	"omp.setting.tier.google.option.none.label": "Нет",
 	"omp.setting.tier.google.option.none.description": "Стандартная обработка",
 	"omp.setting.tier.google.option.flex.label": "Flex",
@@ -204,7 +240,8 @@ export const ruSettingsModel: TranslationCatalog = {
 	"omp.setting.tier.google.option.priority.label": "Приоритет",
 	"omp.setting.tier.google.option.priority.description": "Быстрее, выше надёжность (Gemini API + Vertex)",
 	"omp.setting.tier.subagent.label": "Уровень сервиса — субагент",
-	"omp.setting.tier.subagent.description": "Уровень сервиса для запускаемых субагентов task/eval. «Наследовать» = повторять текущие уровни основного агента по семействам (учитывает /fast); выберите значение, чтобы применить его к семейству, к которому относится модель субагента.",
+	"omp.setting.tier.subagent.description":
+		"Уровень сервиса для запускаемых субагентов task/eval. «Наследовать» = повторять текущие уровни основного агента по семействам (учитывает /fast); выберите значение, чтобы применить его к семейству, к которому относится модель субагента.",
 	"omp.setting.tier.subagent.option.inherit.label": "Наследовать",
 	"omp.setting.tier.subagent.option.inherit.description": "Повторять текущие уровни основного агента по семействам",
 	"omp.setting.tier.subagent.option.none.label": "Нет",
@@ -218,11 +255,14 @@ export const ruSettingsModel: TranslationCatalog = {
 	"omp.setting.tier.subagent.option.scale.label": "Scale",
 	"omp.setting.tier.subagent.option.scale.description": "Кредиты Scale Tier (семейство OpenAI)",
 	"omp.setting.tier.subagent.option.priority.label": "Приоритет",
-	"omp.setting.tier.subagent.option.priority.description": "Приоритет для каждого поддерживаемого семейства запускаемой модели",
+	"omp.setting.tier.subagent.option.priority.description":
+		"Приоритет для каждого поддерживаемого семейства запускаемой модели",
 	"omp.setting.tier.subagent.option.ultrafast.label": "Ultrafast",
-	"omp.setting.tier.subagent.option.ultrafast.description": "Сверхбыстрое обслуживание (семейство OpenAI, где доступно)",
+	"omp.setting.tier.subagent.option.ultrafast.description":
+		"Сверхбыстрое обслуживание (семейство OpenAI, где доступно)",
 	"omp.setting.tier.advisor.label": "Уровень сервиса — советник",
-	"omp.setting.tier.advisor.description": "Уровень сервиса для модели советника. «Нет» = стандартная обработка; «Наследовать» = повторять текущие уровни основного агента по семействам; выберите значение, чтобы применить его к семейству модели советника.",
+	"omp.setting.tier.advisor.description":
+		"Уровень сервиса для модели советника. «Нет» = стандартная обработка; «Наследовать» = повторять текущие уровни основного агента по семействам; выберите значение, чтобы применить его к семейству модели советника.",
 	"omp.setting.tier.advisor.option.inherit.label": "Наследовать",
 	"omp.setting.tier.advisor.option.inherit.description": "Повторять текущие уровни основного агента по семействам",
 	"omp.setting.tier.advisor.option.none.label": "Нет",
@@ -236,9 +276,11 @@ export const ruSettingsModel: TranslationCatalog = {
 	"omp.setting.tier.advisor.option.scale.label": "Scale",
 	"omp.setting.tier.advisor.option.scale.description": "Кредиты Scale Tier (семейство OpenAI)",
 	"omp.setting.tier.advisor.option.priority.label": "Приоритет",
-	"omp.setting.tier.advisor.option.priority.description": "Приоритет для каждого поддерживаемого семейства запускаемой модели",
+	"omp.setting.tier.advisor.option.priority.description":
+		"Приоритет для каждого поддерживаемого семейства запускаемой модели",
 	"omp.setting.tier.advisor.option.ultrafast.label": "Ultrafast",
-	"omp.setting.tier.advisor.option.ultrafast.description": "Сверхбыстрое обслуживание (семейство OpenAI, где доступно)",
+	"omp.setting.tier.advisor.option.ultrafast.description":
+		"Сверхбыстрое обслуживание (семейство OpenAI, где доступно)",
 	"omp.setting.retry.maxRetries.label": "Число повторов",
 	"omp.setting.retry.maxRetries.description": "Максимальное число повторов при ошибках API",
 	"omp.setting.retry.maxRetries.option.1.label": "1 повтор",
@@ -247,25 +289,34 @@ export const ruSettingsModel: TranslationCatalog = {
 	"omp.setting.retry.maxRetries.option.5.label": "5 повторов",
 	"omp.setting.retry.maxRetries.option.10.label": "10 повторов",
 	"omp.setting.retry.maxDelayMs.label": "Максимальная задержка повтора",
-	"omp.setting.retry.maxDelayMs.description": "Максимальное ожидание между повторами, в мс. Если провайдер просит подождать дольше и ни резервный ключ, ни резервная модель не срабатывают, запрос завершается с ошибкой вместо ожидания (например, 3-часовые окна лимита Anthropic). 0 отключает потолок — чтобы сессия автоматически продолжалась после указанных провайдером сбросов квоты.",
+	"omp.setting.retry.maxDelayMs.description":
+		"Максимальное ожидание между повторами, в мс. Если провайдер просит подождать дольше и ни резервный ключ, ни резервная модель не срабатывают, запрос завершается с ошибкой вместо ожидания (например, 3-часовые окна лимита Anthropic). 0 отключает потолок — чтобы сессия автоматически продолжалась после указанных провайдером сбросов квоты.",
 	"omp.setting.retry.waitForUsageReset.label": "Ждать сброса лимита",
-	"omp.setting.retry.waitForUsageReset.description": "Если провайдер сообщает об исчерпании лимита со временем сброса (5-часовые или недельные окна квоты у любого провайдера), ждать до сброса вместо быстрого завершения с ошибкой при превышении retry.maxDelayMs. Ожидание можно прервать (Esc), но оно также задерживает субагентов, поэтому для запусков без присмотра оставьте выключенным.",
+	"omp.setting.retry.waitForUsageReset.description":
+		"Если провайдер сообщает об исчерпании лимита со временем сброса (5-часовые или недельные окна квоты у любого провайдера), ждать до сброса вместо быстрого завершения с ошибкой при превышении retry.maxDelayMs. Ожидание можно прервать (Esc), но оно также задерживает субагентов, поэтому для запусков без присмотра оставьте выключенным.",
 	"omp.setting.retry.modelFallback.label": "Резервная модель при повторе",
-	"omp.setting.retry.modelFallback.description": "Разрешать при повторе переключаться на модели из retry.fallbackChains после ошибок провайдера. Не зависит от авто-повышения контекста",
+	"omp.setting.retry.modelFallback.description":
+		"Разрешать при повторе переключаться на модели из retry.fallbackChains после ошибок провайдера. Не зависит от авто-повышения контекста",
 	"omp.setting.retry.fallbackOn.label": "Условие резерва",
-	"omp.setting.retry.fallbackOn.description": "Какие неудачные запросы могут переключаться на настроенную резервную модель",
+	"omp.setting.retry.fallbackOn.description":
+		"Какие неудачные запросы могут переключаться на настроенную резервную модель",
 	"omp.setting.retry.fallbackOn.option.any.label": "Любая ошибка",
 	"omp.setting.retry.fallbackOn.option.any.description": "Любая ошибка провайдера может переключать модель",
 	"omp.setting.retry.fallbackOn.option.usage-limit.label": "Только лимиты",
-	"omp.setting.retry.fallbackOn.option.usage-limit.description": "Переключаться только при лимите; другие ошибки повторять на той же модели, затем показывать их",
+	"omp.setting.retry.fallbackOn.option.usage-limit.description":
+		"Переключаться только при лимите; другие ошибки повторять на той же модели, затем показывать их",
 	"omp.setting.retry.fallbackOn.option.except-usage-limit.label": "Все, кроме лимитов",
-	"omp.setting.retry.fallbackOn.option.except-usage-limit.description": "Пережидать или показывать лимит; переключаться при других ошибках",
+	"omp.setting.retry.fallbackOn.option.except-usage-limit.description":
+		"Пережидать или показывать лимит; переключаться при других ошибках",
 	"omp.setting.retry.rateLimitWalksChain.label": "Лимит обходит цепочку",
-	"omp.setting.retry.rateLimitWalksChain.description": "При лимите не задерживать обход retry.fallbackChains для хода, рассуждения которого подписаны сбойной моделью. В выключенном состоянии (по умолчанию) такой ход продолжает повторять запросы к модели с лимитом, пока не исчерпается retry.maxRetries, и только затем доходит до цепочки.",
+	"omp.setting.retry.rateLimitWalksChain.description":
+		"При лимите не задерживать обход retry.fallbackChains для хода, рассуждения которого подписаны сбойной моделью. В выключенном состоянии (по умолчанию) такой ход продолжает повторять запросы к модели с лимитом, пока не исчерпается retry.maxRetries, и только затем доходит до цепочки.",
 	"omp.setting.retry.usageAwareFallback.label": "Резерв с учётом расхода",
-	"omp.setting.retry.usageAwareFallback.description": "Использовать надёжные отчёты о квоте тарифов для программирования, чтобы предпочитать аккаунты того же провайдера, а затем настроенные резервные модели, не дожидаясь жёсткого лимита. Обычные настроенные ключи API не учитываются.",
+	"omp.setting.retry.usageAwareFallback.description":
+		"Использовать надёжные отчёты о квоте тарифов для программирования, чтобы предпочитать аккаунты того же провайдера, а затем настроенные резервные модели, не дожидаясь жёсткого лимита. Обычные настроенные ключи API не учитываются.",
 	"omp.setting.retry.usageReservePct.label": "Резервный запас",
-	"omp.setting.retry.usageReservePct.description": "Считать модель тарифа для программирования близкой к лимиту, когда остаток ниже этого процента. Неизвестный или несопоставленный расход оставляет основную модель.",
+	"omp.setting.retry.usageReservePct.description":
+		"Считать модель тарифа для программирования близкой к лимиту, когда остаток ниже этого процента. Неизвестный или несопоставленный расход оставляет основную модель.",
 	"omp.setting.retry.usageReservePct.option.5.label": "5%",
 	"omp.setting.retry.usageReservePct.option.5.description": "Действовать только при почти полном исчерпании",
 	"omp.setting.retry.usageReservePct.option.10.label": "10%",
@@ -277,35 +328,49 @@ export const ruSettingsModel: TranslationCatalog = {
 	"omp.setting.retry.usageReservePct.option.25.label": "25%",
 	"omp.setting.retry.usageReservePct.option.25.description": "Очень консервативно",
 	"omp.setting.retry.usageReservePolicy.label": "Политика резерва",
-	"omp.setting.retry.usageReservePolicy.description": "Что делать, когда все аккаунты тарифа для программирования у того же провайдера находятся внутри резервного запаса.",
+	"omp.setting.retry.usageReservePolicy.description":
+		"Что делать, когда все аккаунты тарифа для программирования у того же провайдера находятся внутри резервного запаса.",
 	"omp.setting.retry.usageReservePolicy.option.confirm.label": "Подтверждать в интерактиве",
-	"omp.setting.retry.usageReservePolicy.option.confirm.description": "Держать интерактивные сессии на основной модели до подтверждения; фоновые агенты переключаются автоматически",
+	"omp.setting.retry.usageReservePolicy.option.confirm.description":
+		"Держать интерактивные сессии на основной модели до подтверждения; фоновые агенты переключаются автоматически",
 	"omp.setting.retry.usageReservePolicy.option.auto.label": "Автоматический резерв",
-	"omp.setting.retry.usageReservePolicy.option.auto.description": "Всегда выбирать следующий подходящий настроенный резерв",
+	"omp.setting.retry.usageReservePolicy.option.auto.description":
+		"Всегда выбирать следующий подходящий настроенный резерв",
 	"omp.setting.retry.usageReservePolicy.option.fail-closed.label": "Закрытый отказ",
-	"omp.setting.retry.usageReservePolicy.option.fail-closed.description": "Не расходовать резервную квоту и не выбирать резерв",
+	"omp.setting.retry.usageReservePolicy.option.fail-closed.description":
+		"Не расходовать резервную квоту и не выбирать резерв",
 	"omp.setting.retry.fallbackChains.label": "Цепочки резервных моделей",
-	"omp.setting.retry.fallbackChains.description": "Объект JSON, сопоставляющий роли моделей, селекторы моделей (\"provider/model-id\") или шаблоны провайдеров (\"provider/*\") упорядоченным селекторам резерва, например {\"default\":[\"openai/gpt-4o-mini\"],\"google-antigravity/*\":[\"google/*\",\"google-vertex/*\"]}. Ключи, привязанные к модели, применяются, когда эта модель или провайдер активны, независимо от роли; запись \"provider/*\" сохраняет id сбойной модели и меняет провайдера. Шаблон с префиксом id (\"openrouter/google/*\") заново добавляет префикс к короткому id сбойной модели (google-antigravity/gemini-x -> openrouter/google/gemini-x) и в роли ключа соответствует только id этого провайдера с данным префиксом. Запись резерва может содержать явный суффикс рассуждений (\"provider/model:low\", \":high\", \":max\", \":off\"); запись без суффикса наследует усилие сбойного хода, а записи \"provider/*\" всегда наследуют.",
+	"omp.setting.retry.fallbackChains.description":
+		'Объект JSON, сопоставляющий роли моделей, селекторы моделей ("provider/model-id") или шаблоны провайдеров ("provider/*") упорядоченным селекторам резерва, например {"default":["openai/gpt-4o-mini"],"google-antigravity/*":["google/*","google-vertex/*"]}. Ключи, привязанные к модели, применяются, когда эта модель или провайдер активны, независимо от роли; запись "provider/*" сохраняет id сбойной модели и меняет провайдера. Шаблон с префиксом id ("openrouter/google/*") заново добавляет префикс к короткому id сбойной модели (google-antigravity/gemini-x -> openrouter/google/gemini-x) и в роли ключа соответствует только id этого провайдера с данным префиксом. Запись резерва может содержать явный суффикс рассуждений ("provider/model:low", ":high", ":max", ":off"); запись без суффикса наследует усилие сбойного хода, а записи "provider/*" всегда наследуют.',
 	"omp.setting.retry.fallbackRevertPolicy.label": "Политика возврата с резерва",
 	"omp.setting.retry.fallbackRevertPolicy.description": "Когда возвращаться к основной модели после резерва",
 	"omp.setting.retry.fallbackRevertPolicy.option.cooldown-expiry.label": "Окончание паузы",
-	"omp.setting.retry.fallbackRevertPolicy.option.cooldown-expiry.description": "Возвращаться к основной модели после окончания окна её подавления",
+	"omp.setting.retry.fallbackRevertPolicy.option.cooldown-expiry.description":
+		"Возвращаться к основной модели после окончания окна её подавления",
 	"omp.setting.retry.fallbackRevertPolicy.option.never.label": "Никогда",
-	"omp.setting.retry.fallbackRevertPolicy.option.never.description": "Оставаться на резервной модели до ручного изменения",
+	"omp.setting.retry.fallbackRevertPolicy.option.never.description":
+		"Оставаться на резервной модели до ручного изменения",
 	"omp.setting.providers.anthropic.serverSideFallback.label": "Серверный резерв Anthropic (Fable 5)",
-	"omp.setting.providers.anthropic.serverSideFallback.description": "Если запрос Claude Fable 5 / Mythos 5 блокируется классификатором безопасности Anthropic, повторять его на Claude Opus 5 на стороне сервера (бета-функция Anthropic `server-side-fallback-2026-06-01`). Включается по желанию — если оставить выключенным, для всех запросов сохраняется поведение без резерва.",
+	"omp.setting.providers.anthropic.serverSideFallback.description":
+		"Если запрос Claude Fable 5 / Mythos 5 блокируется классификатором безопасности Anthropic, повторять его на Claude Opus 5 на стороне сервера (бета-функция Anthropic `server-side-fallback-2026-06-01`). Включается по желанию — если оставить выключенным, для всех запросов сохраняется поведение без резерва.",
 	"omp.setting.providers.autoThinkingMaxEffort.label": "Потолок авто-рассуждений",
-	"omp.setting.providers.autoThinkingMaxEffort.description": "Наибольшее усилие, которое может выбрать классификатор `auto`. `xhigh` держит классификатор на уровень ниже максимума, поэтому до `max` доходит только явный `ultrathink`; `max` позволяет ходу, который классификатор счёл исключительным, использовать верхний уровень на моделях, где он доступен.",
+	"omp.setting.providers.autoThinkingMaxEffort.description":
+		"Наибольшее усилие, которое может выбрать классификатор `auto`. `xhigh` держит классификатор на уровень ниже максимума, поэтому до `max` доходит только явный `ultrathink`; `max` позволяет ходу, который классификатор счёл исключительным, использовать верхний уровень на моделях, где он доступен.",
 	"omp.setting.providers.autoThinkingMaxEffort.option.xhigh.label": "xhigh",
-	"omp.setting.providers.autoThinkingMaxEffort.option.xhigh.description": "Классификатор останавливается на xhigh (по умолчанию)",
+	"omp.setting.providers.autoThinkingMaxEffort.option.xhigh.description":
+		"Классификатор останавливается на xhigh (по умолчанию)",
 	"omp.setting.providers.autoThinkingMaxEffort.option.max.label": "max",
-	"omp.setting.providers.autoThinkingMaxEffort.option.max.description": "Классификатор может выбрать max там, где модель это поддерживает",
+	"omp.setting.providers.autoThinkingMaxEffort.option.max.description":
+		"Классификатор может выбрать max там, где модель это поддерживает",
 	"omp.setting.advisor.enabled.label": "Включать советника",
-	"omp.setting.advisor.enabled.description": "Подключать вторую модель (назначенную на роль 'advisor'), которая пассивно проверяет каждый ход и вставляет замечания.",
+	"omp.setting.advisor.enabled.description":
+		"Подключать вторую модель (назначенную на роль 'advisor'), которая пассивно проверяет каждый ход и вставляет замечания.",
 	"omp.setting.advisor.syncBacklog.label": "Синхронизация с очередью советника",
-	"omp.setting.advisor.syncBacklog.description": "Приостанавливать основного агента, пока очередь советника не опустится ниже порога. Числовые значения ограничивают ожидание 30 секундами; strict ждёт все запланированные проверки без ограничения по времени. Значение «Выкл.» отключает задержки на догон. Прерывание, сбой и освобождение снимают ожидание.",
+	"omp.setting.advisor.syncBacklog.description":
+		"Приостанавливать основного агента, пока очередь советника не опустится ниже порога. Числовые значения ограничивают ожидание 30 секундами; strict ждёт все запланированные проверки без ограничения по времени. Значение «Выкл.» отключает задержки на догон. Прерывание, сбой и освобождение снимают ожидание.",
 	"omp.setting.advisor.immuneTurns.label": "Ходы без вмешательства советника",
-	"omp.setting.advisor.immuneTurns.description": "После того как замечание или блокирующая проблема советника прервала работу, передавать дальнейшие замечания как не прерывающие реплики в течение указанного числа основных ходов. Блокирующие проблемы не подпадают под паузу.",
+	"omp.setting.advisor.immuneTurns.description":
+		"После того как замечание или блокирующая проблема советника прервала работу, передавать дальнейшие замечания как не прерывающие реплики в течение указанного числа основных ходов. Блокирующие проблемы не подпадают под паузу.",
 	"omp.setting.advisor.immuneTurns.option.0.label": "0 шагов",
 	"omp.setting.advisor.immuneTurns.option.0.description": "Без паузы.",
 	"omp.setting.advisor.immuneTurns.option.1.label": "1 шаг",
@@ -315,21 +380,27 @@ export const ruSettingsModel: TranslationCatalog = {
 	"omp.setting.advisor.immuneTurns.option.4.label": "4 шага",
 	"omp.setting.advisor.immuneTurns.option.5.label": "5 шагов",
 	"omp.setting.advisor.continueSeverity.label": "Важность замечаний для продолжения",
-	"omp.setting.advisor.continueSeverity.description": "Минимальная важность замечания советника, которое будит агента после того, как он завершил работу итоговым ответом. Замечания меньшей важности остаются карточкой в конце транскрипта и доходят до агента со следующим сообщением.",
+	"omp.setting.advisor.continueSeverity.description":
+		"Минимальная важность замечания советника, которое будит агента после того, как он завершил работу итоговым ответом. Замечания меньшей важности остаются карточкой в конце транскрипта и доходят до агента со следующим сообщением.",
 	"omp.setting.advisor.continueSeverity.option.nit.label": "Придирка",
 	"omp.setting.advisor.continueSeverity.option.nit.description": "Любое замечание продолжает запуск.",
 	"omp.setting.advisor.continueSeverity.option.concern.label": "Замечание",
-	"omp.setting.advisor.continueSeverity.option.concern.description": "Замечания и блокирующие проблемы продолжают запуск. По умолчанию.",
+	"omp.setting.advisor.continueSeverity.option.concern.description":
+		"Замечания и блокирующие проблемы продолжают запуск. По умолчанию.",
 	"omp.setting.advisor.continueSeverity.option.blocker.label": "Блокер",
 	"omp.setting.advisor.continueSeverity.option.blocker.description": "Только блокирующие проблемы продолжают запуск.",
 	"omp.setting.advisor.reviewMode.label": "Режим проверки советника",
-	"omp.setting.advisor.reviewMode.description": "Режим проверки советника по умолчанию, когда нет списка WATCHDOG.yml. turn проверяет каждый основной ход; agent-end — только итоговые выдачи.",
+	"omp.setting.advisor.reviewMode.description":
+		"Режим проверки советника по умолчанию, когда нет списка WATCHDOG.yml. turn проверяет каждый основной ход; agent-end — только итоговые выдачи.",
 	"omp.setting.advisor.reviewMode.option.turn.label": "Каждый ход",
-	"omp.setting.advisor.reviewMode.option.turn.description": "Проверять каждое основное обновление (раунд вызова инструментов).",
+	"omp.setting.advisor.reviewMode.option.turn.description":
+		"Проверять каждое основное обновление (раунд вызова инструментов).",
 	"omp.setting.advisor.reviewMode.option.agent-end.label": "Завершение агента",
-	"omp.setting.advisor.reviewMode.option.agent-end.description": "Проверять только при итоговой выдаче (один раз за запуск).",
+	"omp.setting.advisor.reviewMode.option.agent-end.description":
+		"Проверять только при итоговой выдаче (один раз за запуск).",
 	"omp.setting.advisor.reviewInterval.label": "Интервал проверки советника",
-	"omp.setting.advisor.reviewInterval.description": "Режим проверки советника по умолчанию, когда нет списка WATCHDOG.yml: проверять каждое N-е подходящее основное обновление. 1 = каждое обновление. Пропущенные обновления отправляются со следующей запланированной проверкой.",
+	"omp.setting.advisor.reviewInterval.description":
+		"Режим проверки советника по умолчанию, когда нет списка WATCHDOG.yml: проверять каждое N-е подходящее основное обновление. 1 = каждое обновление. Пропущенные обновления отправляются со следующей запланированной проверкой.",
 	"omp.setting.advisor.reviewInterval.option.1.label": "Каждое подходящее обновление",
 	"omp.setting.advisor.reviewInterval.option.1.description": "По умолчанию.",
 	"omp.setting.advisor.reviewInterval.option.2.label": "Каждое 2-е",
@@ -337,7 +408,8 @@ export const ruSettingsModel: TranslationCatalog = {
 	"omp.setting.advisor.reviewInterval.option.5.label": "Каждое 5-е",
 	"omp.setting.advisor.reviewInterval.option.10.label": "Каждое 10-е",
 	"omp.setting.advisor.maxNotesPerUpdate.label": "Максимум замечаний советника за обновление",
-	"omp.setting.advisor.maxNotesPerUpdate.description": "Максимум не блокирующих замечаний, принимаемых за одно обновление промпта советника (1–32; в UI доступны быстрые варианты 1–5). Блокирующие проблемы не учитываются.",
+	"omp.setting.advisor.maxNotesPerUpdate.description":
+		"Максимум не блокирующих замечаний, принимаемых за одно обновление промпта советника (1–32; в UI доступны быстрые варианты 1–5). Блокирующие проблемы не учитываются.",
 	"omp.setting.advisor.maxNotesPerUpdate.option.1.label": "1 замечание",
 	"omp.setting.advisor.maxNotesPerUpdate.option.1.description": "Защита от потока (строго).",
 	"omp.setting.advisor.maxNotesPerUpdate.option.2.label": "2 замечания",
@@ -346,11 +418,14 @@ export const ruSettingsModel: TranslationCatalog = {
 	"omp.setting.advisor.maxNotesPerUpdate.option.4.description": "Передовые модели рассуждений. По умолчанию.",
 	"omp.setting.advisor.maxNotesPerUpdate.option.5.label": "5 замечаний",
 	"omp.setting.advisor.evictStaleResults.label": "Вытеснять устаревшие результаты советника",
-	"omp.setting.advisor.evictStaleResults.description": "Перед каждой проверкой заменять вывод read/grep/glob советника из старых проверок короткой заглушкой. Последняя проверка сохраняется.",
+	"omp.setting.advisor.evictStaleResults.description":
+		"Перед каждой проверкой заменять вывод read/grep/glob советника из старых проверок короткой заглушкой. Последняя проверка сохраняется.",
 	"omp.setting.images.urls.enabled.label": "Отдавать изображения по URL",
-	"omp.setting.images.urls.enabled.description": "Публиковать исходящие изображения через настроенную цепочку бэкендов и отправлять провайдерам, загружающим URL, короткие ссылки вместо встроенного base64. Автоматически возвращается к встроенной передаче, если не сработал ни один бэкенд или загрузка провайдером",
+	"omp.setting.images.urls.enabled.description":
+		"Публиковать исходящие изображения через настроенную цепочку бэкендов и отправлять провайдерам, загружающим URL, короткие ссылки вместо встроенного base64. Автоматически возвращается к встроенной передаче, если не сработал ни один бэкенд или загрузка провайдером",
 	"omp.setting.images.urls.backends.label": "Бэкенды URL изображений",
-	"omp.setting.images.urls.backends.description": "Упорядоченные назначения, которые пробуются при публикации изображений для доступа провайдера",
+	"omp.setting.images.urls.backends.description":
+		"Упорядоченные назначения, которые пробуются при публикации изображений для доступа провайдера",
 	"omp.setting.images.urls.backends.option.imgur.label": "imgur",
 	"omp.setting.images.urls.backends.option.imgur.description": "Imgur",
 	"omp.setting.images.urls.backends.option.imageshack.label": "imageshack",
@@ -452,15 +527,20 @@ export const ruSettingsModel: TranslationCatalog = {
 	"omp.setting.images.urls.backends.option.garage.label": "garage",
 	"omp.setting.images.urls.backends.option.garage.description": "Garage",
 	"omp.setting.images.urls.command.label": "Команда загрузки изображений",
-	"omp.setting.images.urls.command.description": "Шаблон argv для бэкенда command; {file} — путь к изображению, {mime}/{ext} необязательны. Используется последний URL, выведенный в stdout (например, pasta -b -f {file})",
+	"omp.setting.images.urls.command.description":
+		"Шаблон argv для бэкенда command; {file} — путь к изображению, {mime}/{ext} необязательны. Используется последний URL, выведенный в stdout (например, pasta -b -f {file})",
 	"omp.setting.images.urls.publicBaseUrl.label": "Публичная база URL изображений",
-	"omp.setting.images.urls.publicBaseUrl.description": "Доступный извне базовый URL перед blob-сервером (обязателен для ssh, необязателен для direct)",
+	"omp.setting.images.urls.publicBaseUrl.description":
+		"Доступный извне базовый URL перед blob-сервером (обязателен для ssh, необязателен для direct)",
 	"omp.setting.images.urls.ttlHours.label": "Время жизни URL изображения (часы)",
-	"omp.setting.images.urls.ttlHours.description": "Окно раздачи для локально размещённых URL изображений, отсчитываемое от последней отправки в переписке; возобновление переписки заново запускает окно для той же ссылки. 0 сохраняет ссылки живыми, пока работает брокер",
+	"omp.setting.images.urls.ttlHours.description":
+		"Окно раздачи для локально размещённых URL изображений, отсчитываемое от последней отправки в переписке; возобновление переписки заново запускает окно для той же ссылки. 0 сохраняет ссылки живыми, пока работает брокер",
 	"omp.setting.images.urls.bindHost.label": "Хост привязки URL изображений",
-	"omp.setting.images.urls.bindHost.description": "Хост, к которому привязывается blob-сервер; loopback для туннелей, 0.0.0.0 для прямой раздачи",
+	"omp.setting.images.urls.bindHost.description":
+		"Хост, к которому привязывается blob-сервер; loopback для туннелей, 0.0.0.0 для прямой раздачи",
 	"omp.setting.images.urls.sshTarget.label": "Цель SSH для URL изображений",
 	"omp.setting.images.urls.sshTarget.description": "Назначение user@host для обратного проброса ssh",
 	"omp.setting.images.urls.sshRemotePort.label": "Удалённый порт SSH для URL изображений",
-	"omp.setting.images.urls.sshRemotePort.description": "Удалённый порт прослушивания обратного проброса ssh, на который проксирует ваш веб-сервер",
+	"omp.setting.images.urls.sshRemotePort.description":
+		"Удалённый порт прослушивания обратного проброса ssh, на который проксирует ваш веб-сервер",
 };

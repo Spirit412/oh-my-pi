@@ -129,16 +129,21 @@ export const TAB_LEADS: Record<SettingTab, string> = {
 	},
 };
 
+/** Stable catalog key for a settings section group (raw name normalized). */
+export function settingsGroupKey(group: string): string {
+	const key = group
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-|-$/g, "");
+	return `tui.settings.group.${key}`;
+}
+
 /**
  * Localized heading for a settings section group. The raw group name stays the
  * stable id used for ordering (`TAB_GROUPS`); only the displayed copy translates.
  */
 export function settingsGroupLabel(group: string): string {
-	const key = group
-		.toLowerCase()
-		.replace(/[^a-z0-9]+/g, "-")
-		.replace(/^-|-$/g, "");
-	return t(`tui.settings.group.${key}`, group);
+	return t(settingsGroupKey(group), group);
 }
 
 /**

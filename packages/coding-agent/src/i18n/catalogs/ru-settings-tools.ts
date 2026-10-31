@@ -3,7 +3,8 @@ import type { TranslationCatalog } from "@oh-my-pi/pi-utils/i18n";
 /** Russian copy for the tools settings tab. */
 export const ruSettingsTools: TranslationCatalog = {
 	"omp.setting.tools.artifactSpillThreshold.label": "Порог выноса в артефакт (КБ)",
-	"omp.setting.tools.artifactSpillThreshold.description": "Вывод инструмента больше этого размера сохраняется как артефакт; хвост остаётся в строке",
+	"omp.setting.tools.artifactSpillThreshold.description":
+		"Вывод инструмента больше этого размера сохраняется как артефакт; хвост остаётся в строке",
 	"omp.setting.tools.artifactSpillThreshold.option.1.label": "1 КБ",
 	"omp.setting.tools.artifactSpillThreshold.option.1.description": "~250 токенов",
 	"omp.setting.tools.artifactSpillThreshold.option.2.5.label": "2.5 КБ",
@@ -29,7 +30,8 @@ export const ruSettingsTools: TranslationCatalog = {
 	"omp.setting.tools.artifactSpillThreshold.option.1000.label": "1 МБ",
 	"omp.setting.tools.artifactSpillThreshold.option.1000.description": "~250K токенов",
 	"omp.setting.tools.artifactTailBytes.label": "Размер хвоста артефакта (КБ)",
-	"omp.setting.tools.artifactTailBytes.description": "Объём хвостовой части вывода, остающейся в строке, когда вывод выносится в артефакт",
+	"omp.setting.tools.artifactTailBytes.description":
+		"Объём хвостовой части вывода, остающейся в строке, когда вывод выносится в артефакт",
 	"omp.setting.tools.artifactTailBytes.option.1.label": "1 КБ",
 	"omp.setting.tools.artifactTailBytes.option.1.description": "~250 токенов",
 	"omp.setting.tools.artifactTailBytes.option.2.5.label": "2.5 КБ",
@@ -47,7 +49,8 @@ export const ruSettingsTools: TranslationCatalog = {
 	"omp.setting.tools.artifactTailBytes.option.200.label": "200 КБ",
 	"omp.setting.tools.artifactTailBytes.option.200.description": "~50K токенов",
 	"omp.setting.tools.artifactHeadBytes.label": "Размер начала артефакта (КБ)",
-	"omp.setting.tools.artifactHeadBytes.description": "Объём начальной части вывода, остающейся в строке вместе с хвостом, когда вывод выносится в артефакт (пропуск середины). 0 отключает — остаётся только хвост.",
+	"omp.setting.tools.artifactHeadBytes.description":
+		"Объём начальной части вывода, остающейся в строке вместе с хвостом, когда вывод выносится в артефакт (пропуск середины). 0 отключает — остаётся только хвост.",
 	"omp.setting.tools.artifactHeadBytes.option.0.label": "0 КБ",
 	"omp.setting.tools.artifactHeadBytes.option.0.description": "Отключено; усечение только по хвосту",
 	"omp.setting.tools.artifactHeadBytes.option.1.label": "1 КБ",
@@ -67,7 +70,8 @@ export const ruSettingsTools: TranslationCatalog = {
 	"omp.setting.tools.artifactHeadBytes.option.200.label": "200 КБ",
 	"omp.setting.tools.artifactHeadBytes.option.200.description": "~50K токенов",
 	"omp.setting.tools.outputMaxColumns.label": "Лимит колонок вывода",
-	"omp.setting.tools.outputMaxColumns.description": "Ограничение байтов на строку для потокового вывода инструментов (bash, python, js eval) и `read`. Строки шире этого усекаются многоточием; оставшиеся байты до следующего перевода строки отбрасываются. 0 отключает.",
+	"omp.setting.tools.outputMaxColumns.description":
+		"Ограничение байтов на строку для потокового вывода инструментов (bash, python, js eval) и `read`. Строки шире этого усекаются многоточием; оставшиеся байты до следующего перевода строки отбрасываются. 0 отключает.",
 	"omp.setting.tools.outputMaxColumns.option.0.label": "Выкл.",
 	"omp.setting.tools.outputMaxColumns.option.0.description": "Без ограничения на строку",
 	"omp.setting.tools.outputMaxColumns.option.256.label": "256",
@@ -80,7 +84,8 @@ export const ruSettingsTools: TranslationCatalog = {
 	"omp.setting.tools.outputMaxColumns.option.4096.label": "4096",
 	"omp.setting.tools.outputMaxColumns.option.4096.description": "Свободно",
 	"omp.setting.tools.artifactTailLines.label": "Строк хвоста артефакта",
-	"omp.setting.tools.artifactTailLines.description": "Максимальное число строк хвоста, остающихся в строке, когда вывод выносится в артефакт",
+	"omp.setting.tools.artifactTailLines.description":
+		"Максимальное число строк хвоста, остающихся в строке, когда вывод выносится в артефакт",
 	"omp.setting.tools.artifactTailLines.option.50.label": "50 строк",
 	"omp.setting.tools.artifactTailLines.option.50.description": "~250 токенов",
 	"omp.setting.tools.artifactTailLines.option.100.label": "100 строк",
@@ -96,7 +101,8 @@ export const ruSettingsTools: TranslationCatalog = {
 	"omp.setting.tools.artifactTailLines.option.5000.label": "5000 строк",
 	"omp.setting.tools.artifactTailLines.option.5000.description": "~25K токенов",
 	"omp.setting.tools.artifactMaxBytes.label": "Размер файла артефакта (МБ)",
-	"omp.setting.tools.artifactMaxBytes.description": "Максимальный размер файла артефакта, сохраняемого для потокового вывода инструментов (bash, python, js eval). При большем выводе сохраняются его начало (до 3 МБ) и самый свежий остаток, а между ними — уведомление об усечении. 0 = без ограничения.",
+	"omp.setting.tools.artifactMaxBytes.description":
+		"Максимальный размер файла артефакта, сохраняемого для потокового вывода инструментов (bash, python, js eval). При большем выводе сохраняются его начало (до 3 МБ) и самый свежий остаток, а между ними — уведомление об усечении. 0 = без ограничения.",
 	"omp.setting.tools.artifactMaxBytes.option.0.label": "Без ограничения",
 	"omp.setting.tools.artifactMaxBytes.option.0.description": "Сохранять полный вывод",
 	"omp.setting.tools.artifactMaxBytes.option.4.label": "4 МБ",
@@ -110,21 +116,25 @@ export const ruSettingsTools: TranslationCatalog = {
 	"omp.setting.todo.reminders.label": "Напоминания о задачах",
 	"omp.setting.todo.reminders.description": "Напоминать агенту завершать задачи перед остановкой",
 	"omp.setting.todo.remindersMax.label": "Лимит напоминаний о задачах",
-	"omp.setting.todo.remindersMax.description": "Максимальное число напоминаний о задачах, после которого они прекращаются",
+	"omp.setting.todo.remindersMax.description":
+		"Максимальное число напоминаний о задачах, после которого они прекращаются",
 	"omp.setting.todo.remindersMax.option.1.label": "1 напоминание",
 	"omp.setting.todo.remindersMax.option.2.label": "2 напоминания",
 	"omp.setting.todo.remindersMax.option.3.label": "3 напоминания",
 	"omp.setting.todo.remindersMax.option.5.label": "5 напоминаний",
 	"omp.setting.todo.eager.label": "Создавать задачи автоматически",
-	"omp.setting.todo.eager.description": "Насколько настойчиво подталкивать к автоматическому созданию списка задач после первого сообщения",
+	"omp.setting.todo.eager.description":
+		"Насколько настойчиво подталкивать к автоматическому созданию списка задач после первого сообщения",
 	"omp.setting.todo.eager.option.default.label": "По умолчанию",
 	"omp.setting.todo.eager.option.default.description": "Решает модель; автоматический список задач не создаётся",
 	"omp.setting.todo.eager.option.preferred.label": "Предпочтительно",
-	"omp.setting.todo.eager.option.preferred.description": "Предлагает список задач на первом сообщении (напоминание, без принуждения)",
+	"omp.setting.todo.eager.option.preferred.description":
+		"Предлагает список задач на первом сообщении (напоминание, без принуждения)",
 	"omp.setting.todo.eager.option.always.label": "Всегда",
 	"omp.setting.todo.eager.option.always.description": "Принудительно создаёт полный список задач на первом сообщении",
 	"omp.setting.tasks.todoClearDelay.label": "Задержка автоочистки задач",
-	"omp.setting.tasks.todoClearDelay.description": "Задержка перед удалением завершённых или заброшенных задач из виджета задач",
+	"omp.setting.tasks.todoClearDelay.description":
+		"Задержка перед удалением завершённых или заброшенных задач из виджета задач",
 	"omp.setting.tasks.todoClearDelay.option.0.label": "Мгновенно",
 	"omp.setting.tasks.todoClearDelay.option.60.label": "1 минута",
 	"omp.setting.tasks.todoClearDelay.option.60.description": "По умолчанию",
@@ -157,82 +167,109 @@ export const ruSettingsTools: TranslationCatalog = {
 	"omp.setting.astEdit.enabled.label": "AST Edit",
 	"omp.setting.astEdit.enabled.description": "Включать инструмент ast_edit для структурных переписываний AST",
 	"omp.setting.find.enabled.label": "Find (семантический grep)",
-	"omp.setting.find.enabled.description": "Включать инструмент find: поиск файлов и диапазонов строк на естественном языке, который оценивает роль модели judge. Auto включает его только когда роль judge соответствует нативной модели TypeSafe jev",
+	"omp.setting.find.enabled.description":
+		"Включать инструмент find: поиск файлов и диапазонов строк на естественном языке, который оценивает роль модели judge. Auto включает его только когда роль judge соответствует нативной модели TypeSafe jev",
 	"omp.setting.find.enabled.option.auto.label": "Авто",
-	"omp.setting.find.enabled.option.auto.description": "Включать, когда роль judge соответствует нативной модели TypeSafe jev",
+	"omp.setting.find.enabled.option.auto.description":
+		"Включать, когда роль judge соответствует нативной модели TypeSafe jev",
 	"omp.setting.find.enabled.option.on.label": "Вкл.",
-	"omp.setting.find.enabled.option.on.description": "Включать всегда, независимо от того, какая модель назначена роли judge",
+	"omp.setting.find.enabled.option.on.description":
+		"Включать всегда, независимо от того, какая модель назначена роли judge",
 	"omp.setting.find.enabled.option.off.label": "Выкл.",
 	"omp.setting.find.enabled.option.off.description": "Отключить инструмент find",
 	"omp.setting.debug.enabled.label": "Debug",
 	"omp.setting.debug.enabled.description": "Включать инструмент debug для отладки через DAP",
 	"omp.setting.launch.enabled.label": "Сервисы",
-	"omp.setting.launch.enabled.description": "Включать именованные сервисы bash и супервизию proc:// для общих долгоживущих процессов проекта",
+	"omp.setting.launch.enabled.description":
+		"Включать именованные сервисы bash и супервизию proc:// для общих долгоживущих процессов проекта",
 	"omp.setting.speechgen.enabled.label": "Генерация речи",
-	"omp.setting.speechgen.enabled.description": "Включать инструмент tts для синтеза речевых файлов на устройстве (Kokoro) или через xAI Grok Voice",
+	"omp.setting.speechgen.enabled.description":
+		"Включать инструмент tts для синтеза речевых файлов на устройстве (Kokoro) или через xAI Grok Voice",
 	"omp.setting.generate_image.enabled.label": "Генерация изображений",
-	"omp.setting.generate_image.enabled.description": "Включать инструмент generate_image (генерация и редактирование изображений по тексту). Доступен как устройство xd://, когда включён tools.xdev.",
+	"omp.setting.generate_image.enabled.description":
+		"Включать инструмент generate_image (генерация и редактирование изображений по тексту). Доступен как устройство xd://, когда включён tools.xdev.",
 	"omp.setting.computer.enabled.label": "Компьютер",
-	"omp.setting.computer.enabled.description": "Включать сценарную прелюдию eval для рабочего стола хоста (снимки экрана, ввод, доступность)",
+	"omp.setting.computer.enabled.description":
+		"Включать сценарную прелюдию eval для рабочего стола хоста (снимки экрана, ввод, доступность)",
 	"omp.setting.ratchet.enabled.label": "Ratchet",
-	"omp.setting.ratchet.enabled.description": "Включать прелюдию eval/hillclimb ratchet; /ratchet включает её для текущей сессии",
+	"omp.setting.ratchet.enabled.description":
+		"Включать прелюдию eval/hillclimb ratchet; /ratchet включает её для текущей сессии",
 	"omp.setting.archive.enabled.label": "Архив",
-	"omp.setting.archive.enabled.description": "Включать прелюдию eval archive только для чтения: история промптов, недавние проекты, прошлые сессии и сводки",
+	"omp.setting.archive.enabled.description":
+		"Включать прелюдию eval archive только для чтения: история промптов, недавние проекты, прошлые сессии и сводки",
 	"omp.setting.computer.display.label": "Экран компьютера",
-	"omp.setting.computer.display.description": "Дисплей активного окна (active), все дисплеи (all) или нативный идентификатор дисплея",
+	"omp.setting.computer.display.description":
+		"Дисплей активного окна (active), все дисплеи (all) или нативный идентификатор дисплея",
 	"omp.setting.computer.maxWidth.label": "Ширина снимка экрана",
 	"omp.setting.computer.maxWidth.description": "Максимальная ширина снимка экрана в пикселях",
 	"omp.setting.computer.maxHeight.label": "Высота снимка экрана",
 	"omp.setting.computer.maxHeight.description": "Максимальная высота снимка экрана в пикселях",
 	"omp.setting.computer.backgroundFallback.label": "Резервный вариант для фонового ввода",
-	"omp.setting.computer.backgroundFallback.description": "Что делать вводу в окно, когда его фоновый маршрут недоступен: повторить его в режиме перехвата и вернуть фокус вашему приложению (в macOS — даже если вы продолжали печатать) или отказаться, что также не даёт агенту выходить на передний план и открывать меню macOS самостоятельно",
+	"omp.setting.computer.backgroundFallback.description":
+		"Что делать вводу в окно, когда его фоновый маршрут недоступен: повторить его в режиме перехвата и вернуть фокус вашему приложению (в macOS — даже если вы продолжали печатать) или отказаться, что также не даёт агенту выходить на передний план и открывать меню macOS самостоятельно",
 	"omp.setting.computer.backgroundFallback.option.takeover.label": "Перехват",
-	"omp.setting.computer.backgroundFallback.option.takeover.description": "Ненадолго выводит цель на передний план для этого одного вызова, затем возвращает фокус вашему приложению (в macOS — даже если вы продолжали печатать)",
+	"omp.setting.computer.backgroundFallback.option.takeover.description":
+		"Ненадолго выводит цель на передний план для этого одного вызова, затем возвращает фокус вашему приложению (в macOS — даже если вы продолжали печатать)",
 	"omp.setting.computer.backgroundFallback.option.refuse.label": "Отказ",
-	"omp.setting.computer.backgroundFallback.option.refuse.description": "Вызов завершается ошибкой; ничего не перехватывается, а также запрещаются собственный перехват агентом, подъём окна, активирующее открытие, ввод в рабочий стол и меню macOS (контекстные меню, всплывающие и пункты меню; они забирают клавиатуру, пока открыты)",
+	"omp.setting.computer.backgroundFallback.option.refuse.description":
+		"Вызов завершается ошибкой; ничего не перехватывается, а также запрещаются собственный перехват агентом, подъём окна, активирующее открытие, ввод в рабочий стол и меню macOS (контекстные меню, всплывающие и пункты меню; они забирают клавиатуру, пока открыты)",
 	"omp.setting.images.questionTimeoutMs.label": "Тайм-аут вопроса об изображении",
-	"omp.setting.images.questionTimeoutMs.description": "Тайм-аут на запрос к vision-модели, отвечающей на вопросы об изображениях `read` с `?q=`, в миллисекундах. При зависании провайдера запрос быстро завершается ошибкой тайм-аута вместо блокировки до ручной отмены. Задайте 0, чтобы отключить тайм-аут.",
+	"omp.setting.images.questionTimeoutMs.description":
+		"Тайм-аут на запрос к vision-модели, отвечающей на вопросы об изображениях `read` с `?q=`, в миллисекундах. При зависании провайдера запрос быстро завершается ошибкой тайм-аута вместо блокировки до ручной отмены. Задайте 0, чтобы отключить тайм-аут.",
 	"omp.setting.images.questionTimeoutMs.option.0.label": "Отключено",
 	"omp.setting.images.questionTimeoutMs.option.60000.label": "1 минута",
 	"omp.setting.images.questionTimeoutMs.option.120000.label": "2 минуты",
 	"omp.setting.images.questionTimeoutMs.option.180000.label": "3 минуты",
 	"omp.setting.images.questionTimeoutMs.option.300000.label": "5 минут",
 	"omp.setting.checkpoint.enabled.label": "Контрольные точки/откат",
-	"omp.setting.checkpoint.enabled.description": "Включать инструменты checkpoint и rewind для контрольных точек контекста",
+	"omp.setting.checkpoint.enabled.description":
+		"Включать инструменты checkpoint и rewind для контрольных точек контекста",
 	"omp.setting.fetch.enabled.label": "Чтение URL",
 	"omp.setting.fetch.enabled.description": "Разрешать инструменту read загружать и обрабатывать URL",
 	"omp.setting.vault.enabled.label": "Хранилище Obsidian",
-	"omp.setting.vault.enabled.description": "Включать внутренний URL vault:// для чтения и редактирования содержимого хранилища Obsidian через Obsidian CLI. Когда отключено, разрешение vault:// отклоняется, а запись vault:// исключается из системного промпта.",
+	"omp.setting.vault.enabled.description":
+		"Включать внутренний URL vault:// для чтения и редактирования содержимого хранилища Obsidian через Obsidian CLI. Когда отключено, разрешение vault:// отклоняется, а запись vault:// исключается из системного промпта.",
 	"omp.setting.github.enabled.label": "GitHub CLI",
-	"omp.setting.github.enabled.description": "Включать инструмент github (диспетчеризация по операциям для сценариев работы с репозиторием, issue, pull request, диффом, поиском, checkout, push и watch Actions)",
+	"omp.setting.github.enabled.description":
+		"Включать инструмент github (диспетчеризация по операциям для сценариев работы с репозиторием, issue, pull request, диффом, поиском, checkout, push и watch Actions)",
 	"omp.setting.github.cache.enabled.label": "Кеш просмотров GitHub",
-	"omp.setting.github.cache.enabled.description": "Кешировать отрисованный вывод просмотра issue/PR в ~/.omp/cache/github-cache.db, чтобы повторные чтения ничего не стоили",
+	"omp.setting.github.cache.enabled.description":
+		"Кешировать отрисованный вывод просмотра issue/PR в ~/.omp/cache/github-cache.db, чтобы повторные чтения ничего не стоили",
 	"omp.setting.github.cache.softTtlSec.label": "Мягкий TTL кеша GitHub",
-	"omp.setting.github.cache.softTtlSec.description": "В течение этого окна кешированные строки просмотра issue/PR возвращаются сразу (секунды; по умолчанию 5 минут)",
+	"omp.setting.github.cache.softTtlSec.description":
+		"В течение этого окна кешированные строки просмотра issue/PR возвращаются сразу (секунды; по умолчанию 5 минут)",
 	"omp.setting.github.cache.hardTtlSec.label": "Жёсткий TTL кеша GitHub",
-	"omp.setting.github.cache.hardTtlSec.description": "После мягкого TTL кешированная строка возвращается и обновляется в фоне; после жёсткого TTL она удаляется (секунды; по умолчанию 7 дней)",
+	"omp.setting.github.cache.hardTtlSec.description":
+		"После мягкого TTL кешированная строка возвращается и обновляется в фоне; после жёсткого TTL она удаляется (секунды; по умолчанию 7 дней)",
 	"omp.setting.web_search.enabled.label": "Веб-поиск",
 	"omp.setting.web_search.enabled.description": "Включать инструмент web_search для живых результатов из интернета",
 	"omp.setting.security.enabled.label": "Безопасность",
-	"omp.setting.security.enabled.description": "Включать планирование и выполнение сканирования безопасности силами OMP, а также пространство ресурсов security:// только для чтения",
+	"omp.setting.security.enabled.description":
+		"Включать планирование и выполнение сканирования безопасности силами OMP, а также пространство ресурсов security:// только для чтения",
 	"omp.setting.ask.enabled.label": "Ask",
 	"omp.setting.ask.enabled.description": "Включать инструмент ask для интерактивных вопросов пользователю",
 	"omp.setting.out.enabled.label": "Out",
-	"omp.setting.out.enabled.description": "Разрешать агенту отвечать посреди задачи, записывая в out://; это показывается как ответ, не завершая ход. Не задано: включено в интерактивном TUI, выключено в print, RPC и ACP",
+	"omp.setting.out.enabled.description":
+		"Разрешать агенту отвечать посреди задачи, записывая в out://; это показывается как ответ, не завершая ход. Не задано: включено в интерактивном TUI, выключено в print, RPC и ACP",
 	"omp.setting.tools.intentTracing.label": "Трассировка намерений",
-	"omp.setting.tools.intentTracing.description": "Просить агента описывать намерение каждого вызова инструмента перед его выполнением",
+	"omp.setting.tools.intentTracing.description":
+		"Просить агента описывать намерение каждого вызова инструмента перед его выполнением",
 	"omp.setting.tools.abortOnFabricatedResult.label": "Прерывать при выдуманном результате инструмента",
-	"omp.setting.tools.abortOnFabricatedResult.description": "При внутриполосных вызовах инструментов останавливать модель сразу, как только она начинает галлюцинировать результат инструмента посреди хода. Отключите, чтобы модель завершила генерацию, а выдуманное продолжение было отброшено",
+	"omp.setting.tools.abortOnFabricatedResult.description":
+		"При внутриполосных вызовах инструментов останавливать модель сразу, как только она начинает галлюцинировать результат инструмента посреди хода. Отключите, чтобы модель завершила генерацию, а выдуманное продолжение было отброшено",
 	"omp.setting.tools.speculativeExecution.enabled.label": "Экспериментальное спекулятивное выполнение",
-	"omp.setting.tools.speculativeExecution.enabled.description": "Включать безопасный для отбрасывания первый этап: проверенные локальные чтения через прямые вызовы read и вложенный eval. Сетевые запросы, ответы провайдеров и запись в живую файловую систему в эту базу не входят",
+	"omp.setting.tools.speculativeExecution.enabled.description":
+		"Включать безопасный для отбрасывания первый этап: проверенные локальные чтения через прямые вызовы read и вложенный eval. Сетевые запросы, ответы провайдеров и запись в живую файловую систему в эту базу не входят",
 	"omp.setting.tools.speculativeExecution.maxInFlight.label": "Параллелизм спекулятивного выполнения",
-	"omp.setting.tools.speculativeExecution.maxInFlight.description": "Максимальное число проверенных локальных чтений, выполняемых до обычной диспетчеризации",
+	"omp.setting.tools.speculativeExecution.maxInFlight.description":
+		"Максимальное число проверенных локальных чтений, выполняемых до обычной диспетчеризации",
 	"omp.setting.tools.speculativeExecution.maxInFlight.option.1.label": "1 операция",
 	"omp.setting.tools.speculativeExecution.maxInFlight.option.2.label": "2 операции",
 	"omp.setting.tools.speculativeExecution.maxInFlight.option.3.label": "3 операции",
 	"omp.setting.tools.speculativeExecution.maxInFlight.option.4.label": "4 операции",
 	"omp.setting.tools.maxTimeout.label": "Максимальный тайм-аут инструмента",
-	"omp.setting.tools.maxTimeout.description": "Максимальный тайм-аут в секундах, который агент может задать для любого инструмента (0 = без ограничения)",
+	"omp.setting.tools.maxTimeout.description":
+		"Максимальный тайм-аут в секундах, который агент может задать для любого инструмента (0 = без ограничения)",
 	"omp.setting.tools.maxTimeout.option.0.label": "Без ограничения",
 	"omp.setting.tools.maxTimeout.option.30.label": "30 секунд",
 	"omp.setting.tools.maxTimeout.option.60.label": "60 секунд",
@@ -242,71 +279,100 @@ export const ruSettingsTools: TranslationCatalog = {
 	"omp.setting.async.enabled.label": "Асинхронное выполнение",
 	"omp.setting.async.enabled.description": "Включать асинхронные команды bash и фоновое выполнение задач",
 	"omp.setting.async.printWake.label": "Пробуждать печатный режим по результатам задач",
-	"omp.setting.async.printWake.description": "В печатном режиме (-p, --mode json) продолжать работу после последнего промпта, пока активны фоновые задачи этого запуска, и начинать новый ход в той же сессии с результатом каждой задачи; выход происходит, когда не остаётся ни задач, ни ожидающих результатов. Выкл.: печатный режим завершается после своих промптов и отменяет запущенные задачи",
+	"omp.setting.async.printWake.description":
+		"В печатном режиме (-p, --mode json) продолжать работу после последнего промпта, пока активны фоновые задачи этого запуска, и начинать новый ход в той же сессии с результатом каждой задачи; выход происходит, когда не остаётся ни задач, ни ожидающих результатов. Выкл.: печатный режим завершается после своих промптов и отменяет запущенные задачи",
 	"omp.setting.async.widgets.label": "Живые виджеты задач",
-	"omp.setting.async.widgets.description": "Рисовать живой виджет для каждой запущенной фоновой задачи (графики, полосы, сетки статусов, построенные по её выводу) в карточке ожидания, пилюле jobs и листе jobs. Роль модели `widget` (по умолчанию: `smol`) пишет по одной спецификации на задачу; обновления не требуют новых вызовов модели",
+	"omp.setting.async.widgets.description":
+		"Рисовать живой виджет для каждой запущенной фоновой задачи (графики, полосы, сетки статусов, построенные по её выводу) в карточке ожидания, пилюле jobs и листе jobs. Роль модели `widget` (по умолчанию: `smol`) пишет по одной спецификации на задачу; обновления не требуют новых вызовов модели",
 	"omp.setting.tools.xdev.label": "Инструменты xd://",
-	"omp.setting.tools.xdev.description": "Монтировать редко используемые (обнаруживаемые) инструменты под URL-устройствами xd://, управляемыми через read/write, вместо отправки их схем в каждом запросе. Сессии, чей явный список инструментов даёт read, но не даёт write, монтируют устройства через транспорт write только для устройств (помимо устройств записываемой остаётся лишь временная область local://). Отключите, чтобы все включённые инструменты были доступны на верхнем уровне.",
+	"omp.setting.tools.xdev.description":
+		"Монтировать редко используемые (обнаруживаемые) инструменты под URL-устройствами xd://, управляемыми через read/write, вместо отправки их схем в каждом запросе. Сессии, чей явный список инструментов даёт read, но не даёт write, монтируют устройства через транспорт write только для устройств (помимо устройств записываемой остаётся лишь временная область local://). Отключите, чтобы все включённые инструменты были доступны на верхнем уровне.",
 	"omp.setting.tools.xdevDocs.label": "Документация промпта xd://",
-	"omp.setting.tools.xdevDocs.description": "Выбрать, какие документация и схемы смонтированных устройств встраиваются в системный промпт. «Только встроенные» оставляет основные инструменты встроенными, а инструменты MCP и расширений — по запросу.",
+	"omp.setting.tools.xdevDocs.description":
+		"Выбрать, какие документация и схемы смонтированных устройств встраиваются в системный промпт. «Только встроенные» оставляет основные инструменты встроенными, а инструменты MCP и расширений — по запросу.",
 	"omp.setting.tools.xdevDocs.option.inline.label": "Все устройства",
-	"omp.setting.tools.xdevDocs.option.inline.description": "Встраивать документацию и схемы для каждого смонтированного устройства.",
+	"omp.setting.tools.xdevDocs.option.inline.description":
+		"Встраивать документацию и схемы для каждого смонтированного устройства.",
 	"omp.setting.tools.xdevDocs.option.builtins.label": "Только встроенные",
-	"omp.setting.tools.xdevDocs.option.builtins.description": "Встраивать документацию встроенных инструментов; документацию MCP и расширений загружать по запросу.",
+	"omp.setting.tools.xdevDocs.option.builtins.description":
+		"Встраивать документацию встроенных инструментов; документацию MCP и расширений загружать по запросу.",
 	"omp.setting.tools.xdevDocs.option.catalog.label": "Только каталог",
-	"omp.setting.tools.xdevDocs.option.catalog.description": "Перечислять все устройства; всю документацию загружать по запросу.",
+	"omp.setting.tools.xdevDocs.option.catalog.description":
+		"Перечислять все устройства; всю документацию загружать по запросу.",
 	"omp.setting.tools.xdevInlineDevices.label": "Встроенные устройства xd://",
-	"omp.setting.tools.xdevInlineDevices.description": "Когда для «Документация промпта xd://» выбран режим «Только встроенные», встраивать динамические устройства, имена которых совпадают с этими glob-шаблонами (например, mcp__context_mode_*). Режим «Только каталог» игнорирует эту настройку.",
+	"omp.setting.tools.xdevInlineDevices.description":
+		"Когда для «Документация промпта xd://» выбран режим «Только встроенные», встраивать динамические устройства, имена которых совпадают с этими glob-шаблонами (например, mcp__context_mode_*). Режим «Только каталог» игнорирует эту настройку.",
 	"omp.setting.tools.xdevNotices.label": "Уведомления о монтировании xd://",
-	"omp.setting.tools.xdevNotices.description": "Показывать уведомление `xd://: mounted …` при монтировании или размонтировании инструментов MCP или расширений. Модель всё равно узнает об изменении со следующим промптом.",
+	"omp.setting.tools.xdevNotices.description":
+		"Показывать уведомление `xd://: mounted …` при монтировании или размонтировании инструментов MCP или расширений. Модель всё равно узнает об изменении со следующим промптом.",
 	"omp.setting.dev.autoqa.label": "Авто QA",
-	"omp.setting.dev.autoqa.description": "Автоматическая отправка сообщений о проблемах с инструментами (xd://report_issue). Включено по умолчанию; первый отчёт запрашивает согласие, а отказ отключает отправку до явного повторного включения",
+	"omp.setting.dev.autoqa.description":
+		"Автоматическая отправка сообщений о проблемах с инструментами (xd://report_issue). Включено по умолчанию; первый отчёт запрашивает согласие, а отказ отключает отправку до явного повторного включения",
 	"omp.setting.dev.autoqaPush.endpoint.label": "Эндпоинт отправки Auto QA",
-	"omp.setting.dev.autoqaPush.endpoint.description": "Полный URL, принимающий JSON-отчёты Auto QA (по умолчанию https://qa.omp.sh/v1/grievances)",
+	"omp.setting.dev.autoqaPush.endpoint.description":
+		"Полный URL, принимающий JSON-отчёты Auto QA (по умолчанию https://qa.omp.sh/v1/grievances)",
 	"omp.setting.extensionHandlers.toolCallTimeoutMs.label": "Тайм-аут обработчика вызова инструмента (мс)",
-	"omp.setting.extensionHandlers.toolCallTimeoutMs.description": "Тайм-аут положительной конечной активной работы для обработчиков tool_call расширений; некорректные значения дают 30000 мс, а время ожидания диалогов, которыми владеет OMP, не учитывается",
+	"omp.setting.extensionHandlers.toolCallTimeoutMs.description":
+		"Тайм-аут положительной конечной активной работы для обработчиков tool_call расширений; некорректные значения дают 30000 мс, а время ожидания диалогов, которыми владеет OMP, не учитывается",
 	"omp.setting.extensionHandlers.modeControl.label": "Управление режимами из расширений",
-	"omp.setting.extensionHandlers.modeControl.description": "Разрешать расширениям входить в режимы plan, vibe, goal и loop и выходить из них через ctx.sessionModes.set(); чтение состояния режима остаётся доступным",
+	"omp.setting.extensionHandlers.modeControl.description":
+		"Разрешать расширениям входить в режимы plan, vibe, goal и loop и выходить из них через ctx.sessionModes.set(); чтение состояния режима остаётся доступным",
 	"omp.setting.extensionRenderers.assistantText.label": "Рендереры ответов расширений",
-	"omp.setting.extensionRenderers.assistantText.description": "Разрешать расширениям менять отрисовку ответов ассистента, перерисовывать ответ на месте и получать клики по своим ссылкам; сессия, экспорты и контекст модели сохраняют ответ в исходном виде",
+	"omp.setting.extensionRenderers.assistantText.description":
+		"Разрешать расширениям менять отрисовку ответов ассистента, перерисовывать ответ на месте и получать клики по своим ссылкам; сессия, экспорты и контекст модели сохраняют ответ в исходном виде",
 	"omp.setting.browser.enabled.label": "Браузер",
-	"omp.setting.browser.enabled.description": "Включать прелюдию eval browser для сценарной автоматизации Chromium (Puppeteer)",
+	"omp.setting.browser.enabled.description":
+		"Включать прелюдию eval browser для сценарной автоматизации Chromium (Puppeteer)",
 	"omp.setting.browser.cdpUrl.label": "CDP URL браузера",
-	"omp.setting.browser.cdpUrl.description": "HTTP-эндпоинт обнаружения CDP по умолчанию (например, http://127.0.0.1:9222), к которому подключаться вместо запуска браузера. Явные app.cdp_url или app.path в вызове инструмента имеют приоритет.",
+	"omp.setting.browser.cdpUrl.description":
+		"HTTP-эндпоинт обнаружения CDP по умолчанию (например, http://127.0.0.1:9222), к которому подключаться вместо запуска браузера. Явные app.cdp_url или app.path в вызове инструмента имеют приоритет.",
 	"omp.setting.browser.relay.label": "Ретранслятор браузера",
-	"omp.setting.browser.relay.description": "Управлять своими вкладками Chrome через ретранслятор браузера omp. Установите расширение один раз (`omp browser-relay install`); сервер ретрансляции запускается автоматически, когда он нужен прелюдии браузера. Имеет приоритет над CDP URL браузера; задайте PI_BROWSER_RELAY=0 или PI_BROWSER_RELAY=1 для переопределения.",
+	"omp.setting.browser.relay.description":
+		"Управлять своими вкладками Chrome через ретранслятор браузера omp. Установите расширение один раз (`omp browser-relay install`); сервер ретрансляции запускается автоматически, когда он нужен прелюдии браузера. Имеет приоритет над CDP URL браузера; задайте PI_BROWSER_RELAY=0 или PI_BROWSER_RELAY=1 для переопределения.",
 	"omp.setting.browser.relayUrl.label": "URL ретранслятора браузера",
-	"omp.setting.browser.relayUrl.description": "Эндпоинт ретранслятора браузера omp (по умолчанию http://127.0.0.1:9224).",
+	"omp.setting.browser.relayUrl.description":
+		"Эндпоинт ретранслятора браузера omp (по умолчанию http://127.0.0.1:9224).",
 	"omp.setting.browser.headless.label": "Безголовый браузер",
-	"omp.setting.browser.headless.description": "Запускать браузер в безголовом режиме (отключите, чтобы показывать интерфейс браузера)",
+	"omp.setting.browser.headless.description":
+		"Запускать браузер в безголовом режиме (отключите, чтобы показывать интерфейс браузера)",
 	"omp.setting.browser.cmux.label": "Браузер cmux",
-	"omp.setting.browser.cmux.description": "Использовать поверхности WKWebView cmux для автоматизации браузера, когда доступен сокет cmux. Задайте PI_BROWSER_CMUX=0 или PI_BROWSER_CMUX=1 для переопределения.",
+	"omp.setting.browser.cmux.description":
+		"Использовать поверхности WKWebView cmux для автоматизации браузера, когда доступен сокет cmux. Задайте PI_BROWSER_CMUX=0 или PI_BROWSER_CMUX=1 для переопределения.",
 	"omp.setting.browser.tern.label": "Браузер Tern",
-	"omp.setting.browser.tern.description": "Внутри панели Tern открывать вкладки браузера как картинку в картинке поверх панели omp (нативное веб-представление) вместо безголового Chromium; резервно используется Chromium, если ни одно окно Tern не может их разместить. Явные параметры app, ретранслятор и CDP URL браузера имеют приоритет; app.tern:false исключает одно открытие. Задайте PI_BROWSER_TERN=0 или PI_BROWSER_TERN=1 для переопределения.",
+	"omp.setting.browser.tern.description":
+		"Внутри панели Tern открывать вкладки браузера как картинку в картинке поверх панели omp (нативное веб-представление) вместо безголового Chromium; резервно используется Chromium, если ни одно окно Tern не может их разместить. Явные параметры app, ретранслятор и CDP URL браузера имеют приоритет; app.tern:false исключает одно открытие. Задайте PI_BROWSER_TERN=0 или PI_BROWSER_TERN=1 для переопределения.",
 	"omp.setting.browser.freezeOnTurnEnd.label": "Замораживать вкладки браузера по завершении хода",
-	"omp.setting.browser.freezeOnTurnEnd.description": "Замораживать безголовые вкладки браузера, принадлежащие OMP, когда ход завершается, чтобы анимированные страницы не расходовали CPU/GPU в простое. Вкладки размораживаются автоматически при следующем использовании; передайте persist:true при открытии, чтобы исключить вкладку",
+	"omp.setting.browser.freezeOnTurnEnd.description":
+		"Замораживать безголовые вкладки браузера, принадлежащие OMP, когда ход завершается, чтобы анимированные страницы не расходовали CPU/GPU в простое. Вкладки размораживаются автоматически при следующем использовании; передайте persist:true при открытии, чтобы исключить вкладку",
 	"omp.setting.browser.idleCloseSec.label": "Тайм-аут закрытия браузера по простою",
-	"omp.setting.browser.idleCloseSec.description": "Закрывать безголовые вкладки браузера, принадлежащие OMP, и картинки в картинке браузера Tern, простаивающие дольше этого числа секунд (0 = никогда; при закрытии сессии они всё равно убираются). Никогда не затрагивает ретранслятор/CDP/запущенные браузеры и вкладки других сессий.",
+	"omp.setting.browser.idleCloseSec.description":
+		"Закрывать безголовые вкладки браузера, принадлежащие OMP, и картинки в картинке браузера Tern, простаивающие дольше этого числа секунд (0 = никогда; при закрытии сессии они всё равно убираются). Никогда не затрагивает ретранслятор/CDP/запущенные браузеры и вкладки других сессий.",
 	"omp.setting.browser.idleCloseSec.option.0.label": "Никогда",
 	"omp.setting.browser.idleCloseSec.option.900.label": "15 минут",
 	"omp.setting.browser.idleCloseSec.option.1800.label": "30 минут",
 	"omp.setting.browser.idleCloseSec.option.3600.label": "1 час",
 	"omp.setting.browser.screenshotDir.label": "Каталог снимков экрана",
-	"omp.setting.browser.screenshotDir.description": "Каталог для сохранения снимков экрана. Если не задан, снимки сохраняются во временный файл. Поддерживает ~. Примеры: ~/Downloads, ~/Desktop, /sdcard/Download (Android)",
+	"omp.setting.browser.screenshotDir.description":
+		"Каталог для сохранения снимков экрана. Если не задан, снимки сохраняются во временный файл. Поддерживает ~. Примеры: ~/Downloads, ~/Desktop, /sdcard/Download (Android)",
 	"omp.setting.ida.enabled.label": "IDA Pro",
-	"omp.setting.ida.enabled.description": "Открывать исполняемые файлы, прочитанные через `read`, в IDA Pro (idalib) и включать инструмент `ida`; неактивно, если установка IDA не найдена",
+	"omp.setting.ida.enabled.description":
+		"Открывать исполняемые файлы, прочитанные через `read`, в IDA Pro (idalib) и включать инструмент `ida`; неактивно, если установка IDA не найдена",
 	"omp.setting.ida.python.label": "Python для IDA",
-	"omp.setting.ida.python.description": "Интерпретатор Python, который может импортировать ida_domain и idapro; пустое значение включает автообнаружение",
+	"omp.setting.ida.python.description":
+		"Интерпретатор Python, который может импортировать ida_domain и idapro; пустое значение включает автообнаружение",
 	"omp.setting.ida.installDir.label": "Каталог установки IDA",
-	"omp.setting.ida.installDir.description": "Каталог, содержащий libidalib, экспортируемый как IDADIR; пустое значение включает автообнаружение ($IDADIR, ida-config.json, стандартные пути установки)",
+	"omp.setting.ida.installDir.description":
+		"Каталог, содержащий libidalib, экспортируемый как IDADIR; пустое значение включает автообнаружение ($IDADIR, ida-config.json, стандартные пути установки)",
 	"omp.setting.ida.maxOpen.label": "Максимум открытых баз IDA",
-	"omp.setting.ida.maxOpen.description": "Сколько баз IDA (демоны omp.ida.* в omp ps) можно держать открытыми одновременно на проект; при открытии ещё одной сохраняется и закрывается неактивная, использованная дольше всех",
+	"omp.setting.ida.maxOpen.description":
+		"Сколько баз IDA (демоны omp.ida.* в omp ps) можно держать открытыми одновременно на проект; при открытии ещё одной сохраняется и закрывается неактивная, использованная дольше всех",
 	"omp.setting.ida.maxOpen.option.2.label": "2",
 	"omp.setting.ida.maxOpen.option.4.label": "4",
 	"omp.setting.ida.maxOpen.option.8.label": "8",
 	"omp.setting.ida.maxOpen.option.16.label": "16",
 	"omp.setting.ida.idleCloseSec.label": "Тайм-аут закрытия IDA по простою",
-	"omp.setting.ida.idleCloseSec.description": "Сохранять и закрывать базы IDA, простаивающие дольше этого числа секунд (0 = никогда); пространство имён exec сбрасывается при повторном открытии",
+	"omp.setting.ida.idleCloseSec.description":
+		"Сохранять и закрывать базы IDA, простаивающие дольше этого числа секунд (0 = никогда); пространство имён exec сбрасывается при повторном открытии",
 	"omp.setting.ida.idleCloseSec.option.0.label": "Никогда",
 	"omp.setting.ida.idleCloseSec.option.300.label": "5 минут",
 	"omp.setting.ida.idleCloseSec.option.900.label": "15 минут",
@@ -315,11 +381,14 @@ export const ruSettingsTools: TranslationCatalog = {
 	"omp.setting.mcp.enableProjectConfig.label": "Проектная конфигурация MCP",
 	"omp.setting.mcp.enableProjectConfig.description": "Загружать .mcp.json/mcp.json из корня проекта",
 	"omp.setting.mcp.startupTimeoutMs.label": "Окно запуска MCP",
-	"omp.setting.mcp.startupTimeoutMs.description": "Ждать столько миллисекунд первоначального обнаружения инструментов MCP; 0 — ждать, пока соединения не установятся",
+	"omp.setting.mcp.startupTimeoutMs.description":
+		"Ждать столько миллисекунд первоначального обнаружения инструментов MCP; 0 — ждать, пока соединения не установятся",
 	"omp.setting.mcp.renderMarkdownResults.label": "Markdown-результаты MCP",
-	"omp.setting.mcp.renderMarkdownResults.description": "Отрисовывать не-JSON текстовые результаты MCP как Markdown в транскрипте",
+	"omp.setting.mcp.renderMarkdownResults.description":
+		"Отрисовывать не-JSON текстовые результаты MCP как Markdown в транскрипте",
 	"omp.setting.mcp.notifications.label": "Инъекция обновлений MCP",
 	"omp.setting.mcp.notifications.description": "Вставлять обновления ресурсов MCP в разговор с агентом",
 	"omp.setting.mcp.notificationDebounceMs.label": "Дебаунс уведомлений MCP",
-	"omp.setting.mcp.notificationDebounceMs.description": "Окно дебаунса в миллисекундах для обновлений ресурсов MCP перед их вставкой в разговор",
+	"omp.setting.mcp.notificationDebounceMs.description":
+		"Окно дебаунса в миллисекундах для обновлений ресурсов MCP перед их вставкой в разговор",
 };

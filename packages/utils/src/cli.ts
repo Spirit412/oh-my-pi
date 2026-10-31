@@ -465,7 +465,7 @@ export async function run(opts: RunOptions): Promise<void> {
 
 	// Top-level help
 	if (commandId === "--help" || commandId === "-h" || commandId === "help" || commandId === "") {
-	if (opts.help) {
+		if (opts.help) {
 			await opts.prepareHelp?.();
 			await opts.help(await loadAllCommands(opts));
 		} else {
