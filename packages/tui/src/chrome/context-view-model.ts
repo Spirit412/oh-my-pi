@@ -1,5 +1,6 @@
 /** Context snapshot shapes shared by the session snapshot builder and the context viewer. */
 import type { ContextBreakdown } from "../status-line/context-usage";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 interface ContextCategoryDescriptor {
 	readonly id: string;
@@ -30,10 +31,29 @@ export type ContextCategoryId = (typeof CONTEXT_CATEGORIES)[number]["id"];
 const DESCRIPTORS_BY_ID = new Map<ContextCategoryId, ContextCategoryDescriptor>(
 	CONTEXT_CATEGORIES.map(descriptor => [descriptor.id, descriptor]),
 );
+/** Localized display label for a context category. */
+export function contextCategoryLabel(id: ContextCategoryId): string {
+	const descriptor = DESCRIPTORS_BY_ID.get(id)!;
+	return t(`tui.contextView.${id}.label`, descriptor.label);
+}
 
-/** Descriptor of a category id: its label, optional Overview label, and whether it can be opened. */
+/**
+ * Descriptor of a category id with localized copy. Labels resolve at read time
+ * so a locale change applies without rebuilding the static category table.
+ */
 export function contextCategoryDescriptor(id: ContextCategoryId): ContextCategoryDescriptor {
-	return DESCRIPTORS_BY_ID.get(id)!;
+	const descriptor = DESCRIPTORS_BY_ID.get(id)!;
+	return {
+		...descriptor,
+		get label() {
+			return t(`tui.contextView.${id}.label`, descriptor.label);
+		},
+		get overviewLabel() {
+			return descriptor.overviewLabel
+				? t(`tui.contextView.${id}.overviewLabel`, descriptor.overviewLabel)
+				: undefined;
+		},
+	};
 }
 
 export interface ContextThinkingGroup {

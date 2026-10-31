@@ -11,6 +11,7 @@ import {
 	normalizePathForComparison,
 	relativePathWithinNormalizedRoot,
 } from "@oh-my-pi/pi-utils";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import { type SymbolKey, type Theme, type ThemeColor, theme } from "../theme";
 import { shortenPath, TRUNCATE_LENGTHS, truncateToWidth } from "../render/render-utils";
 import { fileHyperlink } from "../render/hyperlink";
@@ -436,7 +437,7 @@ function describeGoalMode(ctx: SegmentContext, mode: { enabled: boolean; paused:
 		default:
 			break;
 	}
-	let label = "Goal";
+	let label = t("tui.statusLine.goal", "Goal");
 	if (ctx.goalStatusInFooter === true && goal) label += ` ${formatGoalBudget(goal.tokensUsed, goal.tokenBudget)}`;
 	const token = color === "accent" ? accentToken(ctx, color) : color;
 	return segView([span(label, token)], icon, toneOf(color));
@@ -469,7 +470,7 @@ function renderGoalMode(ctx: SegmentContext, mode: { enabled: boolean; paused: b
 			break;
 	}
 
-	const parts: string[] = [withIcon(icon, "Goal")];
+	const parts: string[] = [withIcon(icon, t("tui.statusLine.goal", "Goal"))];
 	const showBudget = ctx.goalStatusInFooter === true;
 	if (showBudget && goal) {
 		parts.push(formatGoalBudget(goal.tokensUsed, goal.tokenBudget));
@@ -491,19 +492,28 @@ function formatLoopLimit(
 	const hours = Math.floor(totalSeconds / 3_600);
 	const minutes = Math.floor((totalSeconds % 3_600) / 60);
 	const seconds = totalSeconds % 60;
-	if (hours > 0) return `${hours}h${minutes > 0 ? `${minutes}m` : ""} left`;
-	if (minutes > 0) return `${minutes}m${seconds > 0 ? `${seconds}s` : ""} left`;
-	return `${seconds}s left`;
+	if (hours > 0) {
+		return t("tui.statusLine.loopLimitLeft", "{value} left", {
+			value: `${hours}h${minutes > 0 ? `${minutes}m` : ""}`,
+		});
+	}
+	if (minutes > 0) {
+		return t("tui.statusLine.loopLimitLeft", "{value} left", {
+			value: `${minutes}m${seconds > 0 ? `${seconds}s` : ""}`,
+		});
+	}
+	return t("tui.statusLine.loopLimitLeft", "{value} left", { value: `${seconds}s` });
 }
 
 const modeSegment: StatusLineSegment = {
 	id: "mode",
 	render(ctx) {
-		const pauseSuffix = theme.icon.pause ? ` ${theme.icon.pause}` : " (paused)";
+		const pauseSuffix = theme.icon.pause ? ` ${theme.icon.pause}` : t("tui.statusLine.pausedSuffix", " (paused)");
 
 		const plan = ctx.planMode;
 		if (plan && (plan.enabled || plan.paused)) {
-			const label = plan.paused ? `Plan${pauseSuffix}` : "Plan";
+			const planLabel = t("tui.statusLine.plan", "Plan");
+			const label = plan.paused ? `${planLabel}${pauseSuffix}` : planLabel;
 			const content = withIcon(theme.icon.plan, label);
 			return {
 				content: plan.paused ? theme.fg("warning", content) : accentFg(ctx, "accent", content),
@@ -513,7 +523,7 @@ const modeSegment: StatusLineSegment = {
 
 		const prewalk = ctx.prewalk;
 		if (prewalk?.enabled) {
-			const content = withIcon(theme.icon.prewalk, "Prewalk");
+			const content = withIcon(theme.icon.prewalk, t("tui.statusLine.prewalk", "Prewalk"));
 			return { content: accentFg(ctx, "accent", content), visible: true };
 		}
 
@@ -524,7 +534,7 @@ const modeSegment: StatusLineSegment = {
 
 		const vibe = ctx.vibeMode;
 		if (vibe?.enabled) {
-			const content = withIcon(theme.icon.agents, "Vibe");
+			const content = withIcon(theme.icon.agents, t("tui.statusLine.vibe", "Vibe"));
 			return { content: accentFg(ctx, "accent", content), visible: true };
 		}
 
@@ -532,8 +542,11 @@ const modeSegment: StatusLineSegment = {
 		if (loop) {
 			const icon = loop.state === "paused" ? theme.icon.pause || theme.icon.loop : theme.icon.loop;
 			const color: ThemeColor = loop.state === "paused" ? "warning" : "customMessageLabel";
-			const stateLabel = loop.state === "waiting" ? "next prompt repeats" : loop.state;
-			const label = `Loop${loop.state === "waiting" ? ":" : ""} ${stateLabel}`;
+			const stateLabel =
+				loop.state === "waiting"
+					? t("tui.statusLine.loopWaiting", "next prompt repeats")
+					: t(`tui.statusLine.loopState.${loop.state}`, loop.state);
+			const label = `${t("tui.statusLine.loop", "Loop")}${loop.state === "waiting" ? ":" : ""} ${stateLabel}`;
 			const parts = [withIcon(icon, label)];
 			const limit = formatLoopLimit(loop.limit, ctx.now?.getTime());
 			if (limit) parts.push(limit);
@@ -549,18 +562,25 @@ const modeSegment: StatusLineSegment = {
 		const plan = ctx.planMode;
 		if (plan && (plan.enabled || plan.paused)) {
 			return plan.paused
-				? segView([span("Plan (paused)", "warning")], "plan", "warning")
-				: segView([span("Plan", accentToken(ctx, "accent"))], "plan");
+				? segView([span(t("tui.statusLine.planPaused", "Plan (paused)"), "warning")], "plan", "warning")
+				: segView([span(t("tui.statusLine.plan", "Plan"), accentToken(ctx, "accent"))], "plan");
 		}
-		if (ctx.prewalk?.enabled) return segView([span("Prewalk", accentToken(ctx, "accent"))], "prewalk");
+		if (ctx.prewalk?.enabled) {
+			return segView([span(t("tui.statusLine.prewalk", "Prewalk"), accentToken(ctx, "accent"))], "prewalk");
+		}
 		const goal = ctx.goalMode;
 		if (goal && (goal.enabled || goal.paused)) return describeGoalMode(ctx, goal);
-		if (ctx.vibeMode?.enabled) return segView([span("Vibe", accentToken(ctx, "accent"))], "agents");
+		if (ctx.vibeMode?.enabled) {
+			return segView([span(t("tui.statusLine.vibe", "Vibe"), accentToken(ctx, "accent"))], "agents");
+		}
 		const loop = ctx.loopMode;
 		if (loop) {
 			const paused = loop.state === "paused";
-			const stateLabel = loop.state === "waiting" ? "next prompt repeats" : loop.state;
-			const parts = [`Loop${loop.state === "waiting" ? ":" : ""} ${stateLabel}`];
+			const stateLabel =
+				loop.state === "waiting"
+					? t("tui.statusLine.loopWaiting", "next prompt repeats")
+					: t(`tui.statusLine.loopState.${loop.state}`, loop.state);
+			const parts = [`${t("tui.statusLine.loop", "Loop")}${loop.state === "waiting" ? ":" : ""} ${stateLabel}`];
 			const limit = formatLoopLimit(loop.limit, ctx.now?.getTime());
 			if (limit) parts.push(limit);
 			if (loop.condition) parts.push(summarizeLoopCondition(loop.condition, TRUNCATE_LENGTHS.SHORT));
@@ -966,13 +986,13 @@ const sessionSegment: StatusLineSegment = {
 	render(ctx) {
 		const sessionManager = ctx.session.sessionManager;
 		const sessionId = sessionManager?.getSessionId?.();
-		const display = sessionId?.slice(0, 8) || "new";
+		const display = sessionId?.slice(0, 8) || t("tui.statusLine.sessionNew", "new");
 
 		return { content: withIcon(theme.icon.session, display), visible: true };
 	},
 	describe(ctx) {
 		const sessionId = ctx.session.sessionManager?.getSessionId?.();
-		return segView([span(sessionId?.slice(0, 8) || "new")], "session");
+		return segView([span(sessionId?.slice(0, 8) || t("tui.statusLine.sessionNew", "new"))], "session");
 	},
 };
 
@@ -1053,13 +1073,19 @@ const collabSegment: StatusLineSegment = {
 	render(ctx) {
 		if (!ctx.collab) return { content: "", visible: false };
 		const participants = `${ctx.collab.participantCount}`;
-		const label = ctx.collab.role === "host" ? `⇄ collab:${participants}` : `⇄ collab guest:${participants}`;
+		const label =
+			ctx.collab.role === "host"
+				? t("tui.statusLine.collabHost", "⇄ collab:{count}", { count: participants })
+				: t("tui.statusLine.collabGuest", "⇄ collab guest:{count}", { count: participants });
 		return { content: accentFg(ctx, "accent", label), visible: true };
 	},
 	describe(ctx) {
 		if (!ctx.collab) return null;
 		const participants = `${ctx.collab.participantCount}`;
-		const label = ctx.collab.role === "host" ? `collab:${participants}` : `collab guest:${participants}`;
+		const label =
+			ctx.collab.role === "host"
+				? t("tui.statusLine.collabHostShort", "collab:{count}", { count: participants })
+				: t("tui.statusLine.collabGuestShort", "collab guest:{count}", { count: participants });
 		return segView([span(label, accentToken(ctx, "accent"))], "collab");
 	},
 };
@@ -1069,14 +1095,14 @@ const streamSegment: StatusLineSegment = {
 	render(ctx) {
 		const badges: string[] = [];
 		if (ctx.stream) badges.push(`● LIVE ${ctx.stream.viewers}`);
-		if (ctx.recording) badges.push("● REC");
+		if (ctx.recording) badges.push(t("tui.statusLine.recBadge", "● REC"));
 		if (badges.length === 0) return { content: "", visible: false };
 		return { content: theme.fg("thinkingHigh", badges.join(" ")), visible: true };
 	},
 	describe(ctx) {
 		const badges: string[] = [];
 		if (ctx.stream) badges.push(`LIVE ${ctx.stream.viewers}`);
-		if (ctx.recording) badges.push("REC");
+		if (ctx.recording) badges.push(t("tui.statusLine.recBadgeShort", "REC"));
 		if (badges.length === 0) return null;
 		return segView([span(badges.join(" "), "thinkingHigh")], "live", "error");
 	},
@@ -1238,13 +1264,13 @@ const usageSegment: StatusLineSegment = {
 			const resets = u.resetCredits;
 			let resetText = `✦ ${resets.bankedCount}`;
 			if (resets.redeemableCount !== resets.bankedCount) {
-				resetText += ` (${resets.redeemableCount} usable)`;
+				resetText += ` ${t("tui.statusLine.usable", "({count} usable)", { count: resets.redeemableCount })}`;
 			}
 			if (resets.expiryHours !== undefined) {
 				const expiring = resets.expiring ? `▲ ${resets.expiring.count} ` : "";
-				resetText += ` ${expiring}exp ${formatUsageReset(resets.expiryHours, "h")}`;
+				resetText += ` ${expiring}${t("tui.statusLine.expiresShort", "exp")} ${formatUsageReset(resets.expiryHours, "h")}`;
 			} else if (resets.expired) {
-				resetText += " expired";
+				resetText += t("tui.statusLine.expired", " expired");
 			}
 			if (resets.redeemableCount === 0 && resets.unavailableReason) {
 				const reason = truncateToWidth(sanitizeStatusText(resets.unavailableReason), TRUNCATE_LENGTHS.SHORT);
@@ -1274,11 +1300,13 @@ const usageSegment: StatusLineSegment = {
 		if (u.resetCredits) {
 			const resets = u.resetCredits;
 			let resetText = `✦ ${resets.bankedCount}`;
-			if (resets.redeemableCount !== resets.bankedCount) resetText += ` (${resets.redeemableCount} usable)`;
+			if (resets.redeemableCount !== resets.bankedCount) {
+				resetText += ` ${t("tui.statusLine.usable", "({count} usable)", { count: resets.redeemableCount })}`;
+			}
 			if (resets.expiryHours !== undefined) {
 				const expiring = resets.expiring ? `▲ ${resets.expiring.count} ` : "";
-				resetText += ` ${expiring}exp ${formatUsageReset(resets.expiryHours, "h")}`;
-			} else if (resets.expired) resetText += " expired";
+				resetText += ` ${expiring}${t("tui.statusLine.expiresShort", "exp")} ${formatUsageReset(resets.expiryHours, "h")}`;
+			} else if (resets.expired) resetText += t("tui.statusLine.expired", " expired");
 			if (resets.redeemableCount === 0 && resets.unavailableReason) {
 				const reason = sanitizeStatusText(resets.unavailableReason);
 				if (reason) resetText += ` ${reason}`;

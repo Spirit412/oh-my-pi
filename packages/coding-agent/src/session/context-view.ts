@@ -3,6 +3,7 @@ import type { AnthropicServerToolContent, AssistantMessage, ImageContent, TextCo
 import { isSurvivingAssistant } from "@oh-my-pi/pi-ai/providers/transform-messages";
 import {
 	CONTEXT_CATEGORIES,
+	contextCategoryLabel,
 	type ContextCategoryId,
 	type ContextThinkingGroup,
 	type ContextViewCategory,
@@ -371,9 +372,9 @@ export function buildSessionContextView(
 	session: AgentSession,
 	breakdown: ContextBreakdown = computeSessionContextBreakdown(session, { snapcompactSavings: true }),
 ): ContextViewData {
-	const categories: ContextViewCategory[] = CONTEXT_CATEGORIES.map(({ id, label }) => ({
+	const categories: ContextViewCategory[] = CONTEXT_CATEGORIES.map(({ id }) => ({
 		id,
-		label,
+		label: contextCategoryLabel(id),
 		tokens: 0,
 		entries: [],
 	}));

@@ -15,6 +15,7 @@
 - Added Russian copy for ACP config selectors (mode, model, thinking) and the plan-approval prompt. Wire ids such as `default`, `plan`, and the Approve/Refine option strings stay English.
 - Added Russian localization for the settings panel: every setting label and description, submenu option copy, tab labels, tab leads, section headings, and environment override notes follow the UI locale.
 - Added Russian localization for CLI help and shell completions: `omp --help`, `omp <command> --help`, and generated completion descriptions resolve before rendering; `--lang` wins over `OMP_LANG` and the system locale.
+- Added Russian localization for the status line, context usage and context views, and transcript chrome (warning/error labels, unknown-error fallback).
 
 ### Changed
 

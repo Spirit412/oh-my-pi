@@ -4,6 +4,7 @@ import { effectiveReserveTokens, resolveThresholdTokens } from "@oh-my-pi/pi-age
 import type { Tool as AiTool, Model } from "@oh-my-pi/pi-ai";
 import { renderToolExamples } from "@oh-my-pi/pi-ai/dialect";
 import { stripSchemaDescriptions, toolWireSchema } from "@oh-my-pi/pi-ai/utils/schema";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 interface ContextSkill {
 	readonly name: string;
@@ -508,11 +509,15 @@ export function computeContextBreakdown(session: ContextUsageSession, options: C
 	}
 
 	const categories: CategoryInfo[] = [
-		{ id: "systemPrompt", label: "System prompt", tokens: systemPromptTokens },
-		{ id: "systemTools", label: "System tools", tokens: toolsTokens },
-		{ id: "systemContext", label: "System context", tokens: systemContextTokens },
-		{ id: "skills", label: "Skills", tokens: skillsTokens },
-		{ id: "messages", label: "Messages", tokens: messagesTokens },
+		{ id: "systemPrompt", label: t("tui.contextUsage.systemPrompt", "System prompt"), tokens: systemPromptTokens },
+		{ id: "systemTools", label: t("tui.contextUsage.systemTools", "System tools"), tokens: toolsTokens },
+		{
+			id: "systemContext",
+			label: t("tui.contextUsage.systemContext", "System context"),
+			tokens: systemContextTokens,
+		},
+		{ id: "skills", label: t("tui.contextUsage.skills", "Skills"), tokens: skillsTokens },
+		{ id: "messages", label: t("tui.contextUsage.messages", "Messages"), tokens: messagesTokens },
 	];
 
 	let autoCompactBufferTokens = 0;

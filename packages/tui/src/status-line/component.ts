@@ -19,6 +19,7 @@ import {
 	visibleWidth,
 } from "../index";
 import { adjustHsv, formatNumber, getProjectDir, hexToRgb, rgbToHex } from "@oh-my-pi/pi-utils";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import type {
 	ActiveRepoContext,
 	StatusAccountIdentity as OAuthAccountIdentity,
@@ -3699,13 +3700,29 @@ export class StatusLineComponent<TSession extends StatusLineSession = StatusLine
 		const window = ctx.contextWindow;
 		const boundaries = ctx.autoCompactEnabled ? this.#compactionBoundaries(window) : null;
 		const lines = [
-			pct === null ? "Context usage unknown" : `Context ${Math.round(pct)}% used`,
-			window > 0 ? `${formatNumber(ctx.contextTokens)} of ${formatNumber(window)} tokens` : "No context window",
+			pct === null
+				? t("tui.statusLine.contextUnknown", "Context usage unknown")
+				: t("tui.statusLine.contextUsed", "Context {percent}% used", { percent: Math.round(pct) }),
+			window > 0
+				? t("tui.statusLine.contextTokens", "{tokens} of {window} tokens", {
+						tokens: formatNumber(ctx.contextTokens),
+						window: formatNumber(window),
+					})
+				: t("tui.statusLine.noContextWindow", "No context window"),
 		];
-		if (boundaries) lines.push(`Auto-compact at ${Math.round(boundaries.thresholdPercent)}%`);
+		if (boundaries) {
+			lines.push(
+				t("tui.statusLine.autoCompactAt", "Auto-compact at {percent}%", {
+					percent: Math.round(boundaries.thresholdPercent),
+				}),
+			);
+		}
 		const speculation = ctx.compactionSpeculation;
-		if (speculation === "running") lines.push("Compaction summary in progress");
-		else if (speculation === "armed") lines.push("Compaction summary ready");
+		if (speculation === "running") {
+			lines.push(t("tui.statusLine.compactionRunning", "Compaction summary in progress"));
+		} else if (speculation === "armed") {
+			lines.push(t("tui.statusLine.compactionReady", "Compaction summary ready"));
+		}
 		// The line spans the whole window: omp's boundary symbols sit where speculation
 		// starts and compaction fires, and the share past the speculation point is accent.
 		const used = pct === null ? null : Math.min(1, pct / 100);
@@ -3717,7 +3734,9 @@ export class StatusLineComponent<TSession extends StatusLineSession = StatusLine
 				const start: TspMeterMark = {
 					at: speculationAt,
 					icon: "context.speculation",
-					title: `Compaction summary starts at ${Math.round(speculationAt * 100)}%`,
+					title: t("tui.statusLine.compactionStartsAt", "Compaction summary starts at {percent}%", {
+						percent: Math.round(speculationAt * 100),
+					}),
 				};
 				// Lit while a background summary runs or waits armed.
 				if (speculation !== "idle") start.tone = "accent";
@@ -3726,7 +3745,9 @@ export class StatusLineComponent<TSession extends StatusLineSession = StatusLine
 			marks.push({
 				at: Math.min(1, boundaries.thresholdPercent / 100),
 				icon: "context.compaction",
-				title: `Auto-compact at ${Math.round(boundaries.thresholdPercent)}%`,
+				title: t("tui.statusLine.autoCompactAt", "Auto-compact at {percent}%", {
+					percent: Math.round(boundaries.thresholdPercent),
+				}),
 			});
 		}
 		const context = node(
@@ -3760,7 +3781,7 @@ export class StatusLineComponent<TSession extends StatusLineSession = StatusLine
 				role: "omp.composer.usage",
 				text: cost,
 				wrap: "none",
-				...(cost ? { title: `Session cost ${cost}` } : {}),
+				...(cost ? { title: t("tui.statusLine.sessionCost", "Session cost {cost}", { cost }) } : {}),
 				actions: { click: "status.cost" },
 			},
 			undefined,
