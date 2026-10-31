@@ -9,6 +9,7 @@
  * - Shift+Tab / Arrow Left: Previous tab (wraps around)
  */
 import { formatKeyHint } from "../app-keybindings";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import { matchesKey } from "../keys";
 import { compactText, styledSpans, styleSpans } from "../native/spans";
 import { node, row } from "../native/describe";
@@ -191,7 +192,14 @@ export class TabBar implements Component {
 		if (this.#label) parts.push(node("text", { spans: styleSpans(`${this.#label}:`, this.#theme.label) }));
 		parts.push(tabs);
 		if (this.showHint) {
-			parts.push(node("text", { spans: styleSpans(`(${formatKeyHint("tab")} to cycle)`, this.#theme.hint) }));
+			parts.push(
+				node("text", {
+					spans: styleSpans(
+						t("tui.components.tabBar.hint", "({tab} to cycle)", { tab: formatKeyHint("tab") }),
+						this.#theme.hint,
+					),
+				}),
+			);
 		}
 		const described = parts.length === 1 ? tabs : row(parts, { gap: "md", align: "center" });
 		this.#native = { signature, node: described };
@@ -262,7 +270,11 @@ export class TabBar implements Component {
 			// Navigation hint
 			if (this.showHint) {
 				chunks.push({ text: "  " });
-				chunks.push({ text: this.#theme.hint(`(${formatKeyHint("tab")} to cycle)`) });
+				chunks.push({
+					text: this.#theme.hint(
+						t("tui.components.tabBar.hint", "({tab} to cycle)", { tab: formatKeyHint("tab") }),
+					),
+				});
 			}
 			return chunks;
 		};

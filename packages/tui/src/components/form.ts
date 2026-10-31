@@ -1,4 +1,5 @@
 import { getKeybindings } from "../keybindings";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import { matchesKey } from "../keys";
 import type { MouseRoutable, SgrMouseEvent } from "../mouse";
 import { col, node, span } from "../native/describe";
@@ -358,7 +359,7 @@ export class TextFormField extends FormField {
 				return;
 			}
 			if (empty === "reject") {
-				this.setError(this.#options.emptyError ?? "A value is required.");
+				this.setError(this.#options.emptyError ?? t("tui.components.form.valueRequired", "A value is required."));
 				return;
 			}
 		}
@@ -432,7 +433,9 @@ export class SelectFormField extends FormField {
 		const previewText = options.getPreview ? new StyledText(options.getPreview(), text => text) : undefined;
 		super(selectList, {
 			...options,
-			previewLabel: previewText ? (options.previewLabel ?? "Preview:") : undefined,
+			previewLabel: previewText
+				? (options.previewLabel ?? t("tui.components.form.previewLabel", "Preview:"))
+				: undefined,
 			preview: previewText,
 		});
 		this.selectList = selectList;
@@ -443,7 +446,7 @@ export class SelectFormField extends FormField {
 		this.#sheet = new SelectListSheet(
 			selectList,
 			options.picker ?? {
-				title: options.label ?? "Select",
+				title: options.label ?? t("tui.components.form.select", "Select"),
 				...(options.description ? { subtitle: options.description } : {}),
 				searchable: true,
 			},

@@ -1,4 +1,5 @@
 import type { TspProps } from "@oh-my-pi/pi-wire";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import { formatTooltipKey } from "../key-hint-format";
 import type { KeyId } from "../keys";
 import { elapsed, kbd, keyed, node, row, span, text } from "../native/describe";
@@ -69,7 +70,10 @@ export function describeWorkingRow(spec: WorkingRowSpec, cx: DescribeContext, no
 	);
 	if (variant?.kind === "compaction") children.push(node("progress", { value: null }, undefined, "progress"));
 	if (spec.interruptKey !== undefined) {
-		const verb = variant?.kind === "retry" ? "Cancel" : "Stop";
+		const verb =
+			variant?.kind === "retry"
+				? t("tui.components.loader.cancel", "Cancel")
+				: t("tui.components.loader.stop", "Stop");
 		children.push(
 			node(
 				"row",
@@ -126,7 +130,7 @@ export class Loader extends Text {
 		ui: TUI,
 		private spinnerColorFn: ColorFn,
 		private messageColorFn: LoaderMessageColorFn,
-		private message: string | (() => string) = "Loading...",
+		private message: string | (() => string) = t("tui.components.loader.loading", "Loading..."),
 		spinnerFrames?: string[],
 	) {
 		super("", 1, 0);
