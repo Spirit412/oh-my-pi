@@ -35,38 +35,9 @@ const ADVISOR_TRANSCRIPT_BASENAME = "__advisor.jsonl";
 /** Characters a persisted tool name may consist of without sanitization. */
 const TOOL_NAME_PATTERN = /^[\w.:-]+$/;
 
-/** Serialized UTF-8 byte length of a session payload, or 0 when it cannot be serialized. */
-function jsonBytes(value: unknown): number {
-	try {
-		const text = JSON.stringify(value);
-		return text === undefined ? 0 : Buffer.byteLength(text);
-	} catch {
-		return 0;
-	}
-}
-
 /** Bytes as kilobytes with two decimals — the unit every payload surface reports. */
 function toKb(bytes: number): number {
 	return Math.round((bytes / 1024) * 100) / 100;
-}
-
-/**
- * Bytes per prompt token used to estimate a request's size. Sessions journal the
- * provider-counted prompt tokens and the assistant response, but not the request
- * body itself — and the transcript is not a substitute, because compaction and
- * re-injected context blocks make its byte count wildly exceed what was sent.
- * A fixed ratio keeps the estimate proportional across turns and models.
- */
-const BYTES_PER_PROMPT_TOKEN = 4;
-
-/**
- * Estimated size of the request body from the prompt tokens the provider
- * counted for the turn (uncached input + cache reads + cache writes). Response
- * sizes are measured exactly; this one is derived, and the UI labels it so.
- */
-function estimateRequestKb(usage: Pick<Usage, "input" | "cacheRead" | "cacheWrite">): number {
-	const promptTokens = (usage.input ?? 0) + (usage.cacheRead ?? 0) + (usage.cacheWrite ?? 0);
-	return toKb(promptTokens * BYTES_PER_PROMPT_TOKEN);
 }
 
 /** Characters of serialized arguments kept for the tool-call log. */
@@ -851,8 +822,9 @@ export async function parseSessionFile(
 		if (isModelUsage(entry)) {
 			const modelUsageStats = extractModelUsageStats(sessionPath, folder, entry, agentType);
 			if (modelUsageStats) {
-				modelUsageStats.requestKb = estimateRequestKb(entry.usage);
-				modelUsageStats.responseKb = 0;
+				// Role-model attempts journal usage only: no request or response payload.
+				modelUsageStats.requestKb = null;
+				modelUsageStats.responseKb = null;
 				stats.push(modelUsageStats);
 			}
 			return;
@@ -860,8 +832,11 @@ export async function parseSessionFile(
 		if (isAssistantMessage(entry)) {
 			const msgStats = extractStats(sessionPath, folder, entry, currentServiceTier, agentType);
 			if (msgStats) {
-				msgStats.requestKb = estimateRequestKb(msgStats.usage);
-				msgStats.responseKb = toKb(jsonBytes(entry.message));
+				// Exact wire sizes measured by the AI transport. Sessions journaled
+				// before it recorded them carry no fields: null, never an estimate.
+				const payload = entry.message as AssistantMessage;
+				msgStats.requestKb = payload.requestBytes === undefined ? null : toKb(payload.requestBytes);
+				msgStats.responseKb = payload.responseBytes === undefined ? null : toKb(payload.responseBytes);
 				stats.push(msgStats);
 			}
 			for (const call of extractToolCalls(sessionPath, folder, entry, agentType)) {

@@ -1,11 +1,12 @@
 import { describe, expect, it } from "bun:test";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import { Database } from "bun:sqlite";
 import { getRecentToolCalls, getRequestDetails, syncAllSessions } from "@oh-my-pi/omp-stats/aggregator";
-import { getRecentRequests } from "@oh-my-pi/omp-stats/db";
+import { closeDb, getRecentRequests, initDb } from "@oh-my-pi/omp-stats/db";
 import { getOverallStats, getTimeSeries } from "@oh-my-pi/omp-stats/rollup";
 import type { MessageStats, ToolCallDetail } from "@oh-my-pi/omp-stats/types";
-import { getAgentDir, getSessionsDir } from "@oh-my-pi/pi-utils";
+import { getAgentDir, getSessionsDir, getStatsDbPath } from "@oh-my-pi/pi-utils";
 import { installStatsTestIsolation } from "./helpers/temp-agent";
 
 installStatsTestIsolation("@pi-stats-payload-metrics-");
@@ -21,14 +22,9 @@ const USER_TEXT = "Please analyze the merge request and produce a report.";
 const SKILL_PATH = "skill://pdf";
 const SCRIPT_TOOL_NAME = "bash";
 
-/** Serialized size of one session payload, in KB with two decimals (the ingest rule). */
-function kbOf(value: unknown): number {
-	return Math.round((Buffer.byteLength(JSON.stringify(value)) / 1024) * 100) / 100;
-}
-
-/** The ingest estimate: prompt tokens at 4 bytes each, in KB with two decimals. */
-function estimateKb(promptTokens: number): number {
-	return Math.round(((promptTokens * 4) / 1024) * 100) / 100;
+/** Wire bytes as KB with two decimals (the ingest rule). */
+function bytesKb(bytes: number): number {
+	return Math.round((bytes / 1024) * 100) / 100;
 }
 
 function buildUserEntry(entryId: string, content: string) {
@@ -48,6 +44,8 @@ interface AssistantOptions {
 	content: unknown[];
 	/** Prompt-side usage override; defaults to 100 uncached input tokens. */
 	usage?: { input?: number; cacheRead?: number; cacheWrite?: number };
+	/** Exact wire sizes the AI transport records; omitted for pre-measurement sessions. */
+	payload?: { requestBytes?: number; responseBytes?: number };
 }
 
 function buildAssistantEntry(opts: AssistantOptions) {
@@ -74,6 +72,8 @@ function buildAssistantEntry(opts: AssistantOptions) {
 			timestamp: Date.parse(opts.timestamp),
 			duration: 10,
 			ttft: 5,
+			...(opts.payload?.requestBytes !== undefined ? { requestBytes: opts.payload.requestBytes } : {}),
+			...(opts.payload?.responseBytes !== undefined ? { responseBytes: opts.payload.responseBytes } : {}),
 		},
 	};
 }
@@ -114,6 +114,7 @@ function buildEntries() {
 			parentId: "user-1",
 			timestamp: TS1,
 			content: [{ type: "text", text: "Working on it." }, ...toolCallBlocks()],
+			payload: { requestBytes: 4096, responseBytes: 2048 },
 		}),
 		buildToolResult("tr-1", "asst-1", "call-mcp", "merge request body"),
 		buildToolResult("tr-2", "asst-1", "call-skill", "skill instructions"),
@@ -150,47 +151,114 @@ function callRow(calls: ToolCallDetail[], toolCallId: string): ToolCallDetail {
 }
 
 describe("payload metrics and tool metadata", () => {
-	it("records request-context and response sizes per turn and exposes them in aggregates", async () => {
+	it("stores the exact wire sizes the transport measured and sums them", async () => {
 		const entries = buildEntries();
 		await writeSessionFile(entries);
 		await syncAllSessions({ workers: 1 });
 
-		const requests = getRecentRequests(10);
-		const first = requestRow(requests, "asst-1");
-		// The request size is estimated from the prompt tokens; the response size
-		// is the exact serialized assistant message.
-		expect(first.requestKb).toBe(estimateKb(100));
-		expect(first.responseKb).toBe(kbOf((entries[1] as { message: unknown }).message));
-		expect(first.responseKb).toBeGreaterThan(0);
+		const first = requestRow(getRecentRequests(10), "asst-1");
+		// Straight from the recorded byte counts, independent of token usage.
+		expect(first.requestKb).toBe(bytesKb(4096));
+		expect(first.requestKb).toBe(4);
+		expect(first.responseKb).toBe(bytesKb(2048));
+		expect(first.responseKb).toBe(2);
 
-		// Aggregates add the same two values up; no other rows exist in the fixture.
 		const overall = getOverallStats();
-		expect(overall.totalRequestKb).toBeCloseTo(first.requestKb ?? 0, 6);
-		expect(overall.totalResponseKb).toBeCloseTo(first.responseKb ?? 0, 6);
+		expect(overall.totalRequestKb).toBeCloseTo(4, 6);
+		expect(overall.totalResponseKb).toBeCloseTo(2, 6);
+		expect(overall.payloadRequests).toBe(1);
 
 		const series = getTimeSeries({ cutoff: null, bucketMs: 24 * 60 * 60 * 1000 });
 		expect(series).toHaveLength(1);
-		expect(series[0].requestKb).toBeCloseTo(first.requestKb ?? 0, 6);
-		expect(series[0].responseKb).toBeCloseTo(first.responseKb ?? 0, 6);
+		expect(series[0].requestKb).toBeCloseTo(4, 6);
+		expect(series[0].responseKb).toBeCloseTo(2, 6);
 	});
 
-	it("counts cache reads and writes toward the request estimate", async () => {
+	it("leaves sessions without measured bytes null and out of every sum", async () => {
 		const entries = buildEntries();
-		const cached = buildAssistantEntry({
-			entryId: "asst-cached",
+		const unmeasured = buildAssistantEntry({
+			entryId: "asst-unmeasured",
 			parentId: "tr-4",
 			timestamp: TS2,
 			content: [{ type: "text", text: "Done." }],
-			usage: { input: 100, cacheRead: 900, cacheWrite: 0 },
+			usage: { input: 5_000, cacheRead: 900_000, cacheWrite: 0 },
 		});
-		await writeSessionFile([...entries, cached]);
+		await writeSessionFile([...entries, unmeasured]);
 		await syncAllSessions({ workers: 1 });
 
-		// 100 uncached + 900 cache-read + 0 cache-write = 1000 prompt tokens.
-		const row = requestRow(getRecentRequests(10), "asst-cached");
-		expect(row.requestKb).toBe(estimateKb(1000));
-		expect(row.requestKb).toBe(3.91);
-		expect(row.responseKb).toBe(kbOf((cached as { message: unknown }).message));
+		// Large token usage must not turn into a fabricated kilobyte figure.
+		const row = requestRow(getRecentRequests(10), "asst-unmeasured");
+		expect(row.requestKb).toBeNull();
+		expect(row.responseKb).toBeNull();
+
+		// Only the measured turn contributes; the count names the denominator.
+		const overall = getOverallStats();
+		expect(overall.totalRequestKb).toBeCloseTo(4, 6);
+		expect(overall.payloadRequests).toBe(1);
+	});
+
+	it("replaces the interim NOT NULL size columns and clears their estimates", async () => {
+		// Simulate a database written by the revision that derived KB from prompt
+		// tokens: NOT NULL columns carrying a value for an existing row.
+		await fs.mkdir(path.dirname(getStatsDbPath()), { recursive: true });
+		const handle = new Database(getStatsDbPath());
+		handle.run(`
+			CREATE TABLE messages (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				session_file TEXT NOT NULL,
+				entry_id TEXT NOT NULL,
+				folder TEXT NOT NULL,
+				model TEXT NOT NULL,
+				provider TEXT NOT NULL,
+				api TEXT NOT NULL,
+				timestamp INTEGER NOT NULL,
+				duration INTEGER,
+				ttft INTEGER,
+				stop_reason TEXT NOT NULL,
+				error_message TEXT,
+				input_tokens INTEGER NOT NULL,
+				output_tokens INTEGER NOT NULL,
+				cache_read_tokens INTEGER NOT NULL,
+				cache_write_tokens INTEGER NOT NULL,
+				total_tokens INTEGER NOT NULL,
+				premium_requests REAL NOT NULL,
+				cost_input REAL NOT NULL,
+				cost_output REAL NOT NULL,
+				cost_cache_read REAL NOT NULL,
+				cost_cache_write REAL NOT NULL,
+				cost_total REAL NOT NULL,
+				cost_no_cache_input REAL,
+				cost_unpriced INTEGER NOT NULL DEFAULT 0,
+				agent_type TEXT NOT NULL DEFAULT 'main',
+				service_tier TEXT,
+				request_kb REAL NOT NULL DEFAULT 0,
+				response_kb REAL NOT NULL DEFAULT 0,
+				UNIQUE(session_file, entry_id)
+			)
+		`);
+		handle.run(
+			`INSERT INTO messages (session_file, entry_id, folder, model, provider, api, timestamp,
+				stop_reason, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, total_tokens,
+				premium_requests, cost_input, cost_output, cost_cache_read, cost_cache_write, cost_total,
+				request_kb, response_kb)
+			 VALUES ('/tmp/old.jsonl', 'old-1', '/tmp', 'm', 'p', 'openai-completions', 1,
+				'stop', 10, 5, 0, 0, 15, 0, 0, 0, 0, 0, 0, 1213.91, 2.5)`,
+		);
+		handle.close();
+
+		await initDb();
+		const db = await initDb();
+		const row = db.query("SELECT id, entry_id, request_kb, response_kb FROM messages").get() as {
+			id: number;
+			entry_id: string;
+			request_kb: number | null;
+			response_kb: number | null;
+		};
+		expect(row.entry_id).toBe("old-1");
+		expect(row.id).toBe(1);
+		expect(row.request_kb).toBeNull();
+		expect(row.response_kb).toBeNull();
+		closeDb();
 	});
 
 	it("records MCP server, skill, script and target metadata for tool calls", async () => {

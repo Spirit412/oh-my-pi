@@ -375,7 +375,7 @@ function ProviderTotalsTable({
 			{
 				key: "payload",
 				header: "Payload",
-				title: "Request size estimated from prompt tokens · response size measured",
+				title: "Exact request / response bytes",
 				align: "right",
 				sort: p => p.totalRequestKb + p.totalResponseKb,
 				render: p => (

@@ -158,13 +158,14 @@ export function OverviewRoute({ active, range, onRequestClick }: OverviewRoutePr
 							<Stat
 								size="sm"
 								label="Request payload"
-								title="Estimated from prompt tokens (4 bytes/token): sessions do not journal the request body"
+								title="Exact request-body bytes measured by the transport; sessions recorded before that measurement are excluded"
 								value={formatPayloadKb(overall.totalRequestKb)}
+								hint={`${formatInteger(overall.payloadRequests)} measured`}
 							/>
 							<Stat
 								size="sm"
 								label="Response payload"
-								title="Recorded assistant responses, including thinking and tool calls"
+								title="Exact response-body bytes received, streaming frames included"
 								value={formatPayloadKb(overall.totalResponseKb)}
 							/>
 						</StatGrid>
@@ -310,7 +311,7 @@ const REQUEST_COLUMNS = [
 	{
 		key: "payload",
 		header: "Payload",
-		title: "Request size estimated from prompt tokens · response size measured",
+		title: "Exact request / response bytes",
 		align: "right" as const,
 		render: (row: MessageStats) => (
 			<span

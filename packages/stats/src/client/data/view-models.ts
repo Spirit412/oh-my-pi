@@ -341,6 +341,8 @@ export interface RequestLogSummary {
 	requestKb: number;
 	/** Sum of recorded response sizes, in KB. */
 	responseKb: number;
+	/** Requests in this window that carry measured payload sizes. */
+	payloadRequests: number;
 	medianDuration: number | null;
 	p95Duration: number | null;
 	medianTtft: number | null;
@@ -363,6 +365,7 @@ export function summarizeRequests(rows: readonly MessageStats[]): RequestLogSumm
 	let unpriced = 0;
 	let requestKb = 0;
 	let responseKb = 0;
+	let payloadRequests = 0;
 	let oldest: number | null = null;
 	let newest: number | null = null;
 	const durations: number[] = [];
@@ -375,6 +378,7 @@ export function summarizeRequests(rows: readonly MessageStats[]): RequestLogSumm
 		cost += row.usage.cost.total;
 		requestKb += row.requestKb ?? 0;
 		responseKb += row.responseKb ?? 0;
+		if (row.requestKb !== null) payloadRequests++;
 		if (isUnpricedMessage(row)) unpriced++;
 		if (row.duration !== null) durations.push(row.duration);
 		if (row.ttft !== null) ttfts.push(row.ttft);
@@ -392,6 +396,7 @@ export function summarizeRequests(rows: readonly MessageStats[]): RequestLogSumm
 		unpriced,
 		requestKb,
 		responseKb,
+		payloadRequests,
 		medianDuration: quantile(durations, 0.5),
 		p95Duration: quantile(durations, 0.95),
 		medianTtft: quantile(ttfts, 0.5),

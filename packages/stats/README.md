@@ -20,8 +20,8 @@ Local observability dashboard for AI usage statistics.
 | API-equivalent estimate | Sum of token usage priced with the matching public API rate card           |
 | Avg Latency             | Mean of `duration`                                                         |
 | TTFT                    | Mean of `ttft` (time to first token)                                       |
-| Request size (KB)       | Estimated from prompt tokens (`input + cacheRead + cacheWrite`, 4 bytes each): sessions journal tokens, not the request body |
-| Response size (KB)      | Serialized size of the recorded assistant message (text, thinking, tool calls) |
+| Request size (KB)       | Exact bytes of the request body handed to the provider transport |
+| Response size (KB)      | Exact bytes received back, streaming frames included; older sessions without a measurement are excluded (`null`) |
 
 Every turn also records the tool calls it emitted, with the metadata derived at ingest: kind (`mcp`, `skill`, `script`, `builtin`), MCP server, skill name, script basename, the most identifying target (URL, command, path, query or `server/tool`) and a truncated argument preview. The Tools page shows the newest calls in a dedicated log, and a request's detail drawer lists its own calls with the full arguments from the session transcript.
 

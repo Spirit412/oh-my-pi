@@ -57,10 +57,10 @@ export interface MessageStats {
 	usage: Usage;
 	/** Ingest found no tariff to price this request from; its zero is unknown spend. */
 	costUnpriced?: boolean;
-	/** Recorded request-context size in KB with two decimals. */
-	requestKb: number;
-	/** Recorded response size in KB with two decimals. */
-	responseKb: number;
+	/** Exact request-body size in KB with two decimals; null when the session predates the measurement. */
+	requestKb: number | null;
+	/** Exact response-body size in KB with two decimals; null under the same rules. */
+	responseKb: number | null;
 }
 
 export interface RequestDetails extends MessageStats {

@@ -152,10 +152,12 @@ export function RequestsRoute({ active, range, onRequestClick }: RequestsRoutePr
 							/>
 							<Stat
 								label="Request payload"
-								title="Estimated from prompt tokens (4 bytes/token): sessions do not journal the request body"
+								title="Exact request-body bytes measured by the transport; sessions recorded before that measurement are excluded"
 								value={formatPayloadKb(summary.requestKb)}
 								hint={
-									summary.requests > 0 ? `${formatKb(summary.requestKb / summary.requests)} avg` : undefined
+									summary.payloadRequests > 0
+										? `${formatKb(summary.requestKb / summary.payloadRequests)} avg · ${formatInteger(summary.payloadRequests)} measured`
+										: "not measured"
 								}
 							/>
 							<Stat
@@ -289,7 +291,7 @@ const REQUEST_COLUMNS: readonly Column<MessageStats>[] = [
 	{
 		key: "requestKb",
 		header: "In KB",
-		title: "Request size estimated from the turn's prompt tokens",
+		title: "Exact request-body bytes sent for this turn",
 		align: "right",
 		sort: row => row.requestKb ?? 0,
 		render: row => <span className="num muted">{formatKb(row.requestKb)}</span>,
@@ -297,7 +299,7 @@ const REQUEST_COLUMNS: readonly Column<MessageStats>[] = [
 	{
 		key: "responseKb",
 		header: "Out KB",
-		title: "Recorded assistant response size (text, thinking and tool calls)",
+		title: "Exact response-body bytes received for this turn",
 		align: "right",
 		sort: row => row.responseKb ?? 0,
 		render: row => <span className="num muted">{formatKb(row.responseKb)}</span>,

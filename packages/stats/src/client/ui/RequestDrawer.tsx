@@ -158,9 +158,9 @@ function RequestDetailsBody({ details, aborted }: { details: RequestDetails; abo
 					items={[
 						{
 							key: "request",
-							label: "Request (est.)",
+							label: "Request",
 							value: (
-								<span title="Estimated from the turn's prompt tokens (4 bytes/token): sessions do not journal the request body">
+								<span title="Bytes sent on the wire for this turn; sessions recorded before transport measurement show –">
 									{formatKb(details.requestKb)}
 								</span>
 							),
@@ -169,7 +169,11 @@ function RequestDetailsBody({ details, aborted }: { details: RequestDetails; abo
 						{
 							key: "response",
 							label: "Response",
-							value: <span title="Assistant text, thinking and tool calls">{formatKb(details.responseKb)}</span>,
+							value: (
+								<span title="Bytes received from the provider, streaming frames included">
+									{formatKb(details.responseKb)}
+								</span>
+							),
 						},
 						{ key: "outputTokens", label: "Response tokens", value: formatInteger(usage.output) },
 					]}

@@ -53,10 +53,10 @@ const DAY_MS = 24 * HOUR_MS;
  * Bump when the rollup schema or fact definitions change: the tables are then
  * dropped and every hour is rebuilt from the raw tables.
  */
-const ROLLUP_VERSION = "3";
+const ROLLUP_VERSION = "4";
 const ROLLUP_VERSION_KEY = "rollup_version";
 /** Bump when the dirty-marking triggers change; they are then recreated in place. */
-const TRIGGER_VERSION = "3";
+const TRIGGER_VERSION = "4";
 const TRIGGER_VERSION_KEY = "rollup_triggers_version";
 
 /** Above this many dirty hours, reads use stale rollup rows instead of scanning dirty hours raw. */
@@ -86,6 +86,7 @@ function messageFacts(bucketExpr: string, p: string): string {
 		SUM(${p}total_tokens) AS total_tokens,
 		SUM(${p}request_kb) AS request_kb,
 		SUM(${p}response_kb) AS response_kb,
+		SUM(CASE WHEN ${p}request_kb IS NOT NULL THEN 1 ELSE 0 END) AS payload_requests,
 		TOTAL(${p}premium_requests) AS premium_requests,
 		TOTAL(${p}cost_total) AS cost_total,
 		TOTAL(${p}cost_input) AS cost_input,
@@ -107,7 +108,7 @@ function messageFacts(bucketExpr: string, p: string): string {
 }
 
 const MESSAGE_ROLLUP_COLUMNS = `bucket, ${MESSAGE_DIMENSIONS}, requests, failed, input_tokens, output_tokens,
-	cache_read_tokens, cache_write_tokens, total_tokens, request_kb, response_kb, premium_requests, cost_total,
+	cache_read_tokens, cache_write_tokens, total_tokens, request_kb, response_kb, payload_requests, premium_requests, cost_total,
 	cost_input, cost_output, cost_cache_read, cost_cache_write, unpriced, cached_prompt_cost, no_cache_input_cost,
 	duration_sum, duration_n, ttft_sum, ttft_n, tps_sum, tps_n, first_ts, last_ts`;
 
@@ -210,8 +211,9 @@ export function ensureRollupSchema(database: Database): void {
 				cache_read_tokens INTEGER NOT NULL,
 				cache_write_tokens INTEGER NOT NULL,
 				total_tokens INTEGER NOT NULL,
-				request_kb REAL NOT NULL DEFAULT 0,
-				response_kb REAL NOT NULL DEFAULT 0,
+				request_kb REAL,
+				response_kb REAL,
+				payload_requests INTEGER NOT NULL DEFAULT 0,
 				premium_requests REAL NOT NULL,
 				cost_total REAL NOT NULL,
 				cost_input REAL NOT NULL,
@@ -546,6 +548,7 @@ const AGGREGATE_COLUMNS = `
 	SUM(f.cache_write_tokens) AS cache_write_tokens,
 	SUM(f.request_kb) AS request_kb,
 	SUM(f.response_kb) AS response_kb,
+	SUM(f.payload_requests) AS payload_requests,
 	TOTAL(f.premium_requests) AS premium_requests,
 	TOTAL(f.cost_total) AS cost_total,
 	SUM(f.unpriced) AS unpriced,
@@ -566,6 +569,7 @@ interface AggregateRow {
 	cache_write_tokens: number | null;
 	request_kb: number | null;
 	response_kb: number | null;
+	payload_requests: number | null;
 	premium_requests: number | null;
 	cost_total: number | null;
 	unpriced: number | null;
@@ -596,6 +600,7 @@ function toAggregatedStats(row: AggregateRow | undefined): AggregatedStats {
 		totalCacheWriteTokens: row?.cache_write_tokens ?? 0,
 		totalRequestKb: row?.request_kb ?? 0,
 		totalResponseKb: row?.response_kb ?? 0,
+		payloadRequests: row?.payload_requests ?? 0,
 		cacheRate:
 			totalInputTokens + totalCacheReadTokens > 0
 				? totalCacheReadTokens / (totalInputTokens + totalCacheReadTokens)
@@ -773,6 +778,7 @@ export function getStatsByProvider(cutoff: number | null = null): ProviderAggreg
 		premium_requests: number;
 		request_kb: number | null;
 		response_kb: number | null;
+		payload_requests: number | null;
 		avg_tps: number | null;
 	}>(
 		{ cutoff },
@@ -781,6 +787,7 @@ export function getStatsByProvider(cutoff: number | null = null): ProviderAggreg
 		 SUM(f.cache_read_tokens) AS cache_read_tokens, SUM(f.cache_write_tokens) AS cache_write_tokens,
 		 TOTAL(f.cost_total) AS cost_total, SUM(f.unpriced) AS unpriced, TOTAL(f.premium_requests) AS premium_requests,
 		 SUM(f.request_kb) AS request_kb, SUM(f.response_kb) AS response_kb,
+		 SUM(f.payload_requests) AS payload_requests,
 		 TOTAL(f.tps_sum) / NULLIF(SUM(f.tps_n), 0) AS avg_tps`,
 		"GROUP BY f.provider",
 	)
@@ -796,6 +803,7 @@ export function getStatsByProvider(cutoff: number | null = null): ProviderAggreg
 			totalTokens: row.input_tokens + row.output_tokens + row.cache_read_tokens + row.cache_write_tokens,
 			totalRequestKb: row.request_kb ?? 0,
 			totalResponseKb: row.response_kb ?? 0,
+			payloadRequests: row.payload_requests ?? 0,
 			totalCost: row.cost_total,
 			unpricedRequests: row.unpriced,
 			totalPremiumRequests: row.premium_requests,

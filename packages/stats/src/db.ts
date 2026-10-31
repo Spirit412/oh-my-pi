@@ -190,8 +190,8 @@ export async function initDb(): Promise<Database> {
 			cost_unpriced INTEGER NOT NULL DEFAULT 0,
 			agent_type TEXT NOT NULL DEFAULT 'main',
 			service_tier TEXT,
-			request_kb REAL NOT NULL DEFAULT 0,
-			response_kb REAL NOT NULL DEFAULT 0,
+			request_kb REAL,
+			response_kb REAL,
 			UNIQUE(session_file, entry_id)
 		);
 
@@ -319,14 +319,14 @@ export async function initDb(): Promise<Database> {
 	if (!hasAgentTypeColumn) {
 		db.run("ALTER TABLE messages ADD COLUMN agent_type TEXT NOT NULL DEFAULT 'main'");
 	}
-	// Payload sizes: rows ingested before these columns existed default to 0;
-	// the payload-metrics backfill below re-parses each transcript, and the
-	// upsert in `insertMessageStats` refreshes the sizes on existing rows.
+	// Payload sizes are measured at the transport and may be unknown: sessions
+	// journaled before the transport recorded them (or role-model attempts with
+	// no payload) store NULL and stay out of every sum.
 	if (!messageColumns.some(column => column.name === "request_kb")) {
-		db.run("ALTER TABLE messages ADD COLUMN request_kb REAL NOT NULL DEFAULT 0");
+		db.run("ALTER TABLE messages ADD COLUMN request_kb REAL");
 	}
 	if (!messageColumns.some(column => column.name === "response_kb")) {
-		db.run("ALTER TABLE messages ADD COLUMN response_kb REAL NOT NULL DEFAULT 0");
+		db.run("ALTER TABLE messages ADD COLUMN response_kb REAL");
 	}
 	// Tool-call metadata: same story — defaults for existing rows, then the
 	// re-parse replaces them through the (DELETE + INSERT) backfill.
@@ -339,6 +339,11 @@ export async function initDb(): Promise<Database> {
 			db.run(`ALTER TABLE tool_calls ADD COLUMN ${column} TEXT`);
 		}
 	}
+	// A database written by the interim estimate schema stores NON-NULL derived
+	// kilobytes; replace the table so those values become NULL instead of
+	// masquerading as measured sizes (ids and every other column are preserved).
+	rebuildMessagesForNullablePayloads(db);
+
 	// For any pre-existing table, enroll the backfill PENDING unless a prior run
 	// already settled the sentinel — `OR IGNORE` leaves an existing
 	// COMPLETE/PENDING value intact, so an ALTER that committed before its
@@ -1030,8 +1035,8 @@ export function insertMessageStats(stats: Iterable<MessageStatsInput>): number {
 					unpriced ? 1 : 0,
 					s.agentType,
 					s.serviceTier ?? null,
-					s.requestKb ?? 0,
-					s.responseKb ?? 0,
+					s.requestKb ?? null,
+					s.responseKb ?? null,
 				],
 			);
 		}
@@ -1091,8 +1096,8 @@ function rowToMessageStats(row: any): MessageStats {
 		agentType: (row.agent_type as AgentType) ?? "main",
 		serviceTier: (row.service_tier as ServiceTier | null) ?? null,
 		costUnpriced: row.cost_unpriced === 1,
-		requestKb: row.request_kb ?? 0,
-		responseKb: row.response_kb ?? 0,
+		requestKb: row.request_kb ?? null,
+		responseKb: row.response_kb ?? null,
 	};
 }
 
@@ -1287,6 +1292,72 @@ function backfillToolCalls(database: Database): void {
 	database
 		.query("INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)")
 		.run(TOOL_CALLS_BACKFILL_KEY, BACKFILL_PENDING);
+}
+
+/**
+ * Rebuild `messages` when its payload-size columns are still NOT NULL, the
+ * schema an interim revision wrote while it derived the sizes from prompt
+ * tokens. Those derived kilobytes must not survive as if they were measured:
+ * the rebuilt table keeps every row and id, and both size columns start NULL.
+ * Indexes are recreated because SQLite drops them with the old table, and the
+ * rollup triggers come back through the bumped `TRIGGER_VERSION`.
+ */
+function rebuildMessagesForNullablePayloads(database: Database): void {
+	const columns = database.query("PRAGMA table_info(messages)").all() as { name: string; notnull: number }[];
+	const requestColumn = columns.find(column => column.name === "request_kb");
+	if (!requestColumn || requestColumn.notnull === 0) return;
+	const copy = columns.map(column => column.name).filter(name => name !== "request_kb" && name !== "response_kb");
+	database
+		.transaction(() => {
+			database.run(`
+				CREATE TABLE messages_next (
+					id INTEGER PRIMARY KEY AUTOINCREMENT,
+					session_file TEXT NOT NULL,
+					entry_id TEXT NOT NULL,
+					folder TEXT NOT NULL,
+					model TEXT NOT NULL,
+					provider TEXT NOT NULL,
+					api TEXT NOT NULL,
+					timestamp INTEGER NOT NULL,
+					duration INTEGER,
+					ttft INTEGER,
+					stop_reason TEXT NOT NULL,
+					error_message TEXT,
+					input_tokens INTEGER NOT NULL,
+					output_tokens INTEGER NOT NULL,
+					cache_read_tokens INTEGER NOT NULL,
+					cache_write_tokens INTEGER NOT NULL,
+					total_tokens INTEGER NOT NULL,
+					premium_requests REAL NOT NULL,
+					cost_input REAL NOT NULL,
+					cost_output REAL NOT NULL,
+					cost_cache_read REAL NOT NULL,
+					cost_cache_write REAL NOT NULL,
+					cost_total REAL NOT NULL,
+					cost_no_cache_input REAL,
+					cost_unpriced INTEGER NOT NULL DEFAULT 0,
+					agent_type TEXT NOT NULL DEFAULT 'main',
+					service_tier TEXT,
+					request_kb REAL,
+					response_kb REAL,
+					UNIQUE(session_file, entry_id)
+				)
+			`);
+			database.run(`INSERT INTO messages_next (${copy.join(", ")}) SELECT ${copy.join(", ")} FROM messages`);
+			database.run("DROP TABLE messages");
+			database.run("ALTER TABLE messages_next RENAME TO messages");
+			database.run("CREATE INDEX IF NOT EXISTS idx_messages_timestamp_entry ON messages(timestamp, entry_id)");
+			database.run("CREATE INDEX IF NOT EXISTS idx_messages_model ON messages(model)");
+			database.run("CREATE INDEX IF NOT EXISTS idx_messages_folder ON messages(folder)");
+			database.run(
+				"CREATE INDEX IF NOT EXISTS idx_messages_timestamp_model_provider ON messages(timestamp, model, provider)",
+			);
+			database.run("CREATE INDEX IF NOT EXISTS idx_messages_timestamp_folder ON messages(timestamp, folder)");
+			database.run(
+				"CREATE INDEX IF NOT EXISTS idx_messages_stop_reason_timestamp ON messages(stop_reason, timestamp)",
+			);
+		})
+		.immediate();
 }
 
 /**

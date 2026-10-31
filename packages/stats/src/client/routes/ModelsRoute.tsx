@@ -382,7 +382,7 @@ function buildModelColumns(view: ModelsView, expandedKey: string | null, bucketW
 		{
 			key: "payload",
 			header: "Payload",
-			title: "Request size estimated from prompt tokens · response size measured",
+			title: "Exact request / response bytes",
 			align: "right",
 			sort: row => row.totalRequestKb + row.totalResponseKb,
 			render: row => (

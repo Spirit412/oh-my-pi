@@ -26,13 +26,15 @@ export interface AggregatedStats {
 	/** Total cache write tokens */
 	totalCacheWriteTokens: number;
 	/**
-	 * Sum of the estimated request-body sizes, in kilobytes with two decimals.
-	 * Each turn's request size is derived from the prompt tokens the provider
-	 * counted (see `MessageStats.requestKb`), not measured from a journaled body.
+	 * Sum of the measured request-body sizes, in kilobytes with two decimals.
+	 * Only turns whose transport recorded a size contribute; sessions journaled
+	 * before that, and role-model attempts, are `null` and stay out of the sum.
 	 */
 	totalRequestKb: number;
-	/** Sum of the recorded assistant response sizes, in kilobytes with two decimals. */
+	/** Sum of the measured response-body sizes, in kilobytes with two decimals. */
 	totalResponseKb: number;
+	/** Requests in range that carry measured payload sizes (the denominator for the sums above). */
+	payloadRequests: number;
 	/** Percentage of prompt input tokens served from cache (0-1). */
 	cacheRate: number;
 	/**
@@ -453,6 +455,8 @@ export interface ProviderAggregate {
 	totalRequestKb: number;
 	/** Sum of recorded response sizes, in kilobytes with two decimals. */
 	totalResponseKb: number;
+	/** Requests through this provider that carry measured payload sizes. */
+	payloadRequests: number;
 	totalCost: number;
 	/** Requests excluded because no public-equivalent subscription price exists. */
 	unpricedRequests: number;
