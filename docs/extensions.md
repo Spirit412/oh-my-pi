@@ -129,6 +129,7 @@ Core methods:
 - `registerProvider`, `unregisterProvider`
 - `registerFileWriteFallback`, `registerFileDeleteFallback`
 - `events` (shared event bus)
+- `i18n` (`t`, `registerCatalog`, `getLocale`)
 
 `ExtensionAPI` methods retain their extension binding when destructured or passed as callbacks.
 
@@ -137,6 +138,35 @@ labeling action. `getAllTools()` returns tool schemas and source metadata, while
 `getActiveTools()` returns enabled names.
 
 `getServiceTiers()` returns a detached snapshot of the session's live per-family tier map. `setServiceTier(family, tier)` changes one family for subsequent requests; pass `undefined` to clear that session override. OpenAI accepts `auto`, `default`, `flex`, `scale`, `priority`, or `ultrafast`; Anthropic accepts `priority`; Google accepts `flex` or `priority`. Changes made while a response is streaming do not alter that in-flight request.
+
+### Localization (`pi.i18n`)
+
+`pi.i18n.t(key, fallback, params)` translates at call time; `fallback` is the
+English source text. `pi.i18n.registerCatalog(locales, catalog, { namespace })`
+registers one or more locales, and `pi.i18n.getLocale()` returns the active tag.
+Later registrations win; a namespace prefixes every key it does not already
+contain.
+
+Catalog values are strings or plural objects with `other` (plus optional
+`zero`/`one`/`two`/`few`/`many`). Interpolation uses `{name}` placeholders;
+plural selection uses `params.count` through `Intl.PluralRules`.
+
+```ts
+pi.i18n.registerCatalog(
+	"ru",
+	{
+		greeting: "Привет, {name}!",
+		files: { one: "{count} файл", few: "{count} файла", many: "{count} файлов", other: "{count} файла" },
+	},
+	{ namespace: "plugin.example" },
+);
+
+pi.i18n.t("plugin.example.greeting", "Hello, {name}!", { name });
+```
+
+Installed plugins can ship the same catalog through `package.json#omp.locales`
+(locale tag → catalog file inside the plugin root). The loader validates the
+catalog and prefixes keys with `plugin.<package-name>.` automatically.
 
 ### Provider registration
 

@@ -111,6 +111,7 @@ or `--fork`.
 | `--provider-session-id <id>` | Reuse a specific provider-side session id for continuity and cache scoping.                                                |
 | `--prompt-cache-key <key>`   | Override the provider prompt-cache key for this session.                                                                   |
 | `--service-tier <tier>`      | OpenAI service tier: `none`, `auto`, `default`, `flex`, `scale`, `priority`, or `ultrafast` (`none` omits `service_tier`). |
+| `--lang <tag>`              | UI language for this run (`en`, `ru`, or a BCP-47 tag); overrides the `language` setting. |
 
 See [providers](./providers.md) and [models](./models.md) for model resolution.
 

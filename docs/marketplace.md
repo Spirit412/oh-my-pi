@@ -159,6 +159,12 @@ Install version resolution tries catalog `version`, `.claude-plugin/plugin.json`
 | `lspServers`  | no       | Inline map or in-plugin path; copied to `.lsp.json` during installation                        |
 | `dapAdapters` | no       | Inline map or in-plugin JSON/YAML path; copied to `.dap.json`, `.dap.yaml`, or `.dap.yml`      |
 
+Installed plugin packages can declare localization catalogs in
+`package.json#omp.locales` (locale tag → catalog file relative to the plugin
+root). OMP validates the catalog, prefixes keys with `plugin.<package-name>.`,
+and loads it before UI startup. Marketplace catalog entries need no locale
+field; translations travel with the installed package.
+
 ### Plugin source formats
 
 The `source` field supports these formats. String sources must start with `./` and are resolved inside the marketplace root, after optional `metadata.pluginRoot` is prepended:

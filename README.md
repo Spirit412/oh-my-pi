@@ -98,6 +98,44 @@ eval "$(omp completions bash)"
 omp completions fish > ~/.config/fish/completions/omp.fish
 ```
 
+## Localization
+
+Operator-facing localization is rolling out in phases. The i18n foundation and
+the approval flow are available now; the remaining surfaces are tracked in
+[docs/i18n.md](docs/i18n.md).
+
+Set the UI language with the `language` setting, `OMP_LANG`, or `--lang`:
+
+```sh
+omp --lang ru
+OMP_LANG=ru omp
+```
+
+```yaml
+# ~/.omp/config.yml
+language: ru
+```
+
+`auto` (default) follows `LC_ALL`/`LC_MESSAGES`/`LANG`. English and Russian
+catalogs are bundled. Model-facing prompts, tool schemas, command names, and
+flag names stay English.
+
+Installed plugins can ship catalogs:
+
+```json
+{
+  "omp": {
+    "locales": {
+      "ru": "./locales/ru.json"
+    }
+  }
+}
+```
+
+Keys are prefixed with `plugin.<package-name>.` automatically. Extensions use
+`pi.i18n.registerCatalog(locale, catalog)`, `pi.i18n.t(key, fallback, params)`,
+and `pi.i18n.getLocale()`.
+
 ## Every tool, _benchmaxxed_.
 
 Edits that land on the first attempt. Reads that summarize files instead of dumping their content. Searches that return instantly. Pick any model — omp will get it right.

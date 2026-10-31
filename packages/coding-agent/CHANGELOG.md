@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+### Added
+
+- Added a `language` setting, `--lang` flag, and `OMP_LANG` environment override for the operator-facing UI language. `auto` follows the system locale outside tests; `bun test` resolves `auto` to English so English assertions stay deterministic.
+- Added the `@oh-my-pi/pi-utils/i18n` foundation: inline English source text with `t()` fallbacks, `{placeholder}` interpolation, `Intl.PluralRules` plural forms, per-source catalog registration, and `resetI18nForTest()`.
+- Added the extension translation API: `pi.i18n.registerCatalog(locales, catalog, { namespace })`, `pi.i18n.t(key, fallback, params)`, and `pi.i18n.getLocale()`.
+- Added plugin localization through `package.json#omp.locales`, mapping locale tags to catalog files inside the plugin root. The loader validates catalogs, prefixes keys with `plugin.<package-name>.`, warns on malformed/oversized files, and registers them before UI startup.
+- Added the bundled Russian catalog for the approval flow: prompt headers, grant and choice labels, folder listings, elision markers, and denial errors.
+- Added [docs/i18n.md](docs/i18n.md) with the phased rollout plan, key conventions, locale precedence, plugin format, test strategy, and the remaining TUI/CLI/settings surfaces.
+- Added a Localization section to the README covering `--lang`, `OMP_LANG`, the `language` setting, plugin catalogs, and the phased rollout status.
+
+### Changed
+
+- Approval prompts and the approval dialog, tooltips, and footer hints now render through the i18n translator. English output is unchanged; `--lang ru` (or `OMP_LANG=ru`) renders the approval flow in Russian.
+
 ## [18.14.3] - 2026-10-31
 
 ### Fixed
