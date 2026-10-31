@@ -10,6 +10,7 @@ import * as path from "node:path";
 import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { applyBinaryPatch } from "@oh-my-pi/pi-natives";
+import * as vcs from "@oh-my-pi/pi-natives/vcs";
 import {
 	$which,
 	APP_NAME,
@@ -379,6 +380,138 @@ function tryRealpath(p: string): string | undefined {
  */
 export function isSourceCheckout(): boolean {
 	return !isCompiledBinary() && !import.meta.dir.split(path.sep).includes("node_modules");
+}
+
+/** Installer-managed source checkout that `omp update` may fast-forward. */
+function installerSourceDir(): string {
+	return path.resolve(process.env.PI_SOURCE_DIR ?? path.join(os.homedir(), ".omp", "source"));
+}
+
+/** Walk up from the running script to the repository root that contains the coding agent. */
+export function findSourceCheckoutRoot(startDir: string): string | undefined {
+	let dir = path.resolve(startDir);
+	for (;;) {
+		if (
+			fs.existsSync(path.join(dir, ".git")) &&
+			fs.existsSync(path.join(dir, "packages", "coding-agent", "package.json"))
+		) {
+			return dir;
+		}
+		const parent = path.dirname(dir);
+		if (parent === dir) return undefined;
+		dir = parent;
+	}
+}
+
+/**
+ * The installer checkout under `PI_SOURCE_DIR` (default `~/.omp/source`) that
+ * this process runs from, or undefined for a development checkout. Only the
+ * installer checkout is updated in place; a development tree belongs to git.
+ */
+export function resolveInstallerCheckout(startDir: string): string | undefined {
+	const root = findSourceCheckoutRoot(startDir);
+	if (!root) return undefined;
+	const realRoot = tryRealpath(root);
+	const realInstaller = tryRealpath(installerSourceDir());
+	if (!realRoot || !realInstaller) return undefined;
+	if (realRoot === realInstaller || realRoot.startsWith(realInstaller + path.sep)) return root;
+	return undefined;
+}
+
+/**
+ * Update a source install from the repository and branch its checkout tracks:
+ * fetch `origin <branch>` into `refs/omp-update`, fast-forward the checkout,
+ * reinstall dependencies, rebuild the native addon when Rust sources changed,
+ * and re-link the `omp` launcher. `--check` only reports the diff.
+ */
+async function runSourceUpdate(root: string, opts: { force: boolean; check: boolean }): Promise<void> {
+	const repo = vcs.git(root);
+	if (!repo) {
+		console.log(chalk.red(`No git repository at ${root}.`));
+		process.exitCode = 1;
+		return;
+	}
+	const branch = (await repo.currentBranch()) ?? "main";
+	const remoteUrl = await repo.remoteUrl("origin");
+	if (!remoteUrl) {
+		console.log(chalk.red("The installed checkout has no 'origin' remote."));
+		process.exitCode = 1;
+		return;
+	}
+	console.log(chalk.dim(`Source checkout: ${remoteUrl} (${branch})`));
+
+	const dirty = await repo.isDirty();
+	if (dirty && !opts.check && !opts.force) {
+		console.log(chalk.yellow("The installed checkout has local changes; re-run with --force to discard them."));
+		return;
+	}
+
+	const before = (await repo.headSha()) ?? undefined;
+	const updateRef = "refs/omp-update";
+	try {
+		await repo.fetch("origin", branch, updateRef);
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		console.log(chalk.red(`Failed to fetch ${branch} from ${remoteUrl}: ${message}`));
+		process.exitCode = 1;
+		return;
+	}
+	const next = await repo.resolveRef(updateRef);
+	if (!next) {
+		console.log(chalk.red(`Could not resolve ${updateRef}.`));
+		process.exitCode = 1;
+		return;
+	}
+	if (before === next && !opts.force) {
+		console.log(chalk.green("[ok] Already up to date"));
+		return;
+	}
+	if (opts.check) {
+		console.log(
+			chalk.green(`Update available: ${before?.slice(0, 9) ?? "unknown"} → ${next.slice(0, 9)} (${branch})`),
+		);
+		return;
+	}
+
+	const changed = before ? await repo.changedFiles({ base: before, head: next }) : [];
+	await repo.reset("hard", next);
+	console.log(chalk.dim(`Updated ${before?.slice(0, 9) ?? "?"} → ${next.slice(0, 9)} (${changed.length} files)`));
+
+	const install = await $`bun install --frozen-lockfile`.cwd(root).quiet().nothrow();
+	if (install.exitCode !== 0) {
+		console.error(install.stderr.toString().trim());
+		process.exitCode = 1;
+		return;
+	}
+	const needsNative = changed.some(file => file.startsWith("crates/") || file.startsWith("packages/natives/"));
+	if (needsNative) {
+		console.log(chalk.dim("Rebuilding the native addon..."));
+		const build = await $`bun --cwd=packages/natives run build`.cwd(root).quiet().nothrow();
+		if (build.exitCode !== 0) {
+			console.error(build.stderr.toString().trim());
+			process.exitCode = 1;
+			return;
+		}
+	}
+	const link = await $`bun link`
+		.cwd(path.join(root, "packages", "coding-agent"))
+		.quiet()
+		.nothrow();
+	if (link.exitCode !== 0) {
+		console.error(link.stderr.toString().trim());
+		process.exitCode = 1;
+		return;
+	}
+	let version = VERSION;
+	try {
+		const pkg = (await Bun.file(path.join(root, "packages", "coding-agent", "package.json")).json()) as {
+			version?: string;
+		};
+		version = pkg.version ?? VERSION;
+	} catch {
+		// Keep the running version when the manifest is unreadable.
+	}
+	console.log(chalk.green(`[ok] Updated to ${version} (${branch}@${next.slice(0, 9)})`));
 }
 
 /**
@@ -2288,6 +2421,13 @@ export async function runUpdateCommand(opts: {
 	check: boolean;
 	channel?: UpdateChannel;
 }): Promise<void> {
+	if (isSourceCheckout()) {
+		const checkout = resolveInstallerCheckout(import.meta.dir);
+		if (checkout) {
+			await runSourceUpdate(checkout, { force: opts.force, check: opts.check });
+			return;
+		}
+	}
 	const ompPath = resolveOmpPath();
 	const manager = ompPath ? await managedInstallName(ompPath) : undefined;
 	if (manager) {
@@ -2341,6 +2481,10 @@ ${chalk.bold("Options:")}
   -l, --plugins   Update installed plugins
   --canary        Switch to the canary channel and update
   --stable        Switch back to the stable channel
+
+Source installs update from the repository and branch the checkout tracks:
+origin <branch> is fetched, the checkout fast-forwards, dependencies and the
+native addon (when Rust sources changed) rebuild, and the omp link refreshes.
 
 ${chalk.bold("Examples:")}
   ${APP_NAME} update              Update to latest version

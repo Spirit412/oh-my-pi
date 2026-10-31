@@ -44,6 +44,8 @@ curl -fsSL https://raw.githubusercontent.com/Spirit412/oh-my-pi/main/scripts/ins
 
 The installer installs [bun](https://bun.sh) if needed, clones the repository to `~/.omp/source`, runs `bun install --frozen-lockfile`, builds the native addon, and links `omp`. Source builds need `git` and a Rust toolchain — install Rust from https://rustup.rs before running the installer.
 
+`omp update` follows the installed checkout's own repository and branch: it fetches `origin`, fast-forwards `~/.omp/source`, reinstalls dependencies, rebuilds the native addon when Rust sources changed, and refreshes the `omp` link. `omp update --check` reports the available commit without changing anything.
+
 To install a prebuilt binary instead (only available once this repository publishes release assets):
 
 ```sh
