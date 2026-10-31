@@ -1,5 +1,6 @@
 import { type SelectItem, SelectList, type SgrMouseEvent } from "../index";
 import { getSelectListTheme } from "../theme/theme";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import { OverlayPanel } from "../chrome/overlay-box";
 import { routeSelectListMouseWithTopBorder } from "../chrome/select-list-mouse-routing";
 import type { DescribeContext, NativeNode, NativeUiEvent } from "../native/node";
@@ -40,7 +41,12 @@ export class SessionAccountSelectorComponent extends OverlayPanel {
 		onSelect: (account: SessionPinAccount) => void,
 		onCancel: () => void,
 	) {
-		super(`Select a ${providerName} account for this session`, "omp.overlay.session-account");
+		super(
+			t("tui.overlays.sessionAccount.title", "Select a {provider} account for this session", {
+				provider: providerName,
+			}),
+			"omp.overlay.session-account",
+		);
 		const accountsByValue = new Map<string, SessionPinAccount>();
 		const items: SelectItem[] = accounts.map(account => {
 			const value = String(account.credentialId);
@@ -48,7 +54,9 @@ export class SessionAccountSelectorComponent extends OverlayPanel {
 			return {
 				value,
 				label: account.label,
-				description: account.active ? "active for this session" : undefined,
+				description: account.active
+					? t("tui.overlays.sessionAccount.active", "active for this session")
+					: undefined,
 			};
 		});
 
@@ -68,12 +76,12 @@ export class SessionAccountSelectorComponent extends OverlayPanel {
 		// Natively the active account carries the picker's current check, so the
 		// row's detail is what tells accounts apart instead of "active for this session".
 		this.#sheet = new SelectListSheet(this.#selectList, {
-			title: `${providerName} account`,
-			subtitle: "Pin the account this session sends its requests with",
+			title: t("tui.overlays.sessionAccount.pickerTitle", "{provider} account", { provider: providerName }),
+			subtitle: t("tui.overlays.sessionAccount.subtitle", "Pin the account this session sends its requests with"),
 			icon: "key-round",
-			noun: "accounts",
+			noun: t("tui.overlays.sessionAccount.noun", "accounts"),
 			current: accounts.filter(account => account.active).map(account => String(account.credentialId)),
-			confirm: "Pin",
+			confirm: t("tui.overlays.sessionAccount.confirm", "Pin"),
 			decorate: item => {
 				const account = accountsByValue.get(item.value);
 				if (!account) return undefined;

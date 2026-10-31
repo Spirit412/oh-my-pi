@@ -44,6 +44,7 @@ import type { TspSpan, TspTableColumn, TspText, TspTone } from "@oh-my-pi/pi-wir
 import { col, elapsed, node, span, text } from "../native/describe";
 import { type DescribeContext, leafKey, type NativeChild, type NativeNode, type NativeUiEvent } from "../native/node";
 import { actionBar, actionButton } from "../native/overlay";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 /** Local calendar-day activity consumed by the usage heatmap. */
 export interface DailyActivityPoint {
@@ -262,7 +263,7 @@ export function buildProviderCards(
 							? report.metadata.email
 							: typeof report.metadata.accountId === "string" && report.metadata.accountId
 								? report.metadata.accountId
-								: `account ${index + 1}`,
+								: t("tui.overlays.usageDashboard.accountLabel", "account {index}", { index: index + 1 }),
 					]
 				: [],
 		);
@@ -312,7 +313,20 @@ export interface HeatmapLayout {
 	start: Date;
 }
 
-const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTH_NAMES = [
+	t("tui.overlays.usageDashboard.monthJan", "Jan"),
+	t("tui.overlays.usageDashboard.monthFeb", "Feb"),
+	t("tui.overlays.usageDashboard.monthMar", "Mar"),
+	t("tui.overlays.usageDashboard.monthApr", "Apr"),
+	t("tui.overlays.usageDashboard.monthMay", "May"),
+	t("tui.overlays.usageDashboard.monthJun", "Jun"),
+	t("tui.overlays.usageDashboard.monthJul", "Jul"),
+	t("tui.overlays.usageDashboard.monthAug", "Aug"),
+	t("tui.overlays.usageDashboard.monthSep", "Sep"),
+	t("tui.overlays.usageDashboard.monthOct", "Oct"),
+	t("tui.overlays.usageDashboard.monthNov", "Nov"),
+	t("tui.overlays.usageDashboard.monthDec", "Dec"),
+];
 export const HEATMAP_DAY_LABELS = ["M", "T", "W", "T", "F", "S", "S"];
 
 function localIso(date: Date): string {
@@ -389,7 +403,15 @@ const NATIVE_HEATMAP_WEEKS = 53;
 const HEAT_LEVEL_TOKENS = ["dim", "accent dim", "accent", "accent strong"];
 /** Heatmap row labels, Monday first like omp's grid: M/W/F only. */
 const HEATMAP_ROW_LABELS = ["M", "", "W", "", "F", "", ""];
-const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const WEEKDAY_NAMES = [
+	t("tui.overlays.usageDashboard.weekdaySun", "Sun"),
+	t("tui.overlays.usageDashboard.weekdayMon", "Mon"),
+	t("tui.overlays.usageDashboard.weekdayTue", "Tue"),
+	t("tui.overlays.usageDashboard.weekdayWed", "Wed"),
+	t("tui.overlays.usageDashboard.weekdayThu", "Thu"),
+	t("tui.overlays.usageDashboard.weekdayFri", "Fri"),
+	t("tui.overlays.usageDashboard.weekdaySat", "Sat"),
+];
 
 /** Meter tone of a quota window: ok is the accent fill, pressure warns, exhaustion errors. */
 function statusTone(status: UsageLimit["status"]): TspTone {
@@ -405,12 +427,12 @@ function statusDot(status: UsageLimit["status"]): NativeNode {
 		status === "exhausted" ? "error" : status === "warning" ? "warning" : status === "ok" ? "success" : "dim";
 	const label =
 		status === "exhausted"
-			? "Exhausted"
+			? t("tui.overlays.usageDashboard.statusExhausted", "Exhausted")
 			: status === "warning"
-				? "Under pressure"
+				? t("tui.overlays.usageDashboard.statusWarning", "Under pressure")
 				: status === "ok"
-					? "OK"
-					: "Unknown";
+					? t("tui.overlays.usageDashboard.statusOk", "OK")
+					: t("tui.overlays.usageDashboard.statusUnknown", "Unknown");
 	return text([span("●", token)], { role: "omp.usage.dot", title: label, aria: label });
 }
 
@@ -442,8 +464,11 @@ function clockTime(date: Date): string {
 function resetLabel(nowMs: number, resetMs: number): { text: string; title: string } {
 	const at = new Date(nowMs + resetMs);
 	return {
-		text: `resets in ${formatDuration(resetMs)}`,
-		title: `Resets ${shortDate(at)} ${at.getFullYear()}, ${clockTime(at)}`,
+		text: t("tui.overlays.usageDashboard.resetsIn", "resets in {duration}", { duration: formatDuration(resetMs) }),
+		title: t("tui.overlays.usageDashboard.resetsTitle", "Resets {date}, {time}", {
+			date: `${shortDate(at)} ${at.getFullYear()}`,
+			time: clockTime(at),
+		}),
 	};
 }
 
@@ -504,7 +529,10 @@ function statTile(
 /** `62%` in mono, toned like the window's status, then a quiet `left`. */
 function leftSpans(fraction: number, status: UsageLimit["status"]): TspSpan[] {
 	const token = status === "exhausted" ? "mono error" : status === "warning" ? "mono warning" : "mono";
-	return [span(`${Math.max(0, Math.round((1 - fraction) * 100))}%`, token), span(" left", "dim")];
+	return [
+		span(`${Math.max(0, Math.round((1 - fraction) * 100))}%`, token),
+		span(` ${t("tui.overlays.usageDashboard.left", "left")}`, "dim"),
+	];
 }
 
 /** Stable, human account name for a report in the detail view. */
@@ -516,7 +544,7 @@ function reportAccountLabel(report: UsageReport, limit: UsageLimit | undefined, 
 		pick(metadata?.accountId) ??
 		pick(metadata?.projectId) ??
 		pick(limit?.scope.projectId) ??
-		`account ${index + 1}`;
+		t("tui.overlays.usageDashboard.accountLabel", "account {index}", { index: index + 1 });
 	const org = pick(metadata?.orgName);
 	return sanitizeDisplayLine(org && org !== identity ? `${identity} (${org})` : identity);
 }
@@ -540,7 +568,11 @@ function formatCost(cost: number): string {
 }
 
 function requestsText(requests: number): string {
-	return `${COMPACT_COUNT.format(requests)} request${requests === 1 ? "" : "s"}`;
+	return t(
+		"tui.overlays.usageDashboard.requestsText",
+		{ one: "{count} request", other: "{count} requests" },
+		{ count: COMPACT_COUNT.format(requests) },
+	);
 }
 
 /** Days the spend spark and the "Last 30 days" figure cover. */
@@ -612,7 +644,7 @@ function activityFigures(
 function formatActivityTotals(layout: HeatmapLayout): string {
 	const cost =
 		layout.totalCost >= 1 ? `$${WHOLE_DOLLARS.format(layout.totalCost)}` : `$${layout.totalCost.toFixed(2)}`;
-	return `${cost} · ${COMPACT_COUNT.format(layout.totalRequests)} requests`;
+	return `${cost} · ${t("tui.overlays.usageDashboard.requestsSuffix", "{count} requests", { count: COMPACT_COUNT.format(layout.totalRequests) })}`;
 }
 
 // =============================================================================
@@ -672,7 +704,12 @@ interface CardRowLayout {
 
 export class UsageDashboardComponent implements Component {
 	/** The terminal draws the sheet: a large glass overlay titled Usage. */
-	readonly nativeOverlay = { role: "omp.overlay.usage", size: "lg", anchor: "center", head: "Usage" } as const;
+	readonly nativeOverlay = {
+		role: "omp.overlay.usage",
+		size: "lg",
+		anchor: "center",
+		head: t("tui.overlays.usageDashboard.usage", "Usage"),
+	} as const;
 	#options: UsageDashboardOptions;
 	#reports: UsageReport[];
 	#cards: ProviderCard[];
@@ -704,7 +741,7 @@ export class UsageDashboardComponent implements Component {
 		this.#reports = options.reports;
 		this.#nowMs = Date.now();
 		this.#cards = buildProviderCards(this.#reports, this.#nowMs, options.unavailableAccounts);
-		this.#panel = new OverlayPanel("Usage");
+		this.#panel = new OverlayPanel(t("tui.overlays.usageDashboard.usage", "Usage"));
 		this.#header = new PanelRows();
 		this.#header.setHeight(1);
 		this.#body = new PanelRows();
@@ -779,7 +816,10 @@ export class UsageDashboardComponent implements Component {
 				: card.unlimited
 					? "ok"
 					: aggregateStatus(card.windows);
-		const accountsText = card.accounts > 1 ? theme.fg("dim", `${card.accounts} accts`) : "";
+		const accountsText =
+			card.accounts > 1
+				? theme.fg("dim", t("tui.overlays.usageDashboard.accountsShort", "{count} accts", { count: card.accounts }))
+				: "";
 		const titleBudget = width - 2 - visibleWidth(accountsText) - (accountsText ? 1 : 0);
 		const title = theme.bold(truncateToWidth(card.name, Math.max(4, titleBudget)));
 		const titlePad = Math.max(0, width - 2 - visibleWidth(title) - visibleWidth(accountsText));
@@ -787,37 +827,51 @@ export class UsageDashboardComponent implements Component {
 
 		for (const account of card.daybreakAccounts ?? []) {
 			const label = sanitizeText(account.replace(/[\r\n\t]+/g, " "));
-			lines.push(`  ${theme.fg("success", truncateToWidth(`daybreak · ${label}`, width - 2))}`);
+			lines.push(
+				`  ${theme.fg("success", truncateToWidth(t("tui.overlays.usageDashboard.daybreak", "daybreak · {label}", { label }), width - 2))}`,
+			);
 		}
 
 		if (card.resetCredits) {
 			const resets = card.resetCredits;
-			let resetText = `✦ ${resets.bankedCount} reset${resets.bankedCount === 1 ? "" : "s"}`;
+			let resetText = `✦ ${t(
+				"tui.overlays.usageDashboard.cardResets",
+				{ one: "{count} reset", other: "{count} resets" },
+				{ count: resets.bankedCount },
+			)}`;
 			if (resets.redeemableCount !== resets.bankedCount) {
-				resetText += ` · ${resets.redeemableCount} usable`;
+				resetText += ` · ${t("tui.overlays.usageDashboard.usable", "{count} usable", { count: resets.redeemableCount })}`;
 			}
 			if (resets.soonestExpiryMs !== undefined) {
 				resetText +=
-					resets.soonestExpiryMs > 0 ? ` · expires ${formatDuration(resets.soonestExpiryMs)}` : " · expired";
+					resets.soonestExpiryMs > 0
+						? ` · ${t("tui.overlays.usageDashboard.expires", "expires {duration}", {
+								duration: formatDuration(resets.soonestExpiryMs),
+							})}`
+						: ` · ${t("tui.overlays.usageDashboard.expired", "expired")}`;
 			}
 			lines.push(
 				`  ${theme.fg(resets.redeemableCount > 0 ? "success" : "warning", truncateToWidth(resetText, width - 2))}`,
 			);
 			if (resets.redeemableCount === 0 && resets.unavailableReasons.length > 0) {
 				const reason = sanitizeText(resets.unavailableReasons.join(" • ").replace(/[\r\n\t]+/g, " "));
-				lines.push(`  ${theme.fg("dim", truncateToWidth(`unavailable: ${reason}`, width - 2))}`);
+				lines.push(
+					`  ${theme.fg("dim", truncateToWidth(t("tui.overlays.usageDashboard.unavailableReason", "unavailable: {reason}", { reason }), width - 2))}`,
+				);
 			}
 		}
 
 		for (const account of card.unavailableAccounts) {
-			const text = sanitizeDisplayLine(`${account} — usage unavailable`);
+			const text = sanitizeDisplayLine(
+				t("tui.overlays.usageDashboard.usageUnavailable", "{account} — usage unavailable", { account }),
+			);
 			for (const line of wrapTextWithAnsi(text, Math.max(1, width - 2))) {
 				lines.push(`  ${theme.fg("dim", line)}`);
 			}
 		}
 
 		if (card.unlimited) {
-			lines.push(`  ${theme.fg("dim", "no limits")}`);
+			lines.push(`  ${theme.fg("dim", t("tui.overlays.usageDashboard.noLimits", "no limits"))}`);
 			return lines;
 		}
 
@@ -835,7 +889,7 @@ export class UsageDashboardComponent implements Component {
 				}
 			}
 			if (window.fraction === undefined) {
-				const text = theme.fg("dim", window.usedText ?? "no data");
+				const text = theme.fg("dim", window.usedText ?? t("tui.overlays.usageDashboard.noDataLower", "no data"));
 				for (const line of wrapTextWithAnsi(`${prefix}${text}`, contentWidth)) lines.push(`  ${line}`);
 				continue;
 			}
@@ -850,12 +904,18 @@ export class UsageDashboardComponent implements Component {
 				lines.push(`  ${line}`);
 			}
 		}
-		if (hidden > 0) lines.push(`  ${theme.fg("dim", `+${hidden} more`)}`);
+		if (hidden > 0) {
+			lines.push(
+				`  ${theme.fg("dim", `+${t("tui.overlays.usageDashboard.moreCount", "{count} more", { count: hidden })}`)}`,
+			);
+		}
 		return lines;
 	}
 
 	#renderCardsGrid(innerWidth: number): string[] {
-		if (this.#cards.length === 0) return [theme.fg("dim", "No usage data available.")];
+		if (this.#cards.length === 0) {
+			return [theme.fg("dim", t("tui.overlays.usageDashboard.noUsageDataAvailable", "No usage data available."))];
+		}
 		const active = this.#cards.filter(card => !card.idle);
 		const idle = this.#cards.filter(card => card.idle);
 		const columns = Math.max(1, Math.floor((innerWidth + CARD_GUTTER) / (CARD_MIN_WIDTH + CARD_GUTTER)));
@@ -934,7 +994,12 @@ export class UsageDashboardComponent implements Component {
 			if (active.length > 0) lines.push("");
 			const names = idle.map(card => card.name).join(" · ");
 			const prefix = `${theme.fg("success", theme.status.success)} `;
-			lines.push(truncateToWidth(`${prefix}${theme.fg("dim", `untouched: ${names}`)}`, innerWidth));
+			lines.push(
+				truncateToWidth(
+					`${prefix}${theme.fg("dim", t("tui.overlays.usageDashboard.untouchedLabel", "untouched: {names}", { names }))}`,
+					innerWidth,
+				),
+			);
 		}
 		return lines;
 	}
@@ -968,10 +1033,23 @@ export class UsageDashboardComponent implements Component {
 		const summary: string[] = [];
 		if (this.#activityError) {
 			const detail = formatActivityErrorDetail(this.#activityError);
-			return [theme.fg("dim", detail ? `Usage history unavailable (${detail}).` : "Usage history unavailable.")];
+			return [
+				theme.fg(
+					"dim",
+					detail
+						? t(
+								"tui.overlays.usageDashboard.usageHistoryUnavailableDetail",
+								"Usage history unavailable ({detail}).",
+								{ detail },
+							)
+						: t("tui.overlays.usageDashboard.usageHistoryUnavailable", "Usage history unavailable."),
+				),
+			];
 		}
 		const points = this.#activity;
-		if (!points) return [theme.fg("dim", "Loading usage history…")];
+		if (!points) {
+			return [theme.fg("dim", t("tui.overlays.usageDashboard.loadingUsageHistory", "Loading usage history…"))];
+		}
 
 		const labelWidth = 2;
 		const weeks = Math.max(4, Math.min(53, Math.floor((innerWidth - labelWidth) / 2)));
@@ -980,7 +1058,13 @@ export class UsageDashboardComponent implements Component {
 		const reset = "\x1b[39m";
 
 		summary.push(
-			`${theme.bold(theme.fg("accent", "Activity"))} ${theme.fg("dim", `${formatActivityTotals(layout)} · last ${weeks} weeks`)}${this.#syncing ? theme.fg("dim", " · syncing…") : ""}`,
+			`${theme.bold(theme.fg("accent", t("tui.overlays.usageDashboard.activity", "Activity")))} ${theme.fg(
+				"dim",
+				t("tui.overlays.usageDashboard.activityTotals", "{totals} · last {weeks} weeks", {
+					totals: formatActivityTotals(layout),
+					weeks,
+				}),
+			)}${this.#syncing ? theme.fg("dim", ` · ${t("tui.overlays.usageDashboard.syncingLower", "syncing…")}`) : ""}`,
 		);
 		summary.push("");
 
@@ -1045,19 +1129,29 @@ export class UsageDashboardComponent implements Component {
 
 		const latestFetchedAt = Math.max(0, ...this.#reports.map(report => report.fetchedAt ?? 0));
 		const checkedText = this.#refreshing
-			? "refreshing…"
+			? t("tui.overlays.usageDashboard.refreshingLower", "refreshing…")
 			: latestFetchedAt
-				? `checked ${formatDuration(this.#nowMs - latestFetchedAt)} ago`
+				? t("tui.overlays.usageDashboard.checkedAgo", "checked {duration} ago", {
+						duration: formatDuration(this.#nowMs - latestFetchedAt),
+					})
 				: "";
-		const title = this.#view === "detail" ? "Usage · Details" : "Usage";
+		const title =
+			this.#view === "detail"
+				? t("tui.overlays.usageDashboard.usageDetails", "Usage · Details")
+				: t("tui.overlays.usageDashboard.usage", "Usage");
 
-		const scrollHint = maxScroll > 0 ? `${editorKeys("tui.select.up", "tui.select.down")} scroll · ` : "";
+		const scrollHint =
+			maxScroll > 0
+				? `${editorKeys("tui.select.up", "tui.select.down")} ${t("tui.overlays.usageDashboard.scroll", "scroll")} · `
+				: "";
 		const cancel = editorKey("tui.select.cancel");
-		const refreshHint = this.#options.refresh ? "r refresh · " : "";
+		const refreshHint = this.#options.refresh
+			? `r ${t("tui.overlays.usageDashboard.refreshHint", "refresh")} · `
+			: "";
 		const hint =
 			this.#view === "detail"
-				? `${scrollHint}${refreshHint}${cancel} back`
-				: `${scrollHint}${refreshHint}${formatKeyHint("enter")} details · ${cancel} close`;
+				? `${scrollHint}${refreshHint}${cancel} ${t("tui.overlays.usageDashboard.back", "back")}`
+				: `${scrollHint}${refreshHint}${formatKeyHint("enter")} ${t("tui.overlays.usageDashboard.detailsHint", "details")} · ${cancel} ${t("tui.overlays.usageDashboard.closeHint", "close")}`;
 		this.#panel.title = title;
 		this.#header.setLines([checkedText ? theme.fg("dim", checkedText) : ""]);
 		this.#body.setLines(contentSource.slice(this.#scroll, this.#scroll + contentRows));
@@ -1087,7 +1181,11 @@ export class UsageDashboardComponent implements Component {
 		}
 		const body = this.#view === "detail" ? this.#describeDetail() : this.#describeOverview(meter, chart);
 		// Esc leaves Details for Overview first, so only Overview's Close wears its keycap.
-		const close = actionButton("Close", "close", this.#view === "overview" ? { keys: "escape" } : {});
+		const close = actionButton(
+			t("tui.overlays.usageDashboard.closeAction", "Close"),
+			"close",
+			this.#view === "overview" ? { keys: "escape" } : {},
+		);
 		const root = col(
 			[
 				this.#describeHead(),
@@ -1119,19 +1217,34 @@ export class UsageDashboardComponent implements Component {
 		const checked: NativeChild[] = [];
 		const latestFetchedAt = Math.max(0, ...this.#reports.map(report => report.fetchedAt ?? 0));
 		if (this.#refreshing) {
-			checked.push(node("spinner", { style: "dots", label: [span("Refreshing…", "dim")] }));
+			checked.push(
+				node("spinner", {
+					style: "dots",
+					label: [span(t("tui.overlays.usageDashboard.refreshing", "Refreshing…"), "dim")],
+				}),
+			);
 		} else if (this.#refreshError) {
 			checked.push(
-				text([span(`Refresh failed: ${sanitizeDisplayLine(this.#refreshError)}`, "warning")], {
-					truncate: "end",
-					title: sanitizeDisplayLine(this.#refreshError),
-				}),
+				text(
+					[
+						span(
+							t("tui.overlays.usageDashboard.refreshFailed", "Refresh failed: {error}", {
+								error: sanitizeDisplayLine(this.#refreshError),
+							}),
+							"warning",
+						),
+					],
+					{
+						truncate: "end",
+						title: sanitizeDisplayLine(this.#refreshError),
+					},
+				),
 			);
 		} else if (latestFetchedAt) {
 			checked.push(
-				text([span("Updated", "dim")]),
+				text([span(t("tui.overlays.usageDashboard.updated", "Updated"), "dim")]),
 				elapsed(Date.now() - latestFetchedAt),
-				text([span("ago", "dim")]),
+				text([span(t("tui.overlays.usageDashboard.ago", "ago"), "dim")]),
 			);
 		}
 		const children: NativeChild[] = [
@@ -1139,8 +1252,8 @@ export class UsageDashboardComponent implements Component {
 				"tabs",
 				{
 					items: [
-						{ id: "overview", label: "Overview" },
-						{ id: "detail", label: "Details" },
+						{ id: "overview", label: t("tui.overlays.usageDashboard.overview", "Overview") },
+						{ id: "detail", label: t("tui.overlays.usageDashboard.details", "Details") },
 					],
 					active: this.#view,
 				},
@@ -1150,7 +1263,10 @@ export class UsageDashboardComponent implements Component {
 			node("spacer", { grow: 1 }),
 			node("row", { gap: "xs", align: "baseline", shrink: 1 }, checked, "checked"),
 		];
-		if (this.#options.refresh) children.push(actionButton("Refresh", "refresh", { keys: "r" }));
+		if (this.#options.refresh)
+			children.push(
+				actionButton(t("tui.overlays.usageDashboard.refreshAction", "Refresh"), "refresh", { keys: "r" }),
+			);
 		return node("row", { role: "omp.usage.head", gap: "md", align: "center" }, children, "head");
 	}
 
@@ -1174,7 +1290,8 @@ export class UsageDashboardComponent implements Component {
 			else framed.push(entry);
 		}
 		const notes: NativeNode[] = [];
-		if (untouched.length > 0) notes.push(footnote("idle", "Untouched", untouched));
+		if (untouched.length > 0)
+			notes.push(footnote("idle", t("tui.overlays.usageDashboard.untouched", "Untouched"), untouched));
 		if (unreported.length > 0) {
 			const accounts = unreported.flatMap(entry =>
 				entry.unavailableAccounts.map(account => `${entry.name} (${account})`),
@@ -1182,9 +1299,13 @@ export class UsageDashboardComponent implements Component {
 			notes.push(
 				footnote(
 					"unreported",
-					"No usage data",
+					t("tui.overlays.usageDashboard.noUsageData", "No usage data"),
 					unreported,
-					`No usage report came back for ${accounts.join(", ")}: the sign-in expired, the request failed, or the plan has no quotas`,
+					t(
+						"tui.overlays.usageDashboard.unreportedTooltip",
+						"No usage report came back for {accounts}: the sign-in expired, the request failed, or the plan has no quotas",
+						{ accounts: accounts.join(", ") },
+					),
 				),
 			);
 		}
@@ -1193,9 +1314,11 @@ export class UsageDashboardComponent implements Component {
 			notes.push(
 				footnote(
 					"unmetered",
-					"No quotas reported",
+					t("tui.overlays.usageDashboard.noQuotasReported", "No quotas reported"),
 					unmetered,
-					why.length > 0 ? why.join(" • ") : "These providers report no quota windows to track",
+					why.length > 0
+						? why.join(" • ")
+						: t("tui.overlays.usageDashboard.noQuotaWindows", "These providers report no quota windows to track"),
 				),
 			);
 		}
@@ -1207,11 +1330,16 @@ export class UsageDashboardComponent implements Component {
 		if (framed.length === 0 && quiet && !this.#activityError) {
 			const children: NativeChild[] = [
 				node("icon", { name: "gauge" }, undefined, "icon"),
-				text([span("No usage yet")], { role: "omp.usage.empty.title" }),
+				text([span(t("tui.overlays.usageDashboard.noUsageYet", "No usage yet"))], {
+					role: "omp.usage.empty.title",
+				}),
 				text(
 					[
 						span(
-							"Quotas show here once a signed-in provider reports usage, and the calendar fills in as you work.",
+							t(
+								"tui.overlays.usageDashboard.emptyUsageBody",
+								"Quotas show here once a signed-in provider reports usage, and the calendar fills in as you work.",
+							),
 							"muted",
 						),
 					],
@@ -1222,12 +1350,24 @@ export class UsageDashboardComponent implements Component {
 			return [node("col", { role: "omp.usage.empty", gap: "sm", align: "center" }, children, "empty")];
 		}
 
-		const quotas: NativeChild[] = [sectionHead("Quotas", this.#quotaMeta(framed))];
+		const quotas: NativeChild[] = [
+			sectionHead(t("tui.overlays.usageDashboard.quotas", "Quotas"), this.#quotaMeta(framed)),
+		];
 		for (const entry of framed) quotas.push(this.#describeProvider(entry, meter));
 		if (this.#cards.length === 0) {
-			quotas.push(text([span("No usage data available.", "muted")], { role: "omp.usage.none", wrap: "word" }));
+			quotas.push(
+				text([span(t("tui.overlays.usageDashboard.noUsageDataAvailable", "No usage data available."), "muted")], {
+					role: "omp.usage.none",
+					wrap: "word",
+				}),
+			);
 		} else if (framed.length === 0) {
-			quotas.push(text([span("Nothing used on any quota yet.", "muted")], { role: "omp.usage.none", wrap: "word" }));
+			quotas.push(
+				text([span(t("tui.overlays.usageDashboard.nothingUsedYet", "Nothing used on any quota yet."), "muted")], {
+					role: "omp.usage.none",
+					wrap: "word",
+				}),
+			);
 		}
 		quotas.push(...notes);
 		return [
@@ -1241,12 +1381,29 @@ export class UsageDashboardComponent implements Component {
 	#quotaMeta(framed: readonly ProviderCard[]): NativeChild[] {
 		if (framed.length === 0) return [];
 		const accounts = framed.reduce((sum, entry) => sum + entry.accounts, 0);
-		const parts = [`${framed.length} provider${framed.length === 1 ? "" : "s"}`];
-		if (accounts > framed.length) parts.push(`${accounts} accounts`);
+		const parts = [
+			t(
+				"tui.overlays.usageDashboard.providerCount",
+				{ one: "{count} provider", other: "{count} providers" },
+				{ count: framed.length },
+			),
+		];
+		if (accounts > framed.length) {
+			parts.push(
+				t(
+					"tui.overlays.usageDashboard.accountCount",
+					{ one: "{count} account", other: "{count} accounts" },
+					{ count: accounts },
+				),
+			);
+		}
 		return [
 			text([span(parts.join(" · "), "dim")], {
 				role: "omp.usage.section.meta",
-				title: "Each quota shows the mean across a provider's accounts; it resets with the fullest one",
+				title: t(
+					"tui.overlays.usageDashboard.quotaMeanTitle",
+					"Each quota shows the mean across a provider's accounts; it resets with the fullest one",
+				),
 			}),
 		];
 	}
@@ -1277,7 +1434,7 @@ export class UsageDashboardComponent implements Component {
 			tiles.push(
 				statTile(
 					"quota",
-					"Tightest quota",
+					t("tui.overlays.usageDashboard.tightestQuota", "Tightest quota"),
 					leftSpans(tightest.fraction, tightest.window.status),
 					[span(where, "dim")],
 					{
@@ -1289,19 +1446,33 @@ export class UsageDashboardComponent implements Component {
 			tiles.push(
 				statTile(
 					"quota",
-					"Tightest quota",
+					t("tui.overlays.usageDashboard.tightestQuota", "Tightest quota"),
 					[span("—", "dim")],
-					[span(this.#cards.length > 0 ? "Every quota untouched" : "No quotas reported", "dim")],
+					[
+						span(
+							this.#cards.length > 0
+								? t("tui.overlays.usageDashboard.everyQuotaUntouched", "Every quota untouched")
+								: t("tui.overlays.usageDashboard.noQuotasReported", "No quotas reported"),
+							"dim",
+						),
+					],
 				),
 			);
 		}
 
 		if (!figures || !layout) {
-			const sub = [span(this.#activityError ? "History unavailable" : "Loading…", "dim")];
+			const sub = [
+				span(
+					this.#activityError
+						? t("tui.overlays.usageDashboard.historyUnavailable", "History unavailable")
+						: t("tui.overlays.usageDashboard.loading", "Loading…"),
+					"dim",
+				),
+			];
 			tiles.push(
-				statTile("year", "Past year", [span("—", "dim")], sub),
-				statTile("month", "Last 30 days", [span("—", "dim")], sub),
-				statTile("busiest", "Busiest day", [span("—", "dim")], sub),
+				statTile("year", t("tui.overlays.usageDashboard.pastYear", "Past year"), [span("—", "dim")], sub),
+				statTile("month", t("tui.overlays.usageDashboard.last30Days", "Last 30 days"), [span("—", "dim")], sub),
+				statTile("busiest", t("tui.overlays.usageDashboard.busiestDay", "Busiest day"), [span("—", "dim")], sub),
 			);
 			return node("row", { role: "omp.usage.stats", wrap: true }, tiles, "stats");
 		}
@@ -1309,11 +1480,16 @@ export class UsageDashboardComponent implements Component {
 		const amount = (cost: number, requests: number): TspSpan[] =>
 			figures.priced ? [span(formatCost(cost))] : [span(COMPACT_COUNT.format(requests))];
 		const counted = (requests: number): string =>
-			figures.priced ? requestsText(requests) : `request${requests === 1 ? "" : "s"}`;
+			figures.priced
+				? requestsText(requests)
+				: t("tui.overlays.usageDashboard.requestsWord", { one: "request", other: "requests" }, { count: requests });
 		tiles.push(
-			statTile("year", "Past year", amount(layout.totalCost, layout.totalRequests), [
-				span(counted(layout.totalRequests), "dim"),
-			]),
+			statTile(
+				"year",
+				t("tui.overlays.usageDashboard.pastYear", "Past year"),
+				amount(layout.totalCost, layout.totalRequests),
+				[span(counted(layout.totalRequests), "dim")],
+			),
 		);
 
 		const spark =
@@ -1335,7 +1511,7 @@ export class UsageDashboardComponent implements Component {
 		tiles.push(
 			statTile(
 				"month",
-				"Last 30 days",
+				t("tui.overlays.usageDashboard.last30Days", "Last 30 days"),
 				amount(figures.monthCost, figures.monthRequests),
 				[span(counted(figures.monthRequests), "dim")],
 				spark ? { chart: spark } : {},
@@ -1345,15 +1521,27 @@ export class UsageDashboardComponent implements Component {
 		const busiest = figures.busiest;
 		tiles.push(
 			busiest
-				? statTile("busiest", "Busiest day", amount(busiest.cost, busiest.requests), [
-						span(
-							figures.priced
-								? `${shortDate(busiest.date)} · ${requestsText(busiest.requests)}`
-								: `requests · ${shortDate(busiest.date)}`,
-							"dim",
-						),
-					])
-				: statTile("busiest", "Busiest day", [span("—", "dim")], [span("No activity yet", "dim")]),
+				? statTile(
+						"busiest",
+						t("tui.overlays.usageDashboard.busiestDay", "Busiest day"),
+						amount(busiest.cost, busiest.requests),
+						[
+							span(
+								figures.priced
+									? `${shortDate(busiest.date)} · ${requestsText(busiest.requests)}`
+									: t("tui.overlays.usageDashboard.requestsWithDate", "requests · {date}", {
+											date: shortDate(busiest.date),
+										}),
+								"dim",
+							),
+						],
+					)
+				: statTile(
+						"busiest",
+						t("tui.overlays.usageDashboard.busiestDay", "Busiest day"),
+						[span("—", "dim")],
+						[span(t("tui.overlays.usageDashboard.noActivityYet", "No activity yet"), "dim")],
+					),
 		);
 		return node("row", { role: "omp.usage.stats", wrap: true }, tiles, "stats");
 	}
@@ -1382,21 +1570,51 @@ export class UsageDashboardComponent implements Component {
 			),
 		];
 		if (entry.accounts > 1) {
-			who.push(text([span(`${entry.accounts} accounts`, "dim")], { role: "omp.usage.provider.meta" }));
+			who.push(
+				text(
+					[
+						span(
+							t(
+								"tui.overlays.usageDashboard.accountCount",
+								{ one: "{count} account", other: "{count} accounts" },
+								{ count: entry.accounts },
+							),
+							"dim",
+						),
+					],
+					{ role: "omp.usage.provider.meta" },
+				),
+			);
 		}
 		if (entry.resetCredits) {
 			const resets = entry.resetCredits;
 			const details: string[] = [];
-			if (resets.redeemableCount !== resets.bankedCount) details.push(`${resets.redeemableCount} usable now`);
+			if (resets.redeemableCount !== resets.bankedCount) {
+				details.push(
+					t("tui.overlays.usageDashboard.usableNow", "{count} usable now", { count: resets.redeemableCount }),
+				);
+			}
 			if (resets.soonestExpiryMs !== undefined) {
 				details.push(
-					resets.soonestExpiryMs > 0 ? `expires in ${formatDuration(resets.soonestExpiryMs)}` : "expired",
+					resets.soonestExpiryMs > 0
+						? t("tui.overlays.usageDashboard.expiresIn", "expires in {duration}", {
+								duration: formatDuration(resets.soonestExpiryMs),
+							})
+						: t("tui.overlays.usageDashboard.expired", "expired"),
 				);
 			}
 			if (resets.redeemableCount === 0 && resets.unavailableReasons.length > 0) {
-				details.push(`unavailable: ${sanitizeDisplayLine(resets.unavailableReasons.join(" • "))}`);
+				details.push(
+					t("tui.overlays.usageDashboard.unavailableReason", "unavailable: {reason}", {
+						reason: sanitizeDisplayLine(resets.unavailableReasons.join(" • ")),
+					}),
+				);
 			}
-			const label = `${resets.bankedCount} reset${resets.bankedCount === 1 ? "" : "s"} banked`;
+			const label = t(
+				"tui.overlays.usageDashboard.resetsBanked",
+				{ one: "{count} reset banked", other: "{count} resets banked" },
+				{ count: resets.bankedCount },
+			);
 			who.push(
 				text([span(label, resets.redeemableCount > 0 ? "success" : "warning")], {
 					role: "omp.usage.provider.meta",
@@ -1407,27 +1625,39 @@ export class UsageDashboardComponent implements Component {
 		for (const account of entry.daybreakAccounts ?? []) {
 			const name = sanitizeDisplayLine(account);
 			who.push(
-				text([span(`Daybreak · ${name}`, "success")], {
+				text([span(t("tui.overlays.usageDashboard.daybreakAccess", "Daybreak · {name}", { name }), "success")], {
 					role: "omp.usage.provider.meta",
 					truncate: "middle",
-					title: `Daybreak access · ${name}`,
+					title: t("tui.overlays.usageDashboard.daybreakAccessTitle", "Daybreak access · {name}", { name }),
 				}),
 			);
 		}
 		for (const account of entry.unavailableAccounts) {
 			const name = sanitizeDisplayLine(account);
 			who.push(
-				text([span(`${name}: no usage data`, "warning")], {
-					role: "omp.usage.provider.meta",
-					truncate: "middle",
-					title: `${name}: no usage data`,
-				}),
+				text(
+					[
+						span(
+							t("tui.overlays.usageDashboard.accountNoUsageData", "{name}: no usage data", { name }),
+							"warning",
+						),
+					],
+					{
+						role: "omp.usage.provider.meta",
+						truncate: "middle",
+						title: t("tui.overlays.usageDashboard.accountNoUsageData", "{name}: no usage data", { name }),
+					},
+				),
 			);
 		}
 
 		const rows: NativeChild[] = [];
 		if (entry.unlimited) {
-			rows.push(text([span("No quotas reported", "muted")], { role: "omp.usage.none" }));
+			rows.push(
+				text([span(t("tui.overlays.usageDashboard.noQuotasReported", "No quotas reported"), "muted")], {
+					role: "omp.usage.none",
+				}),
+			);
 		} else {
 			for (const [index, window] of entry.windows.slice(0, CARD_MAX_WINDOWS).entries()) {
 				const label: TspSpan[] = [span(sanitizeDisplayLine(window.label))];
@@ -1437,7 +1667,10 @@ export class UsageDashboardComponent implements Component {
 				];
 				if (window.fraction === undefined) {
 					cells.push(
-						text([span(window.usedText ?? "No data", "muted")], { role: "omp.usage.amount", truncate: "end" }),
+						text([span(window.usedText ?? t("tui.overlays.usageDashboard.noData", "No data"), "muted")], {
+							role: "omp.usage.amount",
+							truncate: "end",
+						}),
 					);
 				} else {
 					cells.push(
@@ -1454,10 +1687,21 @@ export class UsageDashboardComponent implements Component {
 			const hidden = entry.windows.length - CARD_MAX_WINDOWS;
 			if (hidden > 0) {
 				rows.push(
-					text([span(`${hidden} more in Details`, "dim")], {
-						role: "omp.usage.more",
-						title: "Details lists every quota per account  ⏎",
-					}),
+					text(
+						[
+							span(
+								t("tui.overlays.usageDashboard.moreInDetails", "{count} more in Details", { count: hidden }),
+								"dim",
+							),
+						],
+						{
+							role: "omp.usage.more",
+							title: t(
+								"tui.overlays.usageDashboard.detailsListsQuotas",
+								"Details lists every quota per account  ⏎",
+							),
+						},
+					),
 				);
 			}
 		}
@@ -1484,39 +1728,75 @@ export class UsageDashboardComponent implements Component {
 	): NativeNode {
 		const meta: NativeChild[] = [];
 		if (this.#syncing && this.#activity) {
-			meta.push(node("spinner", { style: "dots", label: [span("Syncing", "dim")] }));
+			meta.push(
+				node("spinner", {
+					style: "dots",
+					label: [span(t("tui.overlays.usageDashboard.syncing", "Syncing"), "dim")],
+				}),
+			);
 		} else if (layout) {
 			const today = new Date();
 			const range = `${layout.start.getDate()} ${MONTH_NAMES[layout.start.getMonth()]} ${layout.start.getFullYear()} – ${today.getDate()} ${MONTH_NAMES[today.getMonth()]} ${today.getFullYear()}`;
 			meta.push(text([span(range, "dim")], { role: "omp.usage.section.meta" }));
 		}
-		const children: NativeChild[] = [sectionHead("Activity", meta)];
+		const children: NativeChild[] = [sectionHead(t("tui.overlays.usageDashboard.activity", "Activity"), meta)];
 		const points = this.#activity;
 		if (this.#activityError) {
 			const detail = formatActivityErrorDetail(this.#activityError);
 			children.push(
-				text([span(detail ? `Usage history unavailable (${detail}).` : "Usage history unavailable.", "muted")], {
-					role: "omp.usage.none",
-					wrap: "word",
-				}),
+				text(
+					[
+						span(
+							detail
+								? t(
+										"tui.overlays.usageDashboard.usageHistoryUnavailableDetail",
+										"Usage history unavailable ({detail}).",
+										{ detail },
+									)
+								: t("tui.overlays.usageDashboard.usageHistoryUnavailable", "Usage history unavailable."),
+							"muted",
+						),
+					],
+					{
+						role: "omp.usage.none",
+						wrap: "word",
+					},
+				),
 			);
 		} else if (!points || !layout || !figures) {
 			children.push(
-				node("spinner", { style: "dots", label: [span("Loading usage history…", "muted")] }, undefined, "loading"),
+				node(
+					"spinner",
+					{
+						style: "dots",
+						label: [
+							span(t("tui.overlays.usageDashboard.loadingUsageHistory", "Loading usage history…"), "muted"),
+						],
+					},
+					undefined,
+					"loading",
+				),
 			);
 		} else {
 			const summary =
 				layout.totalRequests > 0 || layout.totalCost > 0
-					? `${formatActivityTotals(layout)} · last ${NATIVE_HEATMAP_WEEKS} weeks`
-					: `No activity in the last ${NATIVE_HEATMAP_WEEKS} weeks`;
+					? t("tui.overlays.usageDashboard.activityTotals", "{totals} · last {weeks} weeks", {
+							totals: formatActivityTotals(layout),
+							weeks: NATIVE_HEATMAP_WEEKS,
+						})
+					: t("tui.overlays.usageDashboard.noActivityInRange", "No activity in the last {weeks} weeks", {
+							weeks: NATIVE_HEATMAP_WEEKS,
+						});
 			children.push(chart ? this.#heatmapChart(layout, points, summary) : this.#heatmapTable(layout, summary));
 			const foot: NativeChild[] = [
 				text(
 					[
 						span(
 							figures.activeDays > 0
-								? `${figures.activeDays} active day${figures.activeDays === 1 ? "" : "s"} · longest streak ${figures.longestStreak} day${figures.longestStreak === 1 ? "" : "s"}`
-								: `No activity in the last ${NATIVE_HEATMAP_WEEKS} weeks`,
+								? `${t("tui.overlays.usageDashboard.activeDays", { one: "{count} active day", other: "{count} active days" }, { count: figures.activeDays })} · ${t("tui.overlays.usageDashboard.longestStreak", { one: "longest streak {count} day", other: "longest streak {count} days" }, { count: figures.longestStreak })}`
+								: t("tui.overlays.usageDashboard.noActivityInRange", "No activity in the last {weeks} weeks", {
+										weeks: NATIVE_HEATMAP_WEEKS,
+									}),
 							"dim",
 						),
 					],
@@ -1530,14 +1810,14 @@ export class UsageDashboardComponent implements Component {
 						"row",
 						{ role: "omp.usage.legend", gap: "sm", align: "center" },
 						[
-							text([span("Less", "dim")]),
+							text([span(t("tui.overlays.usageDashboard.less", "Less"), "dim")]),
 							node(
 								"chart",
 								{ kind: "heatmap", cells: [[0, 0.25, 0.5, 0.75, 1]], token: "accent", size: "md" },
 								undefined,
 								"scale",
 							),
-							text([span("More", "dim")]),
+							text([span(t("tui.overlays.usageDashboard.more", "More"), "dim")]),
 						],
 						"legend",
 					),
@@ -1557,8 +1837,14 @@ export class UsageDashboardComponent implements Component {
 				if (level === null) return null;
 				const date = addDays(layout.start, week * 7 + day);
 				const point = byDay.get(localIso(date));
-				if (!point || (point.cost <= 0 && point.requests <= 0)) return `${shortDate(date)} · No activity`;
-				const requests = `${point.requests} request${point.requests === 1 ? "" : "s"}`;
+				if (!point || (point.cost <= 0 && point.requests <= 0)) {
+					return t("tui.overlays.usageDashboard.dayNoActivity", "{date} · No activity", { date: shortDate(date) });
+				}
+				const requests = t(
+					"tui.overlays.usageDashboard.requestsText",
+					{ one: "{count} request", other: "{count} requests" },
+					{ count: point.requests },
+				);
 				const cost = point.cost >= 100 ? `$${Math.round(point.cost)}` : `$${point.cost.toFixed(2)}`;
 				return `${shortDate(date)} · ${cost} · ${requests}`;
 			}),
@@ -1628,46 +1914,101 @@ export class UsageDashboardComponent implements Component {
 				text([span(entry.name)], { role: "omp.usage.provider.name", truncate: "end" }),
 			];
 			if (entry.accounts > 1) {
-				head.push(text([span(`${entry.accounts} accounts`, "dim")], { role: "omp.usage.provider.meta" }));
+				head.push(
+					text(
+						[
+							span(
+								t(
+									"tui.overlays.usageDashboard.accountCount",
+									{ one: "{count} account", other: "{count} accounts" },
+									{ count: entry.accounts },
+								),
+								"dim",
+							),
+						],
+						{ role: "omp.usage.provider.meta" },
+					),
+				);
 			}
 			const children: NativeChild[] = [
 				node("row", { role: "omp.usage.report.head", gap: "sm", align: "baseline" }, head, "head"),
 			];
 			for (const account of unavailable) {
 				if (account.provider !== entry.provider) continue;
-				children.push(mutedText(`${sanitizeDisplayLine(account.label)}: no usage data`, true));
+				children.push(
+					mutedText(
+						t("tui.overlays.usageDashboard.accountNoUsageData", "{name}: no usage data", {
+							name: sanitizeDisplayLine(account.label),
+						}),
+						true,
+					),
+				);
 			}
 
 			const facts: { k: TspText; v: TspText }[] = [];
 			const notes = [...new Set(reports.flatMap(report => report.notes ?? []))];
-			if (notes.length > 0) facts.push({ k: [span("Notes", "muted")], v: sanitizeDisplayLine(notes.join(" • ")) });
+			if (notes.length > 0)
+				facts.push({
+					k: [span(t("tui.overlays.usageDashboard.notes", "Notes"), "muted")],
+					v: sanitizeDisplayLine(notes.join(" • ")),
+				});
 			for (const [index, report] of reports.entries()) {
 				const resets = summarizeUsageResetCredits(report.resetCredits, nowMs);
 				if (!resets || resets.bankedCount <= 0) continue;
 				const value: TspSpan[] = [
 					span(
-						`${resets.bankedCount} saved reset${resets.bankedCount === 1 ? "" : "s"}`,
+						t(
+							"tui.overlays.usageDashboard.savedResets",
+							{ one: "{count} saved reset", other: "{count} saved resets" },
+							{ count: resets.bankedCount },
+						),
 						resets.redeemableCount > 0 ? "success" : "warning",
 					),
 				];
 				if (resets.redeemableCount !== resets.bankedCount) {
-					value.push(span(` · ${resets.redeemableCount} usable now`, "muted"));
+					value.push(
+						span(
+							` · ${t("tui.overlays.usageDashboard.usableNow", "{count} usable now", {
+								count: resets.redeemableCount,
+							})}`,
+							"muted",
+						),
+					);
 				}
 				if (resets.soonestExpiry) {
 					const remaining = Date.parse(resets.soonestExpiry) - nowMs;
 					const date = resets.soonestExpiry.slice(0, 10);
 					value.push(
 						span(
-							remaining > 0 ? ` · expires in ${formatDuration(remaining)} (${date})` : ` · expired (${date})`,
+							remaining > 0
+								? ` · ${t("tui.overlays.usageDashboard.expiresInWithDate", "expires in {duration} ({date})", {
+										duration: formatDuration(remaining),
+										date,
+									})}`
+								: ` · ${t("tui.overlays.usageDashboard.expiredWithDate", "expired ({date})", { date })}`,
 							"muted",
 						),
 					);
 				}
 				if (resets.redeemableCount === 0 && resets.unavailableReason) {
-					value.push(span(` · unavailable: ${sanitizeDisplayLine(resets.unavailableReason)}`, "muted"));
+					value.push(
+						span(
+							` · ${t("tui.overlays.usageDashboard.unavailableReason", "unavailable: {reason}", {
+								reason: sanitizeDisplayLine(resets.unavailableReason),
+							})}`,
+							"muted",
+						),
+					);
 				}
 				facts.push({
-					k: [span(`Resets · ${reportAccountLabel(report, report.limits[0], index)}`, "muted")],
+					k: [
+						span(
+							t("tui.overlays.usageDashboard.resetsWithAccount", "Resets · {account}", {
+								account: reportAccountLabel(report, report.limits[0], index),
+							}),
+							"muted",
+						),
+					],
 					v: value,
 				});
 			}
@@ -1696,13 +2037,23 @@ export class UsageDashboardComponent implements Component {
 						account: [span(reportAccountLabel(report, limit, index), "muted")],
 						left:
 							fraction === undefined
-								? [span(formatAbsoluteOnlyAmount([limit]) ?? "No data", "muted")]
+								? [
+										span(
+											formatAbsoluteOnlyAmount([limit]) ??
+												t("tui.overlays.usageDashboard.noData", "No data"),
+											"muted",
+										),
+									]
 								: leftSpans(fraction, limit.status),
 						reset:
 							resetsAt !== undefined && resetsAt > nowMs
 								? [
 										span(
-											`${limit.window?.resetLabel ?? "resets"} in ${formatDuration(resetsAt - nowMs)}`,
+											t("tui.overlays.usageDashboard.resetsInWithLabel", "{label} in {duration}", {
+												label:
+													limit.window?.resetLabel ?? t("tui.overlays.usageDashboard.resets", "resets"),
+												duration: formatDuration(resetsAt - nowMs),
+											}),
 											"dim",
 										),
 									]
@@ -1723,20 +2074,29 @@ export class UsageDashboardComponent implements Component {
 					}
 				}
 				const cols: TspTableColumn[] = [
-					{ id: "limit", head: "Limit", grow: 1, priority: 4 },
-					{ id: "account", head: "Account", truncate: "middle", priority: 1 },
-					{ id: "left", head: "Left", align: "end", priority: 3 },
-					{ id: "reset", head: "Resets", align: "end", priority: 2 },
+					{ id: "limit", head: t("tui.overlays.usageDashboard.colLimit", "Limit"), grow: 1, priority: 4 },
+					{
+						id: "account",
+						head: t("tui.overlays.usageDashboard.colAccount", "Account"),
+						truncate: "middle",
+						priority: 1,
+					},
+					{ id: "left", head: t("tui.overlays.usageDashboard.colLeft", "Left"), align: "end", priority: 3 },
+					{ id: "reset", head: t("tui.overlays.usageDashboard.colResets", "Resets"), align: "end", priority: 2 },
 				];
 				children.push(node("table", { cols, rows, role: "omp.usage.limits" }, undefined, "limits"));
 				for (const note of new Set(limitNotes)) children.push(mutedText(note, true));
 			} else if (unavailable.every(account => account.provider !== entry.provider)) {
-				children.push(mutedText("No quotas reported"));
+				children.push(mutedText(t("tui.overlays.usageDashboard.noQuotasReported", "No quotas reported")));
 			}
 			sections.push(node("col", { role: "omp.usage.report", gap: "sm" }, children, entry.provider));
 		}
 		if (sections.length === 0) {
-			sections.push(text([span("No usage data available.", "muted")], { role: "omp.usage.none" }));
+			sections.push(
+				text([span(t("tui.overlays.usageDashboard.noUsageDataAvailable", "No usage data available."), "muted")], {
+					role: "omp.usage.none",
+				}),
+			);
 		}
 		return sections;
 	}

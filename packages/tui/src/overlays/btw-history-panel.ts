@@ -43,6 +43,7 @@ import type { TspScrollBy, TspSpan } from "@oh-my-pi/pi-wire";
 import type { NativeChild, NativeNode, NativeScroll, NativeUiEvent } from "../native/node";
 import { col, md, node, span, text } from "../native/describe";
 import { actionBar, actionButton } from "../native/overlay";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 /** The turns as shown: a titled topic's opening question displays as its title, e.g. `/sitrep`. */
 function getDisplayTurns(record: BtwHistoryRecord): readonly BtwHistoryTurn[] {
@@ -114,28 +115,70 @@ interface BtwHistoryNativeMemo {
 	node: NativeNode;
 }
 
-const STATUS: Record<BtwHistoryRecord["status"], { label: string; color: ThemeColor }> = {
-	running: { label: "Running", color: "accent" },
-	complete: { label: "Complete", color: "success" },
-	cancelled: { label: "Cancelled", color: "warning" },
-	error: { label: "Error", color: "error" },
-	interrupted: { label: "Interrupted", color: "warning" },
+const STATUS: Record<BtwHistoryRecord["status"], { readonly label: string; color: ThemeColor }> = {
+	running: {
+		get label() {
+			return t("tui.overlays.btwHistoryPanel.statusRunning", "Running");
+		},
+		color: "accent",
+	},
+	complete: {
+		get label() {
+			return t("tui.overlays.btwHistoryPanel.statusComplete", "Complete");
+		},
+		color: "success",
+	},
+	cancelled: {
+		get label() {
+			return t("tui.overlays.btwHistoryPanel.statusCancelled", "Cancelled");
+		},
+		color: "warning",
+	},
+	error: {
+		get label() {
+			return t("tui.overlays.btwHistoryPanel.statusError", "Error");
+		},
+		color: "error",
+	},
+	interrupted: {
+		get label() {
+			return t("tui.overlays.btwHistoryPanel.statusInterrupted", "Interrupted");
+		},
+		color: "warning",
+	},
 };
 
-const SHEET = { role: "omp.overlay.btwHistory", anchor: "center", size: "lg", head: "BTW history" } as const;
-const EMPTY_SHEET = { role: "omp.overlay.btwHistory", anchor: "center", size: "md", head: "BTW history" } as const;
+const SHEET = {
+	role: "omp.overlay.btwHistory",
+	anchor: "center",
+	size: "lg",
+	get head() {
+		return t("tui.overlays.btwHistoryPanel.sheetHead", "BTW history");
+	},
+} as const;
+const EMPTY_SHEET = {
+	role: "omp.overlay.btwHistory",
+	anchor: "center",
+	size: "md",
+	get head() {
+		return t("tui.overlays.btwHistoryPanel.sheetHead", "BTW history");
+	},
+} as const;
 
 /** A status worth naming next to an answer natively; an answered question needs none. */
 function describeStatus(status: BtwHistoryTurn["status"]): TspSpan[] | undefined {
 	switch (status) {
 		case "running":
-			return [span("●", "accent", { fx: "pulse" }), span(" Answering", "accent")];
+			return [
+				span("●", "accent", { fx: "pulse" }),
+				span(` ${t("tui.overlays.btwHistoryPanel.answering", "Answering")}`, "accent"),
+			];
 		case "cancelled":
-			return [span("Cancelled", "warning")];
+			return [span(t("tui.overlays.btwHistoryPanel.statusCancelled", "Cancelled"), "warning")];
 		case "error":
-			return [span("Failed", "error")];
+			return [span(t("tui.overlays.btwHistoryPanel.failed", "Failed"), "error")];
 		case "interrupted":
-			return [span("Interrupted", "warning")];
+			return [span(t("tui.overlays.btwHistoryPanel.statusInterrupted", "Interrupted"), "warning")];
 		case "complete":
 			return undefined;
 	}
@@ -334,8 +377,8 @@ export class BtwHistoryPanel implements Component, Focusable {
 
 	#openComposer(record: BtwHistoryRecord): void {
 		const input = new Input();
-		input.prompt = theme.fg("accent", "Follow up: ");
-		input.placeholder = "Ask about this answer…";
+		input.prompt = theme.fg("accent", `${t("tui.overlays.btwHistoryPanel.followUpPrompt", "Follow up")}: `);
+		input.placeholder = t("tui.overlays.btwHistoryPanel.followUpPlaceholder", "Ask about this answer…");
 		input.setUseTerminalCursor(this.#useTerminalCursor);
 		if (this.#options.spaceHoldKeys !== undefined) input.spaceHold.keys = this.#options.spaceHoldKeys;
 		input.spaceHold.handler = this.#options.spaceHold?.(input);
@@ -369,16 +412,19 @@ export class BtwHistoryPanel implements Component, Focusable {
 		}
 		let question = value.trim();
 		if (!question) {
-			composer.notice = "Enter a follow-up question.";
+			composer.notice = t("tui.overlays.btwHistoryPanel.noticeEnterQuestion", "Enter a follow-up question.");
 			return;
 		}
 		const record = this.#records.find(record => record.id === composer.recordId);
 		if (!record || !this.#canFollowUp(record)) {
-			composer.notice = "A BTW request is busy. Try again when it finishes.";
+			composer.notice = t(
+				"tui.overlays.btwHistoryPanel.noticeBusy",
+				"A BTW request is busy. Try again when it finishes.",
+			);
 			return;
 		}
 		this.#followUpPending = true;
-		composer.notice = "Starting follow-up…";
+		composer.notice = t("tui.overlays.btwHistoryPanel.noticeStarting", "Starting follow-up…");
 		this.#options.requestRender();
 		let images: ImageContent[] | undefined;
 		if (composer.images.length > 0) {
@@ -401,11 +447,19 @@ export class BtwHistoryPanel implements Component, Focusable {
 				this.#focus = "answer";
 				this.#jumpToEnd();
 			} else {
-				composer.notice = `Follow-up was not started. Your draft is kept; ${editorKey("tui.input.submit")} to retry.`;
+				composer.notice = t(
+					"tui.overlays.btwHistoryPanel.noticeNotStarted",
+					"Follow-up was not started. Your draft is kept; {key} to retry.",
+					{ key: editorKey("tui.input.submit") },
+				);
 			}
 		} catch {
 			if (this.#composer === composer) {
-				composer.notice = `Could not start the follow-up. Your draft is kept; ${editorKey("tui.input.submit")} to retry.`;
+				composer.notice = t(
+					"tui.overlays.btwHistoryPanel.noticeFailed",
+					"Could not start the follow-up. Your draft is kept; {key} to retry.",
+					{ key: editorKey("tui.input.submit") },
+				);
 			}
 		} finally {
 			this.#followUpPending = false;
@@ -678,7 +732,16 @@ export class BtwHistoryPanel implements Component, Focusable {
 		const items = this.#records.map(record => {
 			const followUps = record.followUps?.length ?? 0;
 			const detail: TspSpan[] = [span(this.#timeFormat.format(record.createdAt), "mono")];
-			if (followUps > 0) detail.push(span(` · ${followUps} follow-up${followUps === 1 ? "" : "s"}`));
+			if (followUps > 0)
+				detail.push(
+					span(
+						` · ${t(
+							"tui.overlays.btwHistoryPanel.followUps",
+							{ one: "{count} follow-up", other: "{count} follow-ups" },
+							{ count: followUps },
+						)}`,
+					),
+				);
 			const status = describeStatus(getBtwLatestTurn(record).status);
 			// The question is markdown: its `code` reads as mono, without the backticks.
 			const label = sanitizeDisplayLine(getBtwTopicLabel(record))
@@ -707,7 +770,10 @@ export class BtwHistoryPanel implements Component, Focusable {
 		const meta: TspSpan[] =
 			index === 0
 				? [span(this.#dateFormat.format(turn.createdAt))]
-				: [span("Follow-up · "), span(this.#timeFormat.format(turn.createdAt))];
+				: [
+						span(`${t("tui.overlays.btwHistoryPanel.followUpMeta", "Follow-up")} · `),
+						span(this.#timeFormat.format(turn.createdAt)),
+					];
 		const status = describeStatus(turn.status);
 		if (status) meta.push(span("  ·  "), ...status);
 		// The question stays markdown so its inline code and links render.
@@ -719,16 +785,30 @@ export class BtwHistoryPanel implements Component, Focusable {
 		if (turn.answer.trim() || !turn.error) {
 			const answer = turn.answer.trim()
 				? md(sanitizeDisplayText(turn.answer), { stream: turn.status === "running" })
-				: text([span(turn.status === "running" ? "Thinking…" : "No answer text.", "dim")], {
-						role: "omp.btw.pending",
-					});
+				: text(
+						[
+							span(
+								turn.status === "running"
+									? t("tui.overlays.btwHistoryPanel.thinking", "Thinking…")
+									: t("tui.overlays.btwHistoryPanel.noAnswer", "No answer text."),
+								"dim",
+							),
+						],
+						{
+							role: "omp.btw.pending",
+						},
+					);
 			children.push(node("col", { role: "omp.btw.answer" }, [answer], "answer"));
 		}
 		if (turn.error) {
 			children.push(text([span(sanitizeErrorLine(turn.error), "error")], { role: "omp.btw.error", wrap: "word" }));
 		}
 		if (turn.status === "interrupted") {
-			children.push(text([span("Not resumed in this view.", "muted")], { role: "omp.btw.note" }));
+			children.push(
+				text([span(t("tui.overlays.btwHistoryPanel.notResumed", "Not resumed in this view."), "muted")], {
+					role: "omp.btw.note",
+				}),
+			);
 		}
 		return node("col", { role: "omp.btw.turn" }, children, key);
 	}
@@ -753,12 +833,19 @@ export class BtwHistoryPanel implements Component, Focusable {
 			"col",
 			{ role: "omp.btw.empty", align: "center", gap: "sm" },
 			[
-				text("No side questions yet", { role: "omp.btw.empty.title" }),
+				text(t("tui.overlays.btwHistoryPanel.emptyTitle", "No side questions yet"), {
+					role: "omp.btw.empty.title",
+				}),
 				text(
 					[
-						span("Ask one with "),
+						span(t("tui.overlays.btwHistoryPanel.emptyHintAsk", "Ask one with ")),
 						span("/btw <question>", "code"),
-						span(". The answer stays out of the main conversation."),
+						span(
+							t(
+								"tui.overlays.btwHistoryPanel.emptyHintRest",
+								". The answer stays out of the main conversation.",
+							),
+						),
 					],
 					{ role: "omp.btw.empty.hint", wrap: "word" },
 				),
@@ -776,22 +863,58 @@ export class BtwHistoryPanel implements Component, Focusable {
 		if (this.#composer) {
 			return actionBar([
 				null,
-				actionButton("Cancel", "discard", { keys: "escape" }),
-				actionButton(this.#followUpPending ? "Sending…" : "Send", "send", { keys: "enter", tone: "accent" }),
+				actionButton(t("tui.overlays.btwHistoryPanel.cancelButton", "Cancel"), "discard", { keys: "escape" }),
+				actionButton(
+					this.#followUpPending
+						? t("tui.overlays.btwHistoryPanel.sending", "Sending…")
+						: t("tui.overlays.btwHistoryPanel.send", "Send"),
+					"send",
+					{ keys: "enter", tone: "accent" },
+				),
 			]);
 		}
 		const running = record !== undefined && getBtwLatestTurn(record).status === "running";
 		const hides = this.#options.escapeHides === true;
 		const buttons: (NativeNode | null)[] = [];
-		if (running) buttons.push(actionButton("Stop answer", "stop", { keys: hides ? "x" : "escape" }));
+		if (running)
+			buttons.push(
+				actionButton(t("tui.overlays.btwHistoryPanel.stopAnswer", "Stop answer"), "stop", {
+					keys: hides ? "x" : "escape",
+				}),
+			);
 		if (record && getBtwCopyText(record) !== undefined) {
-			buttons.push(actionButton(copied ? "Copy again" : "Copy answer", "copy-answer", { keys: "c" }));
-			if (copied) buttons.push(text([span("✓ Copied", "success")], { role: "omp.btw.copied" }));
+			buttons.push(
+				actionButton(
+					copied
+						? t("tui.overlays.btwHistoryPanel.copyAgain", "Copy again")
+						: t("tui.overlays.btwHistoryPanel.copyAnswerButton", "Copy answer"),
+					"copy-answer",
+					{ keys: "c" },
+				),
+			);
+			if (copied)
+				buttons.push(
+					text([span(t("tui.overlays.btwHistoryPanel.copied", "✓ Copied"), "success")], {
+						role: "omp.btw.copied",
+					}),
+				);
 		}
 		buttons.push(null);
 		// Clicking Close always dismisses the sheet; its tooltip names Esc only where Esc does too.
-		buttons.push(actionButton("Close", "close", running && !hides ? undefined : { keys: "escape" }));
-		if (canFollowUp) buttons.push(actionButton("Follow up", "follow-up", { keys: "f", tone: "accent" }));
+		buttons.push(
+			actionButton(
+				t("tui.overlays.btwHistoryPanel.closeButton", "Close"),
+				"close",
+				running && !hides ? undefined : { keys: "escape" },
+			),
+		);
+		if (canFollowUp)
+			buttons.push(
+				actionButton(t("tui.overlays.btwHistoryPanel.followUpButton", "Follow up"), "follow-up", {
+					keys: "f",
+					tone: "accent",
+				}),
+			);
 		return actionBar(buttons);
 	}
 
@@ -799,7 +922,14 @@ export class BtwHistoryPanel implements Component, Focusable {
 		const rowSpan = width < 36 && height >= 2 ? 2 : 1;
 		this.#listHeight = Math.max(1, Math.floor(height / rowSpan));
 		if (this.#records.length === 0) {
-			return new Text(theme.fg("muted", "No side questions yet.\n\nUse /btw QUESTION to start one."), 0, 0)
+			return new Text(
+				theme.fg(
+					"muted",
+					t("tui.overlays.btwHistoryPanel.emptyList", "No side questions yet.\n\nUse /btw QUESTION to start one."),
+				),
+				0,
+				0,
+			)
 				.render(width)
 				.slice(0, height);
 		}
@@ -871,22 +1001,33 @@ export class BtwHistoryPanel implements Component, Focusable {
 				width,
 			),
 			"",
-			theme.bold(theme.fg("accent", "Question")),
+			theme.bold(theme.fg("accent", t("tui.overlays.btwHistoryPanel.questionHeading", "Question"))),
 			...question.render(width),
 			"",
-			theme.bold(theme.fg("accent", "Answer")),
+			theme.bold(theme.fg("accent", t("tui.overlays.btwHistoryPanel.answerHeading", "Answer"))),
 		];
 		if (turn.answer.trim()) lines.push(...answer.render(width));
 		else
 			lines.push(
 				...wrapTextWithAnsi(
-					theme.fg("dim", turn.status === "running" ? "Waiting for response…" : "No answer text."),
+					theme.fg(
+						"dim",
+						turn.status === "running"
+							? t("tui.overlays.btwHistoryPanel.waiting", "Waiting for response…")
+							: t("tui.overlays.btwHistoryPanel.noAnswer", "No answer text."),
+					),
 					width,
 				),
 			);
 		if (turn.error) lines.push("", ...wrapTextWithAnsi(theme.fg("error", sanitizeErrorLine(turn.error)), width));
 		if (turn.status === "interrupted")
-			lines.push("", ...wrapTextWithAnsi(theme.fg("muted", "Not resumed in this view."), width));
+			lines.push(
+				"",
+				...wrapTextWithAnsi(
+					theme.fg("muted", t("tui.overlays.btwHistoryPanel.notResumed", "Not resumed in this view.")),
+					width,
+				),
+			);
 		return {
 			turn: {
 				question: turn.question,
@@ -910,7 +1051,13 @@ export class BtwHistoryPanel implements Component, Focusable {
 			const inner = Math.max(1, width - 1);
 			const lines: string[] = [];
 			if (record && this.#isCopied(record)) {
-				lines.push(...wrapTextWithAnsi(theme.fg("success", "✓ Copied to clipboard"), inner), "");
+				lines.push(
+					...wrapTextWithAnsi(
+						theme.fg("success", t("tui.overlays.btwHistoryPanel.copiedToClipboard", "✓ Copied to clipboard")),
+						inner,
+					),
+					"",
+				);
 			}
 			if (record) {
 				const turns = getDisplayTurns(record);
@@ -923,7 +1070,16 @@ export class BtwHistoryPanel implements Component, Focusable {
 				this.#turns.length = turns.length;
 			} else {
 				lines.push(
-					...wrapTextWithAnsi(theme.fg("muted", "No side questions yet. Use /btw QUESTION to start one."), inner),
+					...wrapTextWithAnsi(
+						theme.fg(
+							"muted",
+							t(
+								"tui.overlays.btwHistoryPanel.emptyDetail",
+								"No side questions yet. Use /btw QUESTION to start one.",
+							),
+						),
+						inner,
+					),
 				);
 			}
 			this.#detailRecord = record;
@@ -936,7 +1092,10 @@ export class BtwHistoryPanel implements Component, Focusable {
 	}
 
 	#focusLabel(focus: "list" | "answer"): string {
-		const label = focus === "list" ? `History (${this.#records.length})` : "Details";
+		const label =
+			focus === "list"
+				? t("tui.overlays.btwHistoryPanel.historyLabel", "History ({count})", { count: this.#records.length })
+				: t("tui.overlays.btwHistoryPanel.detailsLabel", "Details");
 		return this.#focus === focus
 			? theme.bold(theme.fg("accent", `${theme.nav.cursor} ${label}`))
 			: theme.fg("muted", `  ${label}`);
@@ -965,20 +1124,50 @@ export class BtwHistoryPanel implements Component, Focusable {
 		const running = latest?.status === "running";
 		const actions = composer
 			? [
-					keyHint("tui.input.submit", this.#followUpPending ? "starting…" : "send"),
-					keyHint("tui.select.cancel", "cancel"),
+					keyHint(
+						"tui.input.submit",
+						this.#followUpPending
+							? t("tui.overlays.btwHistoryPanel.starting", "starting…")
+							: t("tui.overlays.btwHistoryPanel.sendHint", "send"),
+					),
+					keyHint("tui.select.cancel", t("tui.overlays.btwHistoryPanel.cancelHint", "cancel")),
 				]
 			: [
-					keyHint("tui.select.cancel", running && !this.#options.escapeHides ? "cancel" : "close"),
-					...(running && this.#options.escapeHides ? [rawKeyHint("x", "cancel")] : []),
-					...(this.#records.length > 1 ? [rawKeyHint(["tab", "ctrl+/"], "switch pane")] : []),
+					keyHint(
+						"tui.select.cancel",
+						running && !this.#options.escapeHides
+							? t("tui.overlays.btwHistoryPanel.cancelHint", "cancel")
+							: t("tui.overlays.btwHistoryPanel.closeHint", "close"),
+					),
+					...(running && this.#options.escapeHides
+						? [rawKeyHint("x", t("tui.overlays.btwHistoryPanel.cancelHint", "cancel"))]
+						: []),
+					...(this.#records.length > 1
+						? [rawKeyHint(["tab", "ctrl+/"], t("tui.overlays.btwHistoryPanel.switchPane", "switch pane"))]
+						: []),
 				];
 		if (!composer) {
-			if (record && this.#canFollowUp(record)) actions.push(rawKeyHint(["f", "enter"], "follow up"));
+			if (record && this.#canFollowUp(record))
+				actions.push(rawKeyHint(["f", "enter"], t("tui.overlays.btwHistoryPanel.followUpHint", "follow up")));
 			if (record && getBtwCopyText(record) !== undefined) {
 				if (this.#isCopied(record))
-					actions.push(theme.fg("success", `✓ copied · ${formatKeyHint("c")} to copy again`));
-				else actions.push(rawKeyHint("c", inner < 40 ? "copy" : "copy answer"));
+					actions.push(
+						theme.fg(
+							"success",
+							t("tui.overlays.btwHistoryPanel.copiedHint", "✓ copied · {key} to copy again", {
+								key: formatKeyHint("c"),
+							}),
+						),
+					);
+				else
+					actions.push(
+						rawKeyHint(
+							"c",
+							inner < 40
+								? t("tui.overlays.btwHistoryPanel.copyHint", "copy")
+								: t("tui.overlays.btwHistoryPanel.copyAnswerHint", "copy answer"),
+						),
+					);
 			}
 		}
 		const actionLines = wrapTextWithAnsi(actions.join(" · "), inner).slice(0, framed ? 2 : 1);
@@ -990,7 +1179,12 @@ export class BtwHistoryPanel implements Component, Focusable {
 				composerLines.push(
 					theme.fg(
 						"dim",
-						truncateToWidth(`Topic: ${sanitizeDisplayLine(record ? getBtwTopicLabel(record) : "")}`, inner),
+						truncateToWidth(
+							t("tui.overlays.btwHistoryPanel.topicLine", "Topic: {topic}", {
+								topic: sanitizeDisplayLine(record ? getBtwTopicLabel(record) : ""),
+							}),
+							inner,
+						),
 					),
 				);
 			}
@@ -1022,7 +1216,7 @@ export class BtwHistoryPanel implements Component, Focusable {
 		}
 		const lines: string[] = [];
 		if (framed) {
-			lines.push(topBorder(width, "BTW history"));
+			lines.push(topBorder(width, t("tui.overlays.btwHistoryPanel.sheetHead", "BTW history")));
 			lines.push(this.#labels.render(width)[0] ?? "");
 		} else if (height >= 3) {
 			lines.push(truncateToWidth(this.#focusLabel(this.#focus), width));
@@ -1043,7 +1237,14 @@ export class BtwHistoryPanel implements Component, Focusable {
 				lines.push(
 					row(
 						theme.fg("dim", editorKeys("tui.select.up", "tui.select.down")) +
-							theme.fg("muted", ` ${this.#focus === "list" ? "select" : "scroll"}`),
+							theme.fg(
+								"muted",
+								` ${
+									this.#focus === "list"
+										? t("tui.overlays.btwHistoryPanel.selectMovement", "select")
+										: t("tui.overlays.btwHistoryPanel.scrollMovement", "scroll")
+								}`,
+							),
 						width,
 					),
 				);

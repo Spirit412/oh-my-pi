@@ -19,6 +19,7 @@ import { col } from "../native/describe";
 import type { NativeNode, NativeScroll, NativeUiEvent } from "../native/node";
 import { theme } from "../theme/theme";
 import type { Component } from "../tui";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 /** Options of a {@link ReportPanel}. */
 export interface ReportPanelOptions {
@@ -82,7 +83,7 @@ export class ReportPanel extends OverlayPanel {
 		this.#body = options.body;
 		this.#onClose = options.onClose;
 		this.#maxRows = options.maxRows;
-		this.#closeHint = `${options.closeKey} to close`;
+		this.#closeHint = t("tui.overlays.reportPanel.toClose", "{key} to close", { key: options.closeKey });
 		this.#view = new ScrollView(options.body, {
 			height: 0,
 			scrollbar: "auto",
@@ -101,7 +102,9 @@ export class ReportPanel extends OverlayPanel {
 	 * its own {@link handleInput} closes it, so the hint names that key.
 	 */
 	holdFocus(): void {
-		this.#closeHint = `${editorKey("tui.select.cancel")} to close`;
+		this.#closeHint = t("tui.overlays.reportPanel.toClose", "{key} to close", {
+			key: editorKey("tui.select.cancel"),
+		});
 	}
 
 	/**
@@ -118,7 +121,10 @@ export class ReportPanel extends OverlayPanel {
 		const overflows = rows > bodyMax;
 		this.#bodyRows = Math.min(rows, bodyMax);
 		this.#view.setHeight(this.#bodyRows);
-		const scrollHint = `${editorKey("tui.select.pageUp")}/${editorKey("tui.select.pageDown")} scroll · `;
+		const scrollHint = t("tui.overlays.reportPanel.scrollHint", "{pageUp}/{pageDown} scroll · ", {
+			pageUp: editorKey("tui.select.pageUp"),
+			pageDown: editorKey("tui.select.pageDown"),
+		});
 		this.#footer.setText(theme.fg("muted", overflows ? scrollHint + this.#closeHint : this.#closeHint));
 		const lines = super.render(width);
 		return cap !== undefined && lines.length > cap ? lines.slice(0, Math.max(0, cap)) : lines;
@@ -138,7 +144,13 @@ export class ReportPanel extends OverlayPanel {
 		const scroll = this.#scroll;
 		if (this.#native && this.#native.scroll === scroll) return this.#native.node;
 		const body: NativeNode = { ...col([this.#body], { role: "omp.report.body" }), key: "body", scroll };
-		const node = col([body, actionBar([null, actionButton("Close", "close", { keys: "escape" })])], { gap: "md" });
+		const node = col(
+			[
+				body,
+				actionBar([null, actionButton(t("tui.overlays.reportPanel.close", "Close"), "close", { keys: "escape" })]),
+			],
+			{ gap: "md" },
+		);
 		this.#native = { scroll, node };
 		return node;
 	}

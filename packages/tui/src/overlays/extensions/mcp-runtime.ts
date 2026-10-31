@@ -61,6 +61,7 @@ import {
 	sanitizeDisplayLineField,
 	sanitizeDisplayText,
 } from "./display-text";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 export type MCPConnectionHealth = "connected" | "connecting" | "disconnected" | "inactive";
 
@@ -249,18 +250,36 @@ export function snapshotMcpRuntime(
 export function formatMcpListHint(snapshot: MCPRuntimeSnapshot): string {
 	switch (snapshot.health) {
 		case "inactive":
-			return "inactive";
+			return t("tui.overlays.extensionsMcp.hintInactive", "inactive");
 		case "connecting":
-			return "connecting…";
+			return t("tui.overlays.extensionsMcp.hintConnecting", "connecting…");
 		case "disconnected":
-			return "unavailable";
+			return t("tui.overlays.extensionsMcp.hintUnavailable", "unavailable");
 		case "connected": {
-			const parts = [`${snapshot.tools.length} tool${snapshot.tools.length === 1 ? "" : "s"}`];
+			const parts = [
+				t(
+					"tui.overlays.extensionsMcp.hintToolCount",
+					{ one: "{count} tool", other: "{count} tools" },
+					{ count: snapshot.tools.length },
+				),
+			];
 			if (snapshot.resources.length > 0) {
-				parts.push(`${snapshot.resources.length} resource${snapshot.resources.length === 1 ? "" : "s"}`);
+				parts.push(
+					t(
+						"tui.overlays.extensionsMcp.hintResourceCount",
+						{ one: "{count} resource", other: "{count} resources" },
+						{ count: snapshot.resources.length },
+					),
+				);
 			}
 			if (snapshot.prompts.length > 0) {
-				parts.push(`${snapshot.prompts.length} prompt${snapshot.prompts.length === 1 ? "" : "s"}`);
+				parts.push(
+					t(
+						"tui.overlays.extensionsMcp.hintPromptCount",
+						{ one: "{count} prompt", other: "{count} prompts" },
+						{ count: snapshot.prompts.length },
+					),
+				);
 			}
 			return parts.join(" · ");
 		}
@@ -270,13 +289,13 @@ export function formatMcpListHint(snapshot: MCPRuntimeSnapshot): string {
 export function formatMcpHealthLabel(health: MCPConnectionHealth): string {
 	switch (health) {
 		case "connected":
-			return "Connected";
+			return t("tui.overlays.extensionsMcp.healthConnected", "Connected");
 		case "connecting":
-			return "Connecting";
+			return t("tui.overlays.extensionsMcp.healthConnecting", "Connecting");
 		case "disconnected":
-			return "Not connected";
+			return t("tui.overlays.extensionsMcp.healthDisconnected", "Not connected");
 		case "inactive":
-			return "Inactive";
+			return t("tui.overlays.extensionsMcp.healthInactive", "Inactive");
 	}
 }
 

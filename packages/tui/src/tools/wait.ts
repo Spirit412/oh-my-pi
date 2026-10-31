@@ -1,4 +1,5 @@
 import type { Component } from "../tui";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import { Text } from "../components/text";
 import { visibleWidth } from "../utils";
 import { formatAge } from "@oh-my-pi/pi-utils";
@@ -252,6 +253,33 @@ function waitRenderCall(_args: object, _options: RenderResultOptions, uiTheme: T
 	return new Text(renderStatusLine({ icon: "pending", title: "Wait" }, uiTheme), 0, 0);
 }
 
+/** Header description shared by the ANSI and native wait cards. */
+function jobsTitle(jobCount: number, running: number, agentCount: number): string {
+	if (jobCount === 0)
+		return t(
+			"tui.tools.wait.runningAgentsNoJobs",
+			{ one: "{count} running agent — no jobs", other: "{count} running agents — no jobs" },
+			{ count: agentCount },
+		);
+	if (running > 0)
+		return running === jobCount
+			? t(
+					"tui.tools.wait.waitingAll",
+					{ one: "waiting on {count} job", other: "waiting on {count} jobs" },
+					{ count: jobCount },
+				)
+			: t(
+					"tui.tools.wait.waitingOf",
+					{ one: "waiting on {running} of {total} job", other: "waiting on {running} of {total} jobs" },
+					{ count: jobCount, running, total: jobCount },
+				);
+	return t(
+		"tui.tools.wait.settled",
+		{ one: "{count} job settled", other: "{count} jobs settled" },
+		{ count: jobCount },
+	);
+}
+
 /** Result frame for wait snapshots and the agents roster. */
 function jobsRenderResult(
 	result: {
@@ -266,7 +294,8 @@ function jobsRenderResult(
 	const agents = result.details?.agents ?? [];
 
 	if (jobs.length === 0 && agents.length === 0) {
-		const fallback = result.content?.find(c => c.type === "text")?.text || "No jobs to process";
+		const fallback =
+			result.content?.find(c => c.type === "text")?.text || t("tui.tools.wait.noJobs", "No jobs to process");
 		const header = renderStatusLine({ icon: "warning", title: "Wait" }, uiTheme);
 		return new Text([header, formatEmptyMessage(fallback, uiTheme)].join("\n"), 0, 0);
 	}
@@ -279,24 +308,26 @@ function jobsRenderResult(
 	// The title already carries the running count, so meta lists only the
 	// settled categories — "waiting on 19 of 19 · 19 running" read awkward.
 	const meta: string[] = [];
-	if (counts.completed > 0) meta.push(uiTheme.fg("success", `${counts.completed} done`));
-	if (counts.failed > 0) meta.push(uiTheme.fg("error", `${counts.failed} failed`));
-	if (counts.cancelled > 0) meta.push(uiTheme.fg("warning", `${counts.cancelled} cancelled`));
+	if (counts.completed > 0)
+		meta.push(uiTheme.fg("success", t("tui.tools.wait.doneCount", "{count} done", { count: counts.completed })));
+	if (counts.failed > 0)
+		meta.push(uiTheme.fg("error", t("tui.tools.wait.failedCount", "{count} failed", { count: counts.failed })));
+	if (counts.cancelled > 0)
+		meta.push(
+			uiTheme.fg("warning", t("tui.tools.wait.cancelledCount", "{count} cancelled", { count: counts.cancelled })),
+		);
 	if (agents.length > 0 && jobs.length > 0) {
-		meta.push(uiTheme.fg("accent", `${agents.length} agent${agents.length === 1 ? "" : "s"}`));
+		meta.push(
+			uiTheme.fg(
+				"accent",
+				t("tui.tools.wait.agentCount", { one: "{count} agent", other: "{count} agents" }, { count: agents.length }),
+			),
+		);
 	}
 
 	const headerIcon: ToolUIStatus =
 		counts.failed > 0 ? "warning" : counts.running > 0 || agents.length > 0 ? "info" : "success";
-	const jobsNoun = jobs.length === 1 ? "job" : "jobs";
-	const description =
-		jobs.length === 0
-			? `${agents.length} running agent${agents.length === 1 ? "" : "s"} — no jobs`
-			: counts.running > 0
-				? counts.running === jobs.length
-					? `waiting on ${jobs.length} ${jobsNoun}`
-					: `waiting on ${counts.running} of ${jobs.length} ${jobsNoun}`
-				: `${jobs.length} ${jobsNoun} settled`;
+	const description = jobsTitle(jobs.length, counts.running, agents.length);
 
 	const header = renderStatusLine(
 		{
@@ -379,10 +410,17 @@ function jobsRenderResult(
 		// Ctrl+O lists the rest.
 		for (const job of settledJobs.slice(0, PREVIEW_LIMITS.COLLAPSED_ITEMS)) {
 			const icon = formatStatusIcon(statusToIcon(job.status), uiTheme);
-			const word = job.status === "completed" ? "done" : job.status;
+			const word =
+				job.status === "completed"
+					? t("tui.tools.wait.statusDone", "done")
+					: job.status === "failed"
+						? t("tui.tools.wait.statusFailed", "failed")
+						: job.status === "cancelled"
+							? t("tui.tools.wait.statusCancelled", "cancelled")
+							: job.status;
 			const exit =
 				job.exitCode !== undefined && job.exitCode !== 0
-					? `${uiTheme.sep.dot}${uiTheme.fg("error", `exit ${job.exitCode}`)}`
+					? `${uiTheme.sep.dot}${uiTheme.fg("error", t("tui.tools.wait.exit", "exit {code}", { code: job.exitCode }))}`
 					: "";
 			// The outcome (status, exit, duration) is reserved first; a long id
 			// gives way so a failure is never cut off the row.
@@ -421,7 +459,10 @@ function jobsRenderResult(
 			}
 		}
 		const hiddenSettled = settledJobs.length - PREVIEW_LIMITS.COLLAPSED_ITEMS;
-		if (hiddenSettled > 0) lines.push(`${indent}${uiTheme.fg("dim", `… ${hiddenSettled} more settled`)}`);
+		if (hiddenSettled > 0)
+			lines.push(
+				`${indent}${uiTheme.fg("dim", t("tui.tools.wait.moreSettled", "… {count} more settled", { count: hiddenSettled }))}`,
+			);
 		const shownWidgetJobs = widgetJobs.slice(0, PREVIEW_LIMITS.COLLAPSED_ITEMS);
 		for (const job of shownWidgetJobs) {
 			const typeBadge = formatBadge(job.type, statusToColor(job.status), uiTheme);
@@ -442,7 +483,9 @@ function jobsRenderResult(
 		// into one count; the header already carries it while nothing settled.
 		const quietRunning = counts.running - shownWidgetJobs.length;
 		if (quietRunning > 0 && (settledJobs.length > 0 || shownWidgetJobs.length < widgetJobs.length)) {
-			lines.push(`${indent}${uiTheme.fg("dim", `${quietRunning} still running`)}`);
+			lines.push(
+				`${indent}${uiTheme.fg("dim", t("tui.tools.wait.stillRunning", "{count} still running", { count: quietRunning }))}`,
+			);
 		}
 		return lines;
 	};
@@ -484,7 +527,7 @@ function jobsRenderResult(
 									statusToIcon(job.status),
 									uiTheme,
 									job.status === "running" ? options.spinnerFrame : undefined,
-								)}${job.exitCode === undefined ? "" : `${uiTheme.sep.dot}${uiTheme.fg(job.exitCode === 0 ? "muted" : "error", `exit ${job.exitCode}`)}`}`;
+								)}${job.exitCode === undefined ? "" : `${uiTheme.sep.dot}${uiTheme.fg(job.exitCode === 0 ? "muted" : "error", t("tui.tools.wait.exit", "exit {code}", { code: job.exitCode }))}`}`;
 								const typeBadge = formatBadge(job.type, statusToColor(job.status), uiTheme);
 								const completion =
 									job.status === "running" && job.completionPercent !== undefined
@@ -497,7 +540,7 @@ function jobsRenderResult(
 									Ellipsis.Unicode,
 								);
 								const rowLabel = jobRowLabel(job);
-								const rawLabelLines = (rowLabel || "(no label)").split(/\r?\n/);
+								const rawLabelLines = (rowLabel || t("tui.tools.wait.noLabel", "(no label)")).split(/\r?\n/);
 								const maxLabelLines = expanded ? LABEL_LINES_EXPANDED : LABEL_LINES_COLLAPSED;
 								const visibleLabelLines = rawLabelLines
 									.slice(0, maxLabelLines)
@@ -601,8 +644,8 @@ function jobsRenderResult(
 										? formatStatusIcon("running", uiTheme, options.spinnerFrame)
 										: formatStatusIcon("warning", uiTheme);
 									const badge = agent.live
-										? formatBadge("agent", "accent", uiTheme)
-										: formatBadge("agent · no turn", "warning", uiTheme);
+										? formatBadge(t("tui.tools.wait.agentBadge", "agent"), "accent", uiTheme)
+										: formatBadge(t("tui.tools.wait.agentNoTurn", "agent · no turn"), "warning", uiTheme);
 									const id = truncateToWidth(
 										replaceTabs(agent.id).replace(/\s+/g, " "),
 										Math.max(0, rowWidth - visibleWidth(`${icon}  ${badge}`)),
@@ -685,7 +728,16 @@ function bodyLines(
 	);
 	const hidden = preview.hidden;
 	if (hidden > 0) {
-		lines.push(`${indent}${quote} ${theme.fg("dim", `… +${hidden} more ${hidden === 1 ? "line" : "lines"}`)}`);
+		lines.push(
+			`${indent}${quote} ${theme.fg(
+				"dim",
+				t(
+					"tui.tools.wait.moreLines",
+					{ one: "… +{count} more line", other: "… +{count} more lines" },
+					{ count: hidden },
+				),
+			)}`,
+		);
 	}
 	return lines;
 }
@@ -718,13 +770,13 @@ export function createIrcMessageCard(
 			: card.kind === "autoreply"
 				? `IRC ${uiTheme.nav.selected} ${card.to?.trim() || "?"}`
 				: card.kind === "workpool"
-					? `Pool ${card.pool?.trim() || "?"} ${uiTheme.nav.selected} ${card.to?.trim() || "?"}`
+					? `${t("tui.tools.wait.pool", "Pool")} ${card.pool?.trim() || "?"} ${uiTheme.nav.selected} ${card.to?.trim() || "?"}`
 					: `IRC ${from} ${uiTheme.nav.selected} ${card.to?.trim() || "?"}`;
 	const body = card.body ?? "";
 	const meta: string[] = [];
-	if (card.kind === "autoreply") meta.push("auto");
+	if (card.kind === "autoreply") meta.push(t("tui.tools.wait.auto", "auto"));
 	if (card.kind === "workpool" && card.mode) meta.push(card.mode);
-	if (card.replyTo) meta.push("reply");
+	if (card.replyTo) meta.push(t("tui.tools.wait.reply", "reply"));
 	const age = messageAge(card.timestamp);
 	if (age) meta.push(age);
 	const component = createCachedComponent(getExpanded, (width, expanded) => {
@@ -771,24 +823,21 @@ function describeJobsResult(
 		return {
 			head: toolHead("Wait"),
 			tone: "warning",
-			body: [text([span(plainText(resultText(result) || "No jobs to process"), "dim")])],
+			body: [text([span(plainText(resultText(result) || t("tui.tools.wait.noJobs", "No jobs to process")), "dim")])],
 		};
 	}
 	const counts = { completed: 0, failed: 0, cancelled: 0, running: 0 };
 	for (const job of jobs) counts[job.status]++;
-	const noun = jobs.length === 1 ? "job" : "jobs";
-	const title =
-		jobs.length === 0
-			? `${agents.length} running agent${agents.length === 1 ? "" : "s"} — no jobs`
-			: counts.running > 0
-				? counts.running === jobs.length
-					? `waiting on ${jobs.length} ${noun}`
-					: `waiting on ${counts.running} of ${jobs.length} ${noun}`
-				: `${jobs.length} ${noun} settled`;
+	const title = jobsTitle(jobs.length, counts.running, agents.length);
 	const head: TspSpan[] = [span(title, "toolTitle strong")];
-	if (counts.completed > 0) head.push(span(` ${counts.completed} done`, "success"));
-	if (counts.failed > 0) head.push(span(` ${counts.failed} failed`, "error"));
-	if (counts.cancelled > 0) head.push(span(` ${counts.cancelled} cancelled`, "warning"));
+	if (counts.completed > 0)
+		head.push(span(` ${t("tui.tools.wait.doneCount", "{count} done", { count: counts.completed })}`, "success"));
+	if (counts.failed > 0)
+		head.push(span(` ${t("tui.tools.wait.failedCount", "{count} failed", { count: counts.failed })}`, "error"));
+	if (counts.cancelled > 0)
+		head.push(
+			span(` ${t("tui.tools.wait.cancelledCount", "{count} cancelled", { count: counts.cancelled })}`, "warning"),
+		);
 	const order: Record<JobSnapshot["status"], number> = {
 		running: 0,
 		failed: 1,
@@ -804,7 +853,21 @@ function describeJobsResult(
 	}
 	if (sorted.length > TILES_SHOWN) {
 		const rest = sorted.length - TILES_SHOWN;
-		body.push(text([span(`+${rest} more ${rest === 1 ? "job" : "jobs"} · /jobs`, "dim")], { role: "omp.wait.more" }));
+		body.push(
+			text(
+				[
+					span(
+						t(
+							"tui.tools.wait.moreJobs",
+							{ one: "+{count} more job · /jobs", other: "+{count} more jobs · /jobs" },
+							{ count: rest },
+						),
+						"dim",
+					),
+				],
+				{ role: "omp.wait.more" },
+			),
+		);
 	}
 	for (const agent of agents) {
 		const spans: TspSpan[] = [span(plainText(agent.id), "muted")];
@@ -816,7 +879,9 @@ function describeJobsResult(
 				{ gap: "sm", role: "omp.wait.agent" },
 				[
 					node("badge", {
-						text: agent.live ? "agent" : "agent · no turn",
+						text: agent.live
+							? t("tui.tools.wait.agentBadge", "agent")
+							: t("tui.tools.wait.agentNoTurn", "agent · no turn"),
 						tone: agent.live ? "accent" : "warning",
 					}),
 					text(spans, { truncate: "end", grow: 1 }),
@@ -850,9 +915,16 @@ function describeMessage(
 		preview: { lines: BODY_LINES_COLLAPSED + 1 },
 		body: compact([
 			ts
-				? row([text([span("received", "dim")]), elapsed(Date.now() - ts), text([span("ago", "dim")])], {
-						gap: "xs",
-					})
+				? row(
+						[
+							text([span(t("tui.tools.wait.received", "received"), "dim")]),
+							elapsed(Date.now() - ts),
+							text([span(t("tui.tools.wait.ago", "ago"), "dim")]),
+						],
+						{
+							gap: "xs",
+						},
+					)
 				: undefined,
 			bodyText.trim() ? md(bodyText) : undefined,
 		]),
@@ -866,7 +938,7 @@ export const waitToolRenderer = {
 	inline: true,
 	mergeCallAndResult: true,
 	activitySummary(): ToolActivitySummary {
-		return { label: "Wait", detail: "Background work or peer message" };
+		return { label: "Wait", detail: t("tui.tools.wait.activityDetail", "Background work or peer message") };
 	},
 	renderCall: waitRenderCall,
 	describeCall(): NativeToolView {
@@ -881,14 +953,19 @@ export const waitToolRenderer = {
 			const details = result.details;
 			if (details?.interrupted) {
 				return {
-					head: toolHead("Wait", "interrupted by message"),
+					head: toolHead("Wait", t("tui.tools.wait.interrupted", "interrupted by message")),
 					tone: "info",
 					inline: true,
 				};
 			}
 			const waited = details?.waited;
 			if (!waited) return describeJobsResult(result, options.isPartial);
-			return describeMessage(waited.from, waited.ts, waited.body, waited.replyTo ? ["reply"] : []);
+			return describeMessage(
+				waited.from,
+				waited.ts,
+				waited.body,
+				waited.replyTo ? [t("tui.tools.wait.reply", "reply")] : [],
+			);
 		});
 	},
 	renderResult(
@@ -902,7 +979,10 @@ export const waitToolRenderer = {
 	): Component {
 		if (result.details?.interrupted && !result.isError) {
 			return new Text(
-				renderStatusLine({ icon: "info", title: "Wait", meta: ["interrupted by message"] }, uiTheme),
+				renderStatusLine(
+					{ icon: "info", title: "Wait", meta: [t("tui.tools.wait.interrupted", "interrupted by message")] },
+					uiTheme,
+				),
 				0,
 				0,
 			);
@@ -917,7 +997,7 @@ export const waitToolRenderer = {
 						{
 							iconOverride: ircGlyph(uiTheme),
 							title: `IRC ${uiTheme.nav.back} ${replaceTabs(waited.from)}`,
-							meta: [messageAge(waited.ts), ...(waited.replyTo ? ["reply"] : [])],
+							meta: [messageAge(waited.ts), ...(waited.replyTo ? [t("tui.tools.wait.reply", "reply")] : [])],
 						},
 						uiTheme,
 					),

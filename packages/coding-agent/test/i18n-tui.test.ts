@@ -37,5 +37,14 @@ describe("bundled Russian TUI catalog", () => {
 		expect(contextCategoryDescriptor("system-prompt").overviewLabel).toBe("Системный промпт (без навыков)");
 
 		expect(sanitizeErrorLine("", 40)).toBe("Неизвестная ошибка");
+
+		// Migrated Phase 4 areas: tool renderers and interactive overlays.
+		expect(t("tui.tools.astEdit.files", { one: "{count} file", other: "{count} files" }, { count: 3 })).toBe(
+			"3 файла",
+		);
+		expect(t("tui.overlays.login.cancel", "Cancel")).toBe("Отмена");
+		expect(
+			t("tui.chat.advisor.tally.concern", { one: "{count} concern", other: "{count} concerns" }, { count: 5 }),
+		).toBe("5 замечаний");
 	});
 });

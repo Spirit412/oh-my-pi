@@ -1,5 +1,6 @@
 import * as path from "node:path";
 import { isRecord, sanitizeText } from "@oh-my-pi/pi-utils";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import type { Component } from "../tui";
 import { Text } from "../components/text";
 import type {
@@ -27,7 +28,6 @@ import {
 import {
 	createCachedComponent,
 	fitHeaderedRows,
-	formatCount,
 	formatEmptyMessage,
 	formatErrorMessage,
 	formatMoreItems,
@@ -97,7 +97,7 @@ const SEARCH_CODE_FRAME_LINE_RE = /^\s*\*?(\d+)│/;
 function searchScopeMeta(details: GrepToolDetails | undefined, searchPath?: string): string | undefined {
 	if (!details?.scopePath) return undefined;
 	const label = searchPath ? fileHyperlink(searchPath, details.scopePath) : details.scopePath;
-	return `in ${label}`;
+	return t("tui.tools.grep.inScope", "in {path}", { path: label });
 }
 
 function isStringArray(value: unknown): value is string[] {
@@ -354,7 +354,7 @@ export const grepToolRenderer = {
 	renderCall(args: GrepRenderArgs, _options: RenderResultOptions, uiTheme: Theme): Component {
 		const paths = toPathList(args.path ?? args.paths);
 		const meta: string[] = [];
-		if (paths.length) meta.push(`in ${paths.join(", ")}`);
+		if (paths.length) meta.push(t("tui.tools.grep.inScope", "in {path}", { path: paths.join(", ") }));
 		if (args.case === false) meta.push("case:insensitive");
 		if (args.gitignore === false) meta.push("gitignore:false");
 		if (args.skip !== undefined && args.skip > 0) meta.push(`skip:${args.skip}`);
@@ -375,7 +375,10 @@ export const grepToolRenderer = {
 		const details = result.details;
 
 		if (result.isError || details?.error) {
-			const errorText = details?.error || result.content?.find(c => c.type === "text")?.text || "Unknown error";
+			const errorText =
+				details?.error ||
+				result.content?.find(c => c.type === "text")?.text ||
+				t("tui.tools.grep.unknownError", "Unknown error");
 			return new Text(formatErrorMessage(errorText, uiTheme), 0, 0);
 		}
 
@@ -384,7 +387,7 @@ export const grepToolRenderer = {
 		if (!hasDetailedData) {
 			const textContent = result.details?.displayContent ?? result.content?.find(c => c.type === "text")?.text;
 			if (!textContent || textContent === "No matches found") {
-				return new Text(formatEmptyMessage("No matches found", uiTheme), 0, 0);
+				return new Text(formatEmptyMessage(t("tui.tools.grep.noMatches", "No matches found"), uiTheme), 0, 0);
 			}
 			const lines = textContent.split("\n").filter(line => line.trim() !== "");
 			const description = args?.pattern ?? undefined;
@@ -394,7 +397,9 @@ export const grepToolRenderer = {
 					title: "Grep",
 					titleColor: "toolTitle",
 					description,
-					meta: [formatCount("item", lines.length)],
+					meta: [
+						t("tui.tools.grep.items", { one: "{count} item", other: "{count} items" }, { count: lines.length }),
+					],
 				},
 				uiTheme,
 			);
@@ -427,27 +432,35 @@ export const grepToolRenderer = {
 		const missingPathsList = details?.missingPaths ?? [];
 		const missingNote =
 			missingPathsList.length > 0
-				? uiTheme.fg("warning", `skipped missing: ${missingPathsList.join(", ")}`)
+				? uiTheme.fg(
+						"warning",
+						t("tui.tools.grep.skippedMissing", "skipped missing: {paths}", {
+							paths: missingPathsList.join(", "),
+						}),
+					)
 				: undefined;
 
 		if (matchCount === 0) {
-			const meta = ["0 matches"];
+			const meta = [t("tui.tools.grep.matches", { one: "{count} match", other: "{count} matches" }, { count: 0 })];
 			const scopeMeta = searchScopeMeta(details, linkTargets.searchPath);
 			if (scopeMeta) meta.push(scopeMeta);
 			const header = renderStatusLine(
 				{ icon: "warning", title: "Grep", titleColor: "toolTitle", description: args?.pattern, meta },
 				uiTheme,
 			);
-			const lines = [header, formatEmptyMessage("No matches found", uiTheme)];
+			const lines = [header, formatEmptyMessage(t("tui.tools.grep.noMatches", "No matches found"), uiTheme)];
 			if (missingNote) lines.push(missingNote);
 			return new Text(lines.join("\n"), 0, 0);
 		}
 
-		const summaryParts = [formatCount("match", matchCount), formatCount("file", fileCount)];
+		const summaryParts = [
+			t("tui.tools.grep.matches", { one: "{count} match", other: "{count} matches" }, { count: matchCount }),
+			t("tui.tools.grep.files", { one: "{count} file", other: "{count} files" }, { count: fileCount }),
+		];
 		const meta = [...summaryParts];
 		const scopeMeta = searchScopeMeta(details, linkTargets.searchPath);
 		if (scopeMeta) meta.push(scopeMeta);
-		if (truncated) meta.push(uiTheme.fg("warning", "truncated"));
+		if (truncated) meta.push(uiTheme.fg("warning", t("tui.tools.grep.truncated", "truncated")));
 		const description = args?.pattern ?? undefined;
 		const header = renderStatusLine(
 			{
@@ -515,12 +528,20 @@ export const grepToolRenderer = {
 	): NativeToolView {
 		const details = result.details;
 		if (result.isError || details?.error) {
-			return inlineErrorView(grepNativeHead(args), details?.error || resultText(result) || "Unknown error");
+			return inlineErrorView(
+				grepNativeHead(args),
+				details?.error || resultText(result) || t("tui.tools.grep.unknownError", "Unknown error"),
+			);
 		}
 		const textContent = details?.displayContent ?? resultText(result);
 		const missing = details?.missingPaths ?? [];
-		const missingNote = missing.length > 0 ? `skipped missing: ${missing.join(", ")}` : undefined;
-		const scope = details?.scopePath ? `in ${details.scopePath}` : undefined;
+		const missingNote =
+			missing.length > 0
+				? t("tui.tools.grep.skippedMissing", "skipped missing: {paths}", { paths: missing.join(", ") })
+				: undefined;
+		const scope = details?.scopePath
+			? t("tui.tools.grep.inScope", "in {path}", { path: details.scopePath })
+			: undefined;
 		const hasDetailedData = details?.matchCount !== undefined || details?.fileCount !== undefined;
 		const matchCount = details?.matchCount ?? 0;
 		if (
@@ -529,7 +550,13 @@ export const grepToolRenderer = {
 		) {
 			const foot = footnoteText(compact([missingNote]));
 			return {
-				tool: grepNativeHead(args, compact(["0 matches", scope])),
+				tool: grepNativeHead(
+					args,
+					compact([
+						t("tui.tools.grep.matches", { one: "{count} match", other: "{count} matches" }, { count: 0 }),
+						scope,
+					]),
+				),
 				tone: "warning",
 				inline: true,
 				body: foot ? [foot] : undefined,
@@ -540,16 +567,29 @@ export const grepToolRenderer = {
 		);
 		const fileCount = details?.fileCount ?? 0;
 		const counts = hasDetailedData
-			? `${formatCount("match", matchCount)} · ${formatCount("file", fileCount)}`
+			? `${t("tui.tools.grep.matches", { one: "{count} match", other: "{count} matches" }, { count: matchCount })} · ${t("tui.tools.grep.files", { one: "{count} file", other: "{count} files" }, { count: fileCount })}`
 			: undefined;
 		const head = grepNativeHead(args, compact([counts, scope]));
 		const hiddenFiles = options.expanded ? 0 : Math.max(0, fileCount - NATIVE_COLLAPSED_FILES);
 		const foot = footnoteText(
-			compact([hiddenFiles > 0 && formatCount("more file", hiddenFiles), missingNote]),
+			compact([
+				hiddenFiles > 0 &&
+					t(
+						"tui.tools.grep.moreFiles",
+						{ one: "{count} more file", other: "{count} more files" },
+						{ count: hiddenFiles },
+					),
+				missingNote,
+			]),
 			details?.meta,
 		);
 		return {
-			tool: truncated ? { ...head, badges: [{ text: "truncated", tone: "warning" }] } : head,
+			tool: truncated
+				? {
+						...head,
+						badges: [{ text: t("tui.tools.grep.truncated", "truncated"), tone: "warning" }],
+					}
+				: head,
 			inline: true,
 			body: compact<NativeChild>([
 				...describeGroupedOutput(textContent.split("\n"), {
@@ -569,7 +609,7 @@ function grepNativeHead(args: GrepRenderArgs | undefined, meta?: readonly string
 	const parts = meta ? [...meta] : [];
 	if (!meta && args) {
 		const paths = toPathList(args.path ?? args.paths);
-		if (paths.length) parts.push(`in ${paths.join(", ")}`);
+		if (paths.length) parts.push(t("tui.tools.grep.inScope", "in {path}", { path: paths.join(", ") }));
 		if (args.case === false) parts.push("case:insensitive");
 		if (args.gitignore === false) parts.push("gitignore:false");
 		if (args.skip !== undefined && args.skip > 0) parts.push(`skip:${args.skip}`);

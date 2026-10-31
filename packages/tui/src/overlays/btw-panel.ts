@@ -1,4 +1,5 @@
 import { type Component, Markdown, Text, type TUI } from "../index";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import { replaceTabs } from "../render/render-utils";
 import { getMarkdownTheme, theme } from "../theme/theme";
 import { sanitizeErrorLine } from "../chrome/error-block";
@@ -83,7 +84,9 @@ export class BtwPanelComponent extends OverlayPanel {
 
 	#setCopied(copied: boolean): void {
 		this.#copied = copied;
-		this.title = copied ? `${this.#baseTitle} ✓ Copied` : this.#baseTitle;
+		this.title = copied
+			? `${this.#baseTitle} ${t("tui.overlays.btwPanel.copiedTitle", "✓ Copied")}`
+			: this.#baseTitle;
 	}
 
 	/** Shows that the completed answer is being promoted into the chat session. */
@@ -159,34 +162,67 @@ export class BtwPanelComponent extends OverlayPanel {
 
 	#describeBody(): NativeNode {
 		if (this.#state === "error") {
-			return text([span(sanitizeErrorLine(this.#errorMessage ?? "Unknown error"), "error")], { wrap: "word" });
+			return text(
+				[
+					span(
+						sanitizeErrorLine(this.#errorMessage ?? t("tui.overlays.btwPanel.unknownError", "Unknown error")),
+						"error",
+					),
+				],
+				{
+					wrap: "word",
+				},
+			);
 		}
 		const answer = this.#visibleAnswer;
 		if (answer) return md(answer, { stream: this.#state === "running" });
-		const waiting = this.#state === "running" ? `${theme.status.pending} Waiting for response…` : "No text returned.";
+		const waiting =
+			this.#state === "running"
+				? `${theme.status.pending} ${t("tui.overlays.btwPanel.waiting", "Waiting for response…")}`
+				: t("tui.overlays.btwPanel.noText", "No text returned.");
 		return text([span(waiting, "dim")]);
 	}
 
 	#describeFooter(canFollowUp: boolean, canBranch: boolean): NativeNode {
-		const esc: NativeHint = { keys: boundKeys("app.interrupt", ["escape"]).slice(0, 1), label: "to close" };
+		const esc: NativeHint = {
+			keys: boundKeys("app.interrupt", ["escape"]).slice(0, 1),
+			label: t("tui.overlays.btwPanel.toClose", "to close"),
+		};
 		switch (this.#state) {
 			case "running":
-				return hintsRow([{ ...esc, label: "to cancel" }]);
+				return hintsRow([{ ...esc, label: t("tui.overlays.btwPanel.toCancel", "to cancel") }]);
 			case "complete": {
 				const hints: NativeHint[] = [];
-				if (this.isCopyable()) hints.push({ keys: ["c"], label: this.#copied ? "to copy again" : "to copy" });
-				if (canFollowUp) hints.push({ keys: ["f"], label: "to follow up" });
-				if (canBranch) hints.push({ keys: ["b"], label: "to branch" });
+				if (this.isCopyable())
+					hints.push({
+						keys: ["c"],
+						label: this.#copied
+							? t("tui.overlays.btwPanel.toCopyAgain", "to copy again")
+							: t("tui.overlays.btwPanel.toCopy", "to copy"),
+					});
+				if (canFollowUp) hints.push({ keys: ["f"], label: t("tui.overlays.btwPanel.toFollowUp", "to follow up") });
+				if (canBranch) hints.push({ keys: ["b"], label: t("tui.overlays.btwPanel.toBranch", "to branch") });
 				hints.push(esc);
 				if (!this.#copied) return hintsRow(hints);
-				return statusHintsRow([span("✓ Copied to clipboard", "success")], hints);
+				return statusHintsRow(
+					[span(t("tui.overlays.btwPanel.copiedToClipboard", "✓ Copied to clipboard"), "success")],
+					hints,
+				);
 			}
 			case "branching":
-				return text([span(`${theme.status.pending} Branching to chat…`, "muted")]);
+				return text([
+					span(`${theme.status.pending} ${t("tui.overlays.btwPanel.branching", "Branching to chat…")}`, "muted"),
+				]);
 			case "aborted":
-				return statusHintsRow([span(`${theme.status.warning} Cancelled`, "warning")], [esc]);
+				return statusHintsRow(
+					[span(`${theme.status.warning} ${t("tui.overlays.btwPanel.cancelled", "Cancelled")}`, "warning")],
+					[esc],
+				);
 			case "error":
-				return statusHintsRow([span(`${theme.status.error} Error`, "error")], [esc]);
+				return statusHintsRow(
+					[span(`${theme.status.error} ${t("tui.overlays.btwPanel.error", "Error")}`, "error")],
+					[esc],
+				);
 		}
 	}
 
@@ -205,36 +241,61 @@ export class BtwPanelComponent extends OverlayPanel {
 		const esc = interruptKey();
 		switch (this.#state) {
 			case "running":
-				return theme.fg("muted", `${esc} to cancel`);
+				return theme.fg("muted", `${esc} ${t("tui.overlays.btwPanel.toCancel", "to cancel")}`);
 			case "complete": {
 				const actions: string[] = [];
 				const copyKey = formatKeyHint("c");
-				if (this.isCopyable()) actions.push(this.#copied ? `${copyKey} to copy again` : `${copyKey} to copy`);
-				if (this.#canFollowUp?.()) actions.push(`${formatKeyHint("f")} to follow up`);
-				if (this.#canBranch?.() ?? this.isBranchable()) actions.push(`${formatKeyHint("b")} to branch`);
-				actions.push(`${esc} to close`);
+				if (this.isCopyable())
+					actions.push(
+						this.#copied
+							? `${copyKey} ${t("tui.overlays.btwPanel.toCopyAgain", "to copy again")}`
+							: `${copyKey} ${t("tui.overlays.btwPanel.toCopy", "to copy")}`,
+					);
+				if (this.#canFollowUp?.())
+					actions.push(`${formatKeyHint("f")} ${t("tui.overlays.btwPanel.toFollowUp", "to follow up")}`);
+				if (this.#canBranch?.() ?? this.isBranchable())
+					actions.push(`${formatKeyHint("b")} ${t("tui.overlays.btwPanel.toBranch", "to branch")}`);
+				actions.push(`${esc} ${t("tui.overlays.btwPanel.toClose", "to close")}`);
 				if (this.#copied) {
-					return `${theme.fg("success", "✓ Copied to clipboard")}${theme.fg("muted", actions.length > 0 ? ` · ${actions.join(" · ")}` : "")}`;
+					return `${theme.fg("success", t("tui.overlays.btwPanel.copiedToClipboard", "✓ Copied to clipboard"))}${theme.fg("muted", actions.length > 0 ? ` · ${actions.join(" · ")}` : "")}`;
 				}
 				return theme.fg("muted", actions.join(" · "));
 			}
 			case "branching":
-				return theme.fg("muted", `${theme.status.pending} Branching to chat…`);
+				return theme.fg(
+					"muted",
+					`${theme.status.pending} ${t("tui.overlays.btwPanel.branching", "Branching to chat…")}`,
+				);
 			case "aborted":
-				return theme.fg("warning", `${theme.status.warning} Cancelled · ${esc} to close`);
+				return theme.fg(
+					"warning",
+					`${theme.status.warning} ${t("tui.overlays.btwPanel.cancelled", "Cancelled")} · ${esc} ${t("tui.overlays.btwPanel.toClose", "to close")}`,
+				);
 			case "error":
-				return theme.fg("error", `${theme.status.error} Error · ${esc} to close`);
+				return theme.fg(
+					"error",
+					`${theme.status.error} ${t("tui.overlays.btwPanel.error", "Error")} · ${esc} ${t("tui.overlays.btwPanel.toClose", "to close")}`,
+				);
 		}
 	}
 
 	#contentComponent(): Component {
 		if (this.#state === "error") {
-			return new Text(theme.fg("error", sanitizeErrorLine(this.#errorMessage ?? "Unknown error")), 0, 0);
+			return new Text(
+				theme.fg(
+					"error",
+					sanitizeErrorLine(this.#errorMessage ?? t("tui.overlays.btwPanel.unknownError", "Unknown error")),
+				),
+				0,
+				0,
+			);
 		}
 		const text = this.#visibleAnswer;
 		if (!text) {
 			const waiting =
-				this.#state === "running" ? `${theme.status.pending} Waiting for response…` : "No text returned.";
+				this.#state === "running"
+					? `${theme.status.pending} ${t("tui.overlays.btwPanel.waiting", "Waiting for response…")}`
+					: t("tui.overlays.btwPanel.noText", "No text returned.");
 			return new Text(theme.fg("dim", waiting), 0, 0);
 		}
 		return new Markdown(text, 0, 0, getMarkdownTheme());

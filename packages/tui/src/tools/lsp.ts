@@ -14,9 +14,7 @@ import { Text } from "../components/text";
 import { getLanguageFromPath } from "../lang-from-path";
 import { highlightCode as highlightThemeCode, type Theme } from "../theme/theme";
 import {
-	formatCount,
 	formatExpandHint,
-	formatMoreItems,
 	formatStatusIcon,
 	type ParsedDiagnostic,
 	parseDiagnosticMessage,
@@ -31,6 +29,7 @@ import { framedToolCard } from "../render/tool-card";
 import { wrapGuidedLine, wrapPrefixedLine } from "../render/hanging-wrap";
 import { visibleWidth } from "../utils";
 import { ansi, code, col, compact, keyed, md, node, row, span, text } from "../native/describe";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import type { NativeNode } from "../native/node";
 import { OwnerMemo } from "../native/memo";
 import { plainText } from "../native/spans";
@@ -130,7 +129,7 @@ export function renderCall(args: LspParams, _options: RenderResultOptions, theme
 			target += ` (${symbolPreview})`;
 		}
 	} else if (!target && args.line !== undefined) {
-		target = `line ${args.line}`;
+		target = t("tui.tools.lsp.line", "line {line}", { line: args.line });
 		if (symbolPreview) {
 			target += ` (${symbolPreview})`;
 		}
@@ -182,7 +181,7 @@ export function renderResult(
 	if (content?.type !== "text" || !("text" in content) || !content.text) {
 		const icon = formatStatusIcon("warning", theme, options.spinnerFrame);
 		const header = `${icon} LSP`;
-		return new Text([header, theme.fg("dim", "No result")].join("\n"), 0, 0);
+		return new Text([header, theme.fg("dim", t("tui.tools.lsp.noResult", "No result"))].join("\n"), 0, 0);
 	}
 
 	const text = content.text;
@@ -204,7 +203,7 @@ export function renderResult(
 		requestLines.push(theme.fg("toolOutput", request.file));
 	}
 	if (request?.line !== undefined) {
-		requestLines.push(theme.fg("dim", `line ${request.line}`));
+		requestLines.push(theme.fg("dim", t("tui.tools.lsp.line", "line {line}", { line: request.line })));
 	}
 	if (request?.symbol) {
 		requestLines.push(theme.fg("dim", `symbol: ${sanitizeInlineText(request.symbol)}`));
@@ -219,7 +218,7 @@ export function renderResult(
 	const renderBody = (expanded: boolean): LspResultBody => {
 		if (codeBlockMatch) {
 			return {
-				label: "Hover",
+				label: t("tui.tools.lsp.label.hover", "Hover"),
 				state: "success",
 				bodyLines: renderHover(codeBlockMatch, text, lines, expanded, theme),
 			};
@@ -228,29 +227,37 @@ export function renderResult(
 			const errorCount = errorMatch ? Number.parseInt(errorMatch[1], 10) : 0;
 			const warnCount = warningMatch ? Number.parseInt(warningMatch[1], 10) : 0;
 			return {
-				label: "Diagnostics",
+				label: t("tui.tools.lsp.label.diagnostics", "Diagnostics"),
 				state: errorCount > 0 ? "error" : warnCount > 0 || unreportedCount > 0 ? "warning" : "success",
 				bodyLines: renderDiagnostics(errorMatch, warningMatch, lines, expanded, theme),
 			};
 		}
 		if (refMatch) {
 			return {
-				label: "References",
+				label: t("tui.tools.lsp.label.references", "References"),
 				state: "success",
 				bodyLines: renderReferences(refMatch, lines, expanded, theme),
 			};
 		}
 		if (symbolsMatch) {
-			return { label: "Symbols", state: "success", bodyLines: renderSymbols(symbolsMatch, lines, expanded, theme) };
+			return {
+				label: t("tui.tools.lsp.label.symbols", "Symbols"),
+				state: "success",
+				bodyLines: renderSymbols(symbolsMatch, lines, expanded, theme),
+			};
 		}
 		if (result.details?.action === "diagnostics" && text === "OK") {
 			return {
-				label: "Diagnostics",
+				label: t("tui.tools.lsp.label.diagnostics", "Diagnostics"),
 				state: "success",
 				bodyLines: [`${theme.styledSymbol("tool.lsp", "accent")} ${theme.fg("dim", "OK")}`],
 			};
 		}
-		return { label: "Response", state: "success", bodyLines: renderGeneric(text, lines, expanded, theme) };
+		return {
+			label: t("tui.tools.lsp.label.response", "Response"),
+			state: "success",
+			bodyLines: renderGeneric(text, lines, expanded, theme),
+		};
 	};
 
 	return framedToolCard(theme, ({ contentWidth }) => {
@@ -355,7 +362,12 @@ function renderHover(
 	output += `\n ${theme.fg("mdCodeBlockBorder", v)} ${firstCodeLine}`;
 
 	if (codeLines.length > 1) {
-		output += `\n ${theme.fg("mdCodeBlockBorder", v)} ${theme.fg("muted", `… ${codeLines.length - 1} more lines`)}`;
+		const moreLines = t(
+			"tui.tools.lsp.moreLines",
+			{ one: "… {count} more line", other: "… {count} more lines" },
+			{ count: codeLines.length - 1 },
+		);
+		output += `\n ${theme.fg("mdCodeBlockBorder", v)} ${theme.fg("muted", moreLines)}`;
 	}
 
 	if (afterCode) {
@@ -400,10 +412,26 @@ function renderDiagnostics(
 				: theme.styledSymbol("tool.lsp", "accent");
 
 	const meta: string[] = [];
-	if (errorCount > 0) meta.push(`${errorCount} error${errorCount !== 1 ? "s" : ""}`);
-	if (warnCount > 0) meta.push(`${warnCount} warning${warnCount !== 1 ? "s" : ""}`);
-	if (unreportedLines.length > 0) meta.push(formatCount("unverified file", unreportedLines.length));
-	if (meta.length === 0) meta.push("No issues");
+	if (errorCount > 0) {
+		meta.push(
+			t("tui.tools.lsp.count.error", { one: "{count} error", other: "{count} errors" }, { count: errorCount }),
+		);
+	}
+	if (warnCount > 0) {
+		meta.push(
+			t("tui.tools.lsp.count.warning", { one: "{count} warning", other: "{count} warnings" }, { count: warnCount }),
+		);
+	}
+	if (unreportedLines.length > 0) {
+		meta.push(
+			t(
+				"tui.tools.lsp.count.unverifiedFile",
+				{ one: "{count} unverified file", other: "{count} unverified files" },
+				{ count: unreportedLines.length },
+			),
+		);
+	}
+	if (meta.length === 0) meta.push(t("tui.tools.lsp.noIssues", "No issues"));
 
 	const diagLines = lines.filter(l => l.includes(theme.status.error) || /:\d+:\d+/.test(l));
 	const parsedDiagnostics = diagLines
@@ -468,7 +496,10 @@ function renderDiagnostics(
 		output += `\n ${theme.fg("dim", branch)} ${theme.fg(severityColor, location)}${message}`;
 	}
 	if (remaining > 0) {
-		output += `\n ${theme.fg("dim", theme.tree.last)} ${theme.fg("muted", `… ${remaining} more`)}`;
+		output += `\n ${theme.fg("dim", theme.tree.last)} ${theme.fg(
+			"muted",
+			t("tui.tools.lsp.more", { other: "… {count} more" }, { count: remaining }),
+		)}`;
 	}
 
 	return output.split("\n");
@@ -504,7 +535,10 @@ function renderReferences(refMatch: RegExpMatchArray, lines: string[], expanded:
 	const renderGrouped = (maxFiles: number, maxLocsPerFile: number): string => {
 		const hidden = files.length > maxFiles || files.some(file => byFile.get(file)!.length > maxLocsPerFile);
 		const expandHint = formatExpandHint(theme, expanded, hidden);
-		let output = `${icon} ${theme.fg("dim", `${refCount} found`)}${expandHint}`;
+		let output = `${icon} ${theme.fg(
+			"dim",
+			t("tui.tools.lsp.found", { other: "{count} found" }, { count: refCount }),
+		)}${expandHint}`;
 
 		const filesToShow = files.slice(0, maxFiles);
 		for (let fi = 0; fi < filesToShow.length; fi++) {
@@ -514,7 +548,11 @@ function renderReferences(refMatch: RegExpMatchArray, lines: string[], expanded:
 			const fileBranch = isLastFile ? theme.tree.last : theme.tree.branch;
 			const fileCont = isLastFile ? "   " : `${theme.tree.vertical}  `;
 
-			const fileMeta = `${locs.length} reference${locs.length !== 1 ? "s" : ""}`;
+			const fileMeta = t(
+				"tui.tools.lsp.count.reference",
+				{ one: "{count} reference", other: "{count} references" },
+				{ count: locs.length },
+			);
 			output += `\n ${theme.fg("dim", fileBranch)} ${theme.fg("accent", file)} ${theme.fg("dim", fileMeta)}`;
 
 			if (maxLocsPerFile > 0) {
@@ -526,19 +564,19 @@ function renderReferences(refMatch: RegExpMatchArray, lines: string[], expanded:
 					const locCont = isLastLoc ? "   " : `${theme.tree.vertical}  `;
 					output += `\n ${theme.fg("dim", fileCont)}${theme.fg("dim", locBranch)} ${theme.fg(
 						"muted",
-						`line ${line}, col ${col}`,
+						t("tui.tools.lsp.lineCol", "line {line}, col {col}", { line, col }),
 					)}`;
 					if (expanded) {
 						output += `\n ${theme.fg("dim", fileCont)}${theme.fg("dim", locCont)}${theme.fg(
 							"muted",
-							`at ${file}:${line}:${col}`,
+							t("tui.tools.lsp.at", "at {location}", { location: `${file}:${line}:${col}` }),
 						)}`;
 					}
 				}
 				if (locs.length > maxLocsPerFile) {
 					output += `\n ${theme.fg("dim", fileCont)}${theme.fg("dim", theme.tree.last)} ${theme.fg(
 						"muted",
-						`… ${locs.length - maxLocsPerFile} more`,
+						t("tui.tools.lsp.more", { other: "… {count} more" }, { count: locs.length - maxLocsPerFile }),
 					)}`;
 				}
 			}
@@ -547,7 +585,11 @@ function renderReferences(refMatch: RegExpMatchArray, lines: string[], expanded:
 		if (files.length > maxFiles) {
 			output += `\n ${theme.fg("dim", theme.tree.last)} ${theme.fg(
 				"muted",
-				formatMoreItems(files.length - maxFiles, "file"),
+				t(
+					"tui.tools.lsp.moreFiles",
+					{ one: "… {count} more file", other: "… {count} more files" },
+					{ count: files.length - maxFiles },
+				),
 			)}`;
 		}
 
@@ -617,7 +659,7 @@ function renderSymbols(symbolsMatch: RegExpMatchArray, lines: string[], expanded
 	const topLevelCount = symbols.filter(s => s.indent === 0).length;
 
 	if (expanded) {
-		let output = `${icon} ${theme.fg("dim", `in ${fileName}`)}`;
+		let output = `${icon} ${theme.fg("dim", t("tui.tools.lsp.inFile", "in {file}", { file: fileName }))}`;
 
 		const prefixes = getPrefixes();
 		for (let i = 0; i < symbols.length; i++) {
@@ -627,7 +669,7 @@ function renderSymbols(symbolsMatch: RegExpMatchArray, lines: string[], expanded
 			const branch = symIsLast ? theme.tree.last : theme.tree.branch;
 			const detailPrefix = symIsLast ? "   " : `${theme.tree.vertical}  `;
 			output += `\n${prefix}${theme.fg("dim", branch)} ${theme.fg("accent", sym.icon)} ${theme.fg("accent", sym.name)}`;
-			output += `\n${prefix}${theme.fg("dim", detailPrefix)}${theme.fg("muted", `line ${sym.line}`)}`;
+			output += `\n${prefix}${theme.fg("dim", detailPrefix)}${theme.fg("muted", t("tui.tools.lsp.line", "line {line}", { line: sym.line }))}`;
 		}
 		return output.split("\n");
 	}
@@ -636,18 +678,21 @@ function renderSymbols(symbolsMatch: RegExpMatchArray, lines: string[], expanded
 	const topLevel = symbols.filter(s => s.indent === 0).slice(0, 3);
 	const hasMoreSymbols = symbols.length > topLevel.length;
 	const expandHint = formatExpandHint(theme, expanded, hasMoreSymbols);
-	let output = `${icon} ${theme.fg("dim", `in ${fileName}`)}${expandHint}`;
+	let output = `${icon} ${theme.fg("dim", t("tui.tools.lsp.inFile", "in {file}", { file: fileName }))}${expandHint}`;
 	for (let i = 0; i < topLevel.length; i++) {
 		const sym = topLevel[i];
 		const isLast = i === topLevel.length - 1 && topLevelCount <= 3;
 		const branch = isLast ? theme.tree.last : theme.tree.branch;
 		output += `\n ${theme.fg("dim", branch)} ${theme.fg("accent", sym.icon)} ${theme.fg("accent", sym.name)} ${theme.fg(
 			"muted",
-			`line ${sym.line}`,
+			t("tui.tools.lsp.line", "line {line}", { line: sym.line }),
 		)}`;
 	}
 	if (topLevelCount > 3) {
-		output += `\n ${theme.fg("dim", theme.tree.last)} ${theme.fg("muted", `… ${topLevelCount - 3} more`)}`;
+		output += `\n ${theme.fg("dim", theme.tree.last)} ${theme.fg(
+			"muted",
+			t("tui.tools.lsp.more", { other: "… {count} more" }, { count: topLevelCount - 3 }),
+		)}`;
 	}
 
 	return output.split("\n");
@@ -672,7 +717,7 @@ function renderGeneric(text: string, lines: string[], expanded: boolean, theme: 
 				: theme.styledSymbol("status.info", "accent");
 
 	if (expanded) {
-		let output = `${icon} ${theme.fg("dim", "Output")}`;
+		let output = `${icon} ${theme.fg("dim", t("tui.tools.lsp.output", "Output"))}`;
 		for (let i = 0; i < lines.length; i++) {
 			const isLast = i === lines.length - 1;
 			const branch = isLast ? theme.tree.last : theme.tree.branch;
@@ -681,7 +726,7 @@ function renderGeneric(text: string, lines: string[], expanded: boolean, theme: 
 		return output.split("\n");
 	}
 
-	const firstLine = lines[0] || "No output";
+	const firstLine = lines[0] || t("tui.tools.lsp.noOutput", "No output");
 	const expandHint = formatExpandHint(
 		theme,
 		expanded,
@@ -702,7 +747,11 @@ function renderGeneric(text: string, lines: string[], expanded: boolean, theme: 
 		if (lines.length > 4) {
 			output += `\n ${theme.fg("dim", theme.tree.last)} ${theme.fg(
 				"muted",
-				formatMoreItems(lines.length - 4, "line"),
+				t(
+					"tui.tools.lsp.moreLines",
+					{ one: "… {count} more line", other: "… {count} more lines" },
+					{ count: lines.length - 4 },
+				),
 			)}`;
 		}
 	}
@@ -778,7 +827,7 @@ function lspNativeHead(
 		target = request.query;
 		targetKind = "query";
 	} else if (request?.line !== undefined) {
-		facts.push(`line ${request.line}`);
+		facts.push(t("tui.tools.lsp.line", "line {line}", { line: request.line }));
 	}
 	if (symbol) facts.push(symbol);
 	if (request?.query && target !== request.query) facts.push(`query:${request.query}`);
@@ -848,6 +897,20 @@ function parseLspDiagnostics(lines: readonly string[]): LspDiagnosticsParse {
 	return out;
 }
 
+/** `2 errors`, `1 warning`: the plural label for one severity's count. */
+function severityCountLabel(severity: ParsedDiagnostic["severity"], count: number): string {
+	switch (severity) {
+		case "error":
+			return t("tui.tools.lsp.count.error", { one: "{count} error", other: "{count} errors" }, { count });
+		case "warning":
+			return t("tui.tools.lsp.count.warning", { one: "{count} warning", other: "{count} warnings" }, { count });
+		case "info":
+			return t("tui.tools.lsp.count.info", { one: "{count} info", other: "{count} infos" }, { count });
+		default:
+			return t("tui.tools.lsp.count.hint", { one: "{count} hint", other: "{count} hints" }, { count });
+	}
+}
+
 /** `2 errors · 1 warning` in the severity tones, or undefined when there are none. */
 function diagnosticCounts(diagnostics: readonly ParsedDiagnostic[]): TspSpan[] | undefined {
 	const counts: Record<ParsedDiagnostic["severity"], number> = { error: 0, warning: 0, info: 0, hint: 0 };
@@ -857,7 +920,7 @@ function diagnosticCounts(diagnostics: readonly ParsedDiagnostic[]): TspSpan[] |
 		const n = counts[severity];
 		if (!n) continue;
 		if (spans.length > 0) spans.push(span(" \u00b7 ", "dim"));
-		spans.push(span(formatCount(severity, n), severityTone(severity)));
+		spans.push(span(severityCountLabel(severity, n), severityTone(severity)));
 	}
 	return spans.length > 0 ? spans : undefined;
 }
@@ -912,10 +975,30 @@ function describeLspDiagnostics(request: Partial<LspParams> | undefined, fallbac
 	const parsed = parseLspDiagnostics(lines);
 	const counts = diagnosticCounts(parsed.diagnostics);
 	const failed =
-		parsed.failures.length > 0 ? [span(formatCount("server failure", parsed.failures.length), "error")] : undefined;
+		parsed.failures.length > 0
+			? [
+					span(
+						t(
+							"tui.tools.lsp.count.serverFailure",
+							{ one: "{count} server failure", other: "{count} server failures" },
+							{ count: parsed.failures.length },
+						),
+						"error",
+					),
+				]
+			: undefined;
 	const unverified =
 		parsed.unreported.length > 0
-			? [span(formatCount("unverified file", parsed.unreported.length), "warning")]
+			? [
+					span(
+						t(
+							"tui.tools.lsp.count.unverifiedFile",
+							{ one: "{count} unverified file", other: "{count} unverified files" },
+							{ count: parsed.unreported.length },
+						),
+						"warning",
+					),
+				]
 			: undefined;
 	const rows: NativeNode[] = [
 		...parsed.failures.map((message, i) => statusRow(message, "error", `x${i}`)),
@@ -959,7 +1042,16 @@ function describeLspReferences(lines: string[]): NativeNode[] {
 			keyed(
 				col(
 					[
-						fileRow(name, { chip: { text: String(locs.length), title: formatCount("reference", locs.length) } }),
+						fileRow(name, {
+							chip: {
+								text: String(locs.length),
+								title: t(
+									"tui.tools.lsp.count.reference",
+									{ one: "{count} reference", other: "{count} references" },
+									{ count: locs.length },
+								),
+							},
+						}),
 						text([span(locs.join("  "), "mono muted")], { wrap: "word" }),
 					],
 					{ gap: "xs" },
@@ -987,7 +1079,7 @@ function describeLspSymbols(lines: string[]): NativeNode | undefined {
 				span(plainText(symMatch[1]), "accent"),
 				span(" "),
 				span(plainText(symMatch[2]), "accent"),
-				span(` line ${symMatch[3]}`, "muted"),
+				span(` ${t("tui.tools.lsp.line", "line {line}", { line: symMatch[3] })}`, "muted"),
 			],
 			open: true,
 			children,
@@ -1004,8 +1096,19 @@ function describeLspResult(result: ToolRenderResult<LspToolDetails>, args: LspPa
 	const fallbackAction = result.details?.action ?? "request";
 	const content = result.content?.[0];
 	const text = content?.type === "text" ? (content.text ?? "") : "";
-	if (result.isError) return inlineErrorView(lspNativeHead(request, fallbackAction), text || "LSP request failed");
-	if (!text) return { tool: lspNativeHead(request, fallbackAction, ["No result"]), tone: "warning", inline: true };
+	if (result.isError) {
+		return inlineErrorView(
+			lspNativeHead(request, fallbackAction),
+			text || t("tui.tools.lsp.requestFailed", "LSP request failed"),
+		);
+	}
+	if (!text) {
+		return {
+			tool: lspNativeHead(request, fallbackAction, [t("tui.tools.lsp.noResult", "No result")]),
+			tone: "warning",
+			inline: true,
+		};
+	}
 
 	const lines = text.split("\n");
 	const statusError = activeThemeSymbol("status.error");
@@ -1026,7 +1129,13 @@ function describeLspResult(result: ToolRenderResult<LspToolDetails>, args: LspPa
 		const refCount = Number.parseInt(refMatch[1], 10);
 		const body = describeLspReferences(lines);
 		return {
-			tool: lspNativeHead(request, fallbackAction, [formatCount("reference", refCount)]),
+			tool: lspNativeHead(request, fallbackAction, [
+				t(
+					"tui.tools.lsp.count.reference",
+					{ one: "{count} reference", other: "{count} references" },
+					{ count: refCount },
+				),
+			]),
 			tone: refCount > 0 ? undefined : "warning",
 			inline: true,
 			body: body.length > 0 ? body : undefined,

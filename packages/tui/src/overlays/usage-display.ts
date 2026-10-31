@@ -1,4 +1,5 @@
 import type { UsageLimit, UsageReport, UsageResetCreditDetail, UsageResetCredits } from "@oh-my-pi/pi-ai";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 /** Include the usage tier in a limit title unless its label already names it. */
 export function formatLimitTitle(limit: UsageLimit): string {
@@ -31,13 +32,13 @@ function collapseSharedLimits(limits: UsageLimit[]): UsageLimit[] {
 export function formatUsageResetWindow(windowId: string): string {
 	switch (windowId) {
 		case "anthropic:5h":
-			return "Claude 5h";
+			return t("tui.overlays.usageDisplay.windowClaude5h", "Claude 5h");
 		case "anthropic:7d":
-			return "Claude weekly";
+			return t("tui.overlays.usageDisplay.windowClaudeWeekly", "Claude weekly");
 		case "anthropic:7d:opus":
-			return "Claude Opus weekly";
+			return t("tui.overlays.usageDisplay.windowClaudeOpusWeekly", "Claude Opus weekly");
 		case "anthropic:7d:sonnet":
-			return "Claude Sonnet weekly";
+			return t("tui.overlays.usageDisplay.windowClaudeSonnetWeekly", "Claude Sonnet weekly");
 		default:
 			return windowId;
 	}
@@ -91,13 +92,19 @@ export function summarizeUsageResetCredits(
 		: (reset.credits?.find(credit => credit.usable !== false) ?? reset.credits?.[0]);
 	const unavailableReason =
 		reset.reason ??
-		(reset.cooldownUntil ? `cooldown until ${reset.cooldownUntil}` : undefined) ??
+		(reset.cooldownUntil
+			? t("tui.overlays.usageDisplay.cooldownUntil", "cooldown until {value}", { value: reset.cooldownUntil })
+			: undefined) ??
 		(selectedCredit?.blocking?.length
-			? `blocked by ${selectedCredit.blocking.map(formatUsageResetWindow).join(", ")}`
+			? t("tui.overlays.usageDisplay.blockedBy", "blocked by {list}", {
+					list: selectedCredit.blocking.map(formatUsageResetWindow).join(", "),
+				})
 			: undefined) ??
 		(selectedCredit?.status && selectedCredit.status !== "available" ? selectedCredit.status : undefined) ??
-		(reset.eligible === false ? "not eligible" : undefined) ??
-		(bankedCount > 0 && redeemableCount === 0 ? "not usable right now" : undefined);
+		(reset.eligible === false ? t("tui.overlays.usageDisplay.notEligible", "not eligible") : undefined) ??
+		(bankedCount > 0 && redeemableCount === 0
+			? t("tui.overlays.usageDisplay.notUsableNow", "not usable right now")
+			: undefined);
 	return {
 		bankedCount,
 		redeemableCount,

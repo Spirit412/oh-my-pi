@@ -19,6 +19,7 @@ import { actionBar, actionButton, selectList } from "../native/overlay";
 import { theme } from "../theme/theme";
 import { buildJobTree, type JobTreeAgent, type JobTreeRow, jobTreeGuide } from "./job-tree";
 import { describeJobWidget, type JobWidgetView, renderJobWidgetLines } from "../tools/job-widget";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 /** One async job as the session snapshots it. */
 export interface JobsPanelJob {
@@ -77,12 +78,18 @@ export interface JobsSheetSource {
 }
 
 /** A job's status as the sheet names it. */
-const STATUS_LABEL: Record<JobsPanelJob["status"], string> = {
-	running: "Running",
-	completed: "Done",
-	failed: "Failed",
-	cancelled: "Cancelled",
-};
+function statusLabel(status: JobsPanelJob["status"]): string {
+	switch (status) {
+		case "running":
+			return t("tui.overlays.jobsPanel.statusRunning", "Running");
+		case "completed":
+			return t("tui.overlays.jobsPanel.statusDone", "Done");
+		case "failed":
+			return t("tui.overlays.jobsPanel.statusFailed", "Failed");
+		case "cancelled":
+			return t("tui.overlays.jobsPanel.statusCancelled", "Cancelled");
+	}
+}
 
 /** A job's status color: the list row's icon and the detail's status pill. */
 const STATUS_TONE: Record<JobsPanelJob["status"], TspTone> = {
@@ -123,7 +130,7 @@ export class JobsSheet implements Component {
 		role: "omp.overlay.jobs",
 		size: "lg",
 		anchor: "center",
-		head: "Background jobs",
+		head: t("tui.overlays.jobsPanel.title", "Background jobs"),
 	} as const;
 	readonly #source: JobsSheetSource;
 	#selectedId: string | undefined;
@@ -164,7 +171,7 @@ export class JobsSheet implements Component {
 		].join("|");
 		const output = detail?.output;
 		if (this.#native?.key === key && this.#native.output === output) return this.#native.node;
-		const close = actionButton("Close", "close", { keys: "escape" });
+		const close = actionButton(t("tui.overlays.jobsPanel.close", "Close"), "close", { keys: "escape" });
 		const described = selected
 			? col([
 					node(
@@ -188,8 +195,13 @@ export class JobsSheet implements Component {
 		const { rows, jobs, selected } = this.#current();
 		const now = Date.now();
 		const running = jobs.filter(job => job.status === "running").length;
-		const lines = [truncateToWidth(` Background jobs · ${running} running`, width)];
-		if (jobs.length === 0) lines.push(" No background jobs");
+		const lines = [
+			truncateToWidth(
+				` ${t("tui.overlays.jobsPanel.titleRunning", "Background jobs · {running} running", { running })}`,
+				width,
+			),
+		];
+		if (jobs.length === 0) lines.push(` ${t("tui.overlays.jobsPanel.emptyTitle", "No background jobs")}`);
 		for (const entry of rows) {
 			const guide = jobTreeGuide(entry, theme);
 			if (entry.kind === "agent") {
@@ -218,7 +230,13 @@ export class JobsSheet implements Component {
 				);
 				for (const line of commandRows.slice(0, PREVIEW_LIMITS.EXPANDED_LINES)) lines.push(`   ${line}`);
 				const hidden = commandRows.length - PREVIEW_LIMITS.EXPANDED_LINES;
-				if (hidden > 0) lines.push(truncateToWidth(`   … ${hidden} more command lines`, width));
+				if (hidden > 0)
+					lines.push(
+						truncateToWidth(
+							`   ${t("tui.overlays.jobsPanel.moreCommandLines", "… {count} more command lines", { count: hidden })}`,
+							width,
+						),
+					);
 			}
 			const facts = compact([
 				detail.cwd && `cwd ${detail.cwd}`,
@@ -377,7 +395,7 @@ function describeJobList(rows: readonly JobTreeRow<JobsPanelJob>[], selected: Jo
  * mono, a task's work in prose) and how long it ran.
  */
 function describeJobItem(job: JobsPanelJob, agentName: string | undefined, guide: string, nowMs: number): NativeNode {
-	const status = STATUS_LABEL[job.status];
+	const status = statusLabel(job.status);
 	const age = formatDuration(jobAge(job, nowMs));
 	return item(job.id, {
 		label: compact([
@@ -397,8 +415,9 @@ function describeJobItem(job: JobsPanelJob, agentName: string | undefined, guide
 function describeSummary(jobs: readonly JobsPanelJob[]): NativeNode {
 	const running = jobs.filter(job => job.status === "running").length;
 	const parts = compact([
-		running > 0 && `${running} running`,
-		jobs.length > running && `${jobs.length - running} recent`,
+		running > 0 && t("tui.overlays.jobsPanel.summaryRunning", "{count} running", { count: running }),
+		jobs.length > running &&
+			t("tui.overlays.jobsPanel.summaryRecent", "{count} recent", { count: jobs.length - running }),
 	]);
 	return node("text", { role: "omp.jobs.summary", text: parts.join(" · "), wrap: "none" }, undefined, "summary");
 }
@@ -410,11 +429,17 @@ function describeEmpty(): NativeNode {
 		{ role: "omp.jobs.empty", align: "center" },
 		[
 			node("icon", { name: "jobs" }),
-			text("No background jobs", { role: "omp.jobs.empty.title" }),
-			text("Commands and subagent tasks started in the background show up here while they run.", {
-				role: "omp.jobs.empty.note",
-				wrap: "word",
-			}),
+			text(t("tui.overlays.jobsPanel.emptyTitle", "No background jobs"), { role: "omp.jobs.empty.title" }),
+			text(
+				t(
+					"tui.overlays.jobsPanel.emptyNote",
+					"Commands and subagent tasks started in the background show up here while they run.",
+				),
+				{
+					role: "omp.jobs.empty.note",
+					wrap: "word",
+				},
+			),
 		],
 		"empty",
 	);
@@ -437,16 +462,29 @@ function describeDetail(
 	const command = detail?.command ?? (job.type === "task" ? undefined : job.label);
 	const pids = detail?.pids ?? [];
 	const facts = compact([
-		job.agentId ? { k: "Agent", v: [span(job.agentId, "mono")] } : undefined,
-		detail?.cwd ? { k: "Directory", v: [span(detail.cwd, "path")] } : undefined,
-		pids.length > 0 && { k: pids.length > 1 ? "PIDs" : "PID", v: [span(pids.join(", "), "num")] },
-		exit !== undefined && { k: "Exit code", v: [span(String(exit), exit === 0 ? "success" : "error")] },
-		detail?.artifactId ? { k: "Full output", v: [span(`artifact://${detail.artifactId}`, "mono")] } : undefined,
+		job.agentId ? { k: t("tui.overlays.jobsPanel.factAgent", "Agent"), v: [span(job.agentId, "mono")] } : undefined,
+		detail?.cwd
+			? { k: t("tui.overlays.jobsPanel.factDirectory", "Directory"), v: [span(detail.cwd, "path")] }
+			: undefined,
+		pids.length > 0 && {
+			k: t("tui.overlays.jobsPanel.factPids", { one: "PID", other: "PIDs" }, { count: pids.length }),
+			v: [span(pids.join(", "), "num")],
+		},
+		exit !== undefined && {
+			k: t("tui.overlays.jobsPanel.factExitCode", "Exit code"),
+			v: [span(String(exit), exit === 0 ? "success" : "error")],
+		},
+		detail?.artifactId
+			? {
+					k: t("tui.overlays.jobsPanel.factFullOutput", "Full output"),
+					v: [span(`artifact://${detail.artifactId}`, "mono")],
+				}
+			: undefined,
 	]);
 	const children = compact<NativeChild>([
 		row(
 			compact<NativeChild>([
-				text([STATUS_GLYPH[job.status], span(` ${STATUS_LABEL[job.status]}`)], {
+				text([STATUS_GLYPH[job.status], span(` ${statusLabel(job.status)}`)], {
 					role: "omp.jobs.state",
 					tone: STATUS_TONE[job.status],
 					wrap: "none",
@@ -456,11 +494,18 @@ function describeDetail(
 					...(settled ? { stopped: age } : {}),
 					format: "short",
 					role: "omp.jobs.age",
-					title: settled ? "Ran for" : "Running for",
+					title: settled
+						? t("tui.overlays.jobsPanel.ranFor", "Ran for")
+						: t("tui.overlays.jobsPanel.runningFor", "Running for"),
 				}),
 				text([span(`${job.type} · ${job.id}`, "mono")], { role: "omp.jobs.id", wrap: "none", truncate: "end" }),
 				node("spacer", { grow: 1 }),
-				cancellable && !settled && actionButton("Cancel job", "cancel", { keys: "x", tone: "error" }),
+				cancellable &&
+					!settled &&
+					actionButton(t("tui.overlays.jobsPanel.cancelJob", "Cancel job"), "cancel", {
+						keys: "x",
+						tone: "error",
+					}),
 			]),
 			{ role: "omp.jobs.status", gap: "sm", align: "center" },
 		),
@@ -473,10 +518,15 @@ function describeDetail(
 			"col",
 			{ role: "omp.jobs.out", gap: "sm" },
 			[
-				text("Output", { role: "omp.jobs.label" }),
+				text(t("tui.overlays.jobsPanel.output", "Output"), { role: "omp.jobs.label" }),
 				detail?.output
 					? ansi(detail.output, { follow: !settled, role: "omp.jobs.output", max: { h: "16lines" } })
-					: text(settled ? "No output" : "No output yet", { role: "omp.jobs.nooutput" }),
+					: text(
+							settled
+								? t("tui.overlays.jobsPanel.noOutput", "No output")
+								: t("tui.overlays.jobsPanel.noOutputYet", "No output yet"),
+							{ role: "omp.jobs.nooutput" },
+						),
 			],
 			"out",
 		),

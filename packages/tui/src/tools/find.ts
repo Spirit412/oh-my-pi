@@ -4,6 +4,7 @@
  * its strongest verified line ranges with a verbatim snippet.
  */
 import * as path from "node:path";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import { formatDuration, formatNumber } from "@oh-my-pi/pi-utils";
 import { renderProgressBar } from "../components/progress-bar";
 import { Text } from "../components/text";
@@ -11,7 +12,6 @@ import { fileHyperlink, getTreeBranch, renderStatusLine, renderTreeList, uriHype
 import {
 	createCachedComponent,
 	fitHeaderedRows,
-	formatCount,
 	formatEmptyMessage,
 	formatErrorMessage,
 	PREVIEW_LIMITS,
@@ -166,7 +166,17 @@ function renderHit(hit: FindHit, rangeLimit: number, cwd: string | undefined, ra
 		const absPath = cwd === undefined ? undefined : path.join(cwd, rawRel);
 		return absPath === undefined ? text : fileHyperlink(absPath, text, { line });
 	};
-	const coverage = hit.truncated ? `${hit.linesSeen} lines judged, partial` : `${hit.linesSeen} lines judged`;
+	const coverage = hit.truncated
+		? t(
+				"tui.tools.find.linesJudgedPartial",
+				{ one: "{count} line judged, partial", other: "{count} lines judged, partial" },
+				{ count: hit.linesSeen },
+			)
+		: t(
+				"tui.tools.find.linesJudged",
+				{ one: "{count} line judged", other: "{count} lines judged" },
+				{ count: hit.linesSeen },
+			);
 	const lines = [
 		`${gauge(hit.contentScore, theme)} ${theme.fg(scoreColor(hit.contentScore), hit.contentScore.toFixed(2))} ${link(theme.fg("accent", hit.rel))} ${theme.fg("dim", coverage)}`,
 	];
@@ -195,11 +205,18 @@ function describeHit(hit: FindHit, rangeLimit: number, cwd: string | undefined, 
 	const score = hit.contentScore.toFixed(2);
 	const isUrlHit = splitUrlScheme(hit.rel) !== undefined;
 	const head = fileRow(hit.rel, {
-		lead: node("progress", { value: hit.contentScore, tone, title: `score ${score}`, max: { w: 40 } }),
+		lead: node("progress", {
+			value: hit.contentScore,
+			tone,
+			title: t("tui.tools.find.scoreTitle", "score {score}", { score }),
+			max: { w: 40 },
+		}),
 		detail: [
 			span(score, tone),
 			span(
-				hit.truncated ? ` · ${hit.linesSeen} lines judged, partial` : ` · ${hit.linesSeen} lines judged`,
+				hit.truncated
+					? ` · ${t("tui.tools.find.linesJudgedPartial", { one: "{count} line judged, partial", other: "{count} lines judged, partial" }, { count: hit.linesSeen })}`
+					: ` · ${t("tui.tools.find.linesJudged", { one: "{count} line judged", other: "{count} lines judged" }, { count: hit.linesSeen })}`,
 				"muted",
 			),
 		],
@@ -237,7 +254,7 @@ export const findToolRenderer = {
 	renderCall(args: FindRenderArgs, options: RenderResultOptions, uiTheme: Theme): Component {
 		const keywords = args.grep_keywords ?? [];
 		const meta = keywords.length > 0 ? [keywords.join(" ")] : [];
-		if (args.path) meta.push(`in ${args.path}`);
+		if (args.path) meta.push(t("tui.tools.find.inScope", "in {path}", { path: args.path }));
 		const text = renderStatusLine(
 			{
 				icon: "pending",
@@ -262,7 +279,7 @@ export const findToolRenderer = {
 		const text = result.content?.find(c => c.type === "text")?.text ?? "";
 
 		if (result.isError) {
-			return new Text(formatErrorMessage(text || "Unknown error", uiTheme), 0, 0);
+			return new Text(formatErrorMessage(text || t("tui.tools.find.unknownError", "Unknown error"), uiTheme), 0, 0);
 		}
 
 		// Streaming progress: the tool reports the phase it is in.
@@ -284,21 +301,37 @@ export const findToolRenderer = {
 		const { hits, stats, threshold } = details;
 		const linkTargets = findLinkTargets(details, options.renderContext?.rawDetails);
 		const description = quoteQuery(details.query);
-		const scope = details.scopePath === undefined ? [] : [`in ${details.scopePath}`];
+		const scope =
+			details.scopePath === undefined ? [] : [t("tui.tools.find.inScope", "in {path}", { path: details.scopePath })];
 		const meta = [
-			formatCount("hit", hits.length),
+			t("tui.tools.find.hits", { one: "{count} hit", other: "{count} hits" }, { count: hits.length }),
 			...scope,
-			`${stats.filesRead} files read`,
+			t(
+				"tui.tools.find.filesRead",
+				{ one: "{count} file read", other: "{count} files read" },
+				{ count: stats.filesRead },
+			),
 			`τ ${threshold.toFixed(2)}`,
-			`${formatNumber(stats.inputTokens)} tokens`,
+			t("tui.tools.find.tokens", "{count} tokens", { count: formatNumber(stats.inputTokens) }),
 			`$${stats.cost.toFixed(4)}`,
 			formatDuration(details.elapsedMs),
 		];
-		const failed = stats.failed > 0 ? `${stats.failed}/${stats.requests} requests failed` : undefined;
+		const failed =
+			stats.failed > 0
+				? t("tui.tools.find.requestsFailed", "{failed}/{total} requests failed", {
+						failed: stats.failed,
+						total: stats.requests,
+					})
+				: undefined;
 		if (failed) meta.push(uiTheme.fg("warning", failed));
 
 		if (hits.length === 0) {
-			const emptyMeta = ["0 hits", ...scope, `$${stats.cost.toFixed(4)}`, formatDuration(details.elapsedMs)];
+			const emptyMeta = [
+				t("tui.tools.find.hits", { one: "{count} hit", other: "{count} hits" }, { count: 0 }),
+				...scope,
+				`$${stats.cost.toFixed(4)}`,
+				formatDuration(details.elapsedMs),
+			];
 			if (failed) emptyMeta.push(uiTheme.fg("warning", failed));
 			const header = renderStatusLine(
 				{ icon: "warning", title: "Find", titleColor: "toolTitle", description, meta: emptyMeta },
@@ -306,8 +339,8 @@ export const findToolRenderer = {
 			);
 			const empty =
 				details.coverage === "partial"
-					? "No relevant passages found in the judged files"
-					: "No relevant passages found";
+					? t("tui.tools.find.noPassagesPartial", "No relevant passages found in the judged files")
+					: t("tui.tools.find.noPassages", "No relevant passages found");
 			const lines = [header, formatEmptyMessage(empty, uiTheme)];
 			for (const failure of stats.failures) lines.push(uiTheme.fg("warning", failure));
 			return new Text(lines.join("\n"), 0, 0);
@@ -347,7 +380,12 @@ export const findToolRenderer = {
 				);
 				const extra: string[] = [];
 				if (expanded) {
-					extra.push(uiTheme.fg("dim", `keywords: ${details.keywords.join(", ")}`));
+					extra.push(
+						uiTheme.fg(
+							"dim",
+							t("tui.tools.find.keywords", "keywords: {keywords}", { keywords: details.keywords.join(", ") }),
+						),
+					);
 					for (const failure of stats.failures) extra.push(uiTheme.fg("warning", failure));
 				}
 				return fitHeaderedRows(header, [...hitLines, ...extra], width);
@@ -359,7 +397,10 @@ export const findToolRenderer = {
 		return {
 			tool: findNativeHead(
 				args.query,
-				compact([keywords.length > 0 && keywords.join(" "), args.path && `in ${args.path}`]),
+				compact([
+					keywords.length > 0 && keywords.join(" "),
+					args.path && t("tui.tools.find.inScope", "in {path}", { path: args.path }),
+				]),
 			),
 			inline: true,
 		};
@@ -378,7 +419,11 @@ export const findToolRenderer = {
 		const details = result.details;
 		const progress = result.content?.find(c => c.type === "text")?.text ?? "";
 		const query = args?.query ?? details?.query;
-		if (result.isError) return inlineErrorView(findNativeHead(query, []), progress || "Unknown error");
+		if (result.isError)
+			return inlineErrorView(
+				findNativeHead(query, []),
+				progress || t("tui.tools.find.unknownError", "Unknown error"),
+			);
 		if (options.isPartial || details === undefined) {
 			return {
 				tool: findNativeHead(query, progress ? [[span(progress, "muted", { fx: "shimmer" })]] : []),
@@ -387,13 +432,30 @@ export const findToolRenderer = {
 		}
 		const { hits, stats, threshold } = details;
 		const linkTargets = findLinkTargets(details, options.renderContext?.rawDetails);
-		const scope = details.scopePath === undefined ? undefined : `in ${details.scopePath}`;
+		const scope =
+			details.scopePath === undefined
+				? undefined
+				: t("tui.tools.find.inScope", "in {path}", { path: details.scopePath });
 		const failed =
-			stats.failed > 0 ? [span(`${stats.failed}/${stats.requests} requests failed`, "warning")] : undefined;
+			stats.failed > 0
+				? [
+						span(
+							t("tui.tools.find.requestsFailed", "{failed}/{total} requests failed", {
+								failed: stats.failed,
+								total: stats.requests,
+							}),
+							"warning",
+						),
+					]
+				: undefined;
 		const accounting = [
-			`${stats.filesRead} files read`,
+			t(
+				"tui.tools.find.filesRead",
+				{ one: "{count} file read", other: "{count} files read" },
+				{ count: stats.filesRead },
+			),
 			`τ ${threshold.toFixed(2)}`,
-			`${formatNumber(stats.inputTokens)} tokens`,
+			t("tui.tools.find.tokens", "{count} tokens", { count: formatNumber(stats.inputTokens) }),
 			`$${stats.cost.toFixed(4)}`,
 			formatDuration(details.elapsedMs),
 		].join(" · ");
@@ -402,7 +464,14 @@ export const findToolRenderer = {
 		);
 		if (hits.length === 0) {
 			return {
-				tool: findNativeHead(query, compact(["0 hits", scope, failed])),
+				tool: findNativeHead(
+					query,
+					compact([
+						t("tui.tools.find.hits", { one: "{count} hit", other: "{count} hits" }, { count: 0 }),
+						scope,
+						failed,
+					]),
+				),
 				tone: "warning",
 				inline: true,
 				body: failures.length > 0 ? failures : undefined,
@@ -412,8 +481,9 @@ export const findToolRenderer = {
 		const rangeLimit = options.expanded ? RANGES_EXPANDED : RANGES_COLLAPSED;
 		const hidden = hits.length - shown.length;
 		const footParts = compact([
-			hidden > 0 && formatCount("more hit", hidden),
-			`keywords: ${details.keywords.join(", ")}`,
+			hidden > 0 &&
+				t("tui.tools.find.moreHits", { one: "{count} more hit", other: "{count} more hits" }, { count: hidden }),
+			t("tui.tools.find.keywords", "keywords: {keywords}", { keywords: details.keywords.join(", ") }),
 		]);
 		// One quiet last line; the accounting ANSI prints in the head rides its tooltip.
 		const foot = keyed(
@@ -423,7 +493,11 @@ export const findToolRenderer = {
 		return {
 			tool: findNativeHead(
 				query,
-				compact([`${formatCount("hit", hits.length)} · ${formatCount("file", stats.filesRead)}`, scope, failed]),
+				compact([
+					`${t("tui.tools.find.hits", { one: "{count} hit", other: "{count} hits" }, { count: hits.length })} · ${t("tui.tools.find.files", { one: "{count} file", other: "{count} files" }, { count: stats.filesRead })}`,
+					scope,
+					failed,
+				]),
 			),
 			inline: true,
 			body: compact<NativeChild>([

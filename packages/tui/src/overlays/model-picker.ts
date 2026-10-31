@@ -27,6 +27,7 @@ import type { DescribeContext, NativeChild, NativeNode, NativeUiEvent } from "..
 import { CLOSE_ACTION, picker, pickerAction, pickerEvent } from "../native/picker";
 import type { TspPickerProps } from "@oh-my-pi/pi-wire";
 import { actionHint, hintsRow, type NativeHint } from "../native/overlay";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 /** Configured role resolved to a concrete model. */
 export interface ResolvedRoleModel {
@@ -88,25 +89,47 @@ const MIN_VISIBLE = 5;
 /** Fraction of the terminal height the floating overlay occupies. */
 const HEIGHT_FRACTION = 0.4;
 
-const STATUS_HINT = "Session-only switch — role models stay unchanged";
-const QUICK_ROLE_STATUS_HINT = "Quick role switch — applies its model and thinking for this session";
-const TASK_STATUS_HINT = "Task subagent switch — spawned task agents use this model (session-only)";
-const SELECT_ONLY_STATUS_HINT = "Selection only — does not change the session model";
+const statusHint = (): string =>
+	t("tui.overlays.modelPicker.statusSession", "Session-only switch — role models stay unchanged");
+const quickRoleStatusHint = (): string =>
+	t("tui.overlays.modelPicker.statusQuickRole", "Quick role switch — applies its model and thinking for this session");
+const taskStatusHint = (): string =>
+	t("tui.overlays.modelPicker.statusTask", "Task subagent switch — spawned task agents use this model (session-only)");
+const selectOnlyStatusHint = (): string =>
+	t("tui.overlays.modelPicker.statusSelectionOnly", "Selection only — does not change the session model");
 
 /** Footer hint for the active mode; keys resolve at render time so theme/keybinding changes apply. */
 function footerHint(mode: "session" | "role" | "task" | "selection"): string {
-	const upDown = editorKeys("tui.select.up", "tui.select.down");
+	const keys = editorKeys("tui.select.up", "tui.select.down");
 	const enter = formatKeyHint("enter");
-	const close = `${editorKey("tui.select.cancel")} close`;
+	const close = t("tui.overlays.modelPicker.closeHint", "{cancel} close", {
+		cancel: editorKey("tui.select.cancel"),
+	});
 	switch (mode) {
 		case "role":
-			return `${upDown} roles · ${enter} apply role model · type to search · ${close}`;
+			return t(
+				"tui.overlays.modelPicker.footerRole",
+				"{keys} roles · {enter} apply role model · type to search · {close}",
+				{ keys, enter, close },
+			);
 		case "task":
-			return `${upDown} models · ${enter} use for Task subagents · type to search · ${close}`;
+			return t(
+				"tui.overlays.modelPicker.footerTask",
+				"{keys} models · {enter} use for Task subagents · type to search · {close}",
+				{ keys, enter, close },
+			);
 		case "selection":
-			return `${upDown} models · ${enter} select model · type to search · ${close}`;
+			return t(
+				"tui.overlays.modelPicker.footerSelection",
+				"{keys} models · {enter} select model · type to search · {close}",
+				{ keys, enter, close },
+			);
 		default:
-			return `${upDown} models · ${enter} use for this session · type to search · @ quick roles · ${close}`;
+			return t(
+				"tui.overlays.modelPicker.footerSession",
+				"{keys} models · {enter} use for this session · type to search · @ quick roles · {close}",
+				{ keys, enter, close },
+			);
 	}
 }
 
@@ -174,7 +197,9 @@ export class ModelPickerComponent implements Component {
 			markOverContext: !this.#selectOnly,
 			emptyText: () =>
 				this.#roleMode
-					? `  No quick roles in the ${editorKey("app.model.cycleForward") || formatKeyHint("ctrl+p")} cycle`
+					? t("tui.overlays.modelPicker.noQuickRoles", "  No quick roles in the {cycle} cycle", {
+							cycle: editorKey("app.model.cycleForward") || formatKeyHint("ctrl+p"),
+						})
 					: undefined,
 		});
 		this.#browser.onActivate = item => {
@@ -309,10 +334,10 @@ export class ModelPickerComponent implements Component {
 		const status = this.#configError
 			? theme.fg("error", ` ${this.#configError}`)
 			: this.#taskMode
-				? theme.fg("error", ` ${TASK_STATUS_HINT}`)
+				? theme.fg("error", ` ${taskStatusHint()}`)
 				: theme.fg(
 						"muted",
-						` ${selectionOnly ? SELECT_ONLY_STATUS_HINT : this.#roleMode ? QUICK_ROLE_STATUS_HINT : STATUS_HINT}`,
+						` ${selectionOnly ? selectOnlyStatusHint() : this.#roleMode ? quickRoleStatusHint() : statusHint()}`,
 					);
 
 		const borderColor: ThemeColor | undefined = this.#taskMode ? "error" : undefined;
@@ -320,14 +345,23 @@ export class ModelPickerComponent implements Component {
 			this.#taskMode ? "task" : this.#roleMode ? "role" : selectionOnly ? "selection" : "session",
 		);
 		if (this.#taskModeKey !== undefined && !this.#roleMode) {
-			footer += ` · ${formatKeyHint(this.#taskModeKey)} ${this.#taskMode ? "session model" : "task model"}`;
+			footer += t("tui.overlays.modelPicker.footerTaskToggle", " · {key} {label}", {
+				key: formatKeyHint(this.#taskModeKey),
+				label: this.#taskMode
+					? t("tui.overlays.modelPicker.sessionModel", "session model")
+					: t("tui.overlays.modelPicker.taskModel", "task model"),
+			});
 		}
 
 		const out: string[] = [];
 		out.push(
 			topBorder(
 				width,
-				this.#taskMode ? "Switch Task Model" : selectionOnly ? "Select Model" : "Switch Model",
+				this.#taskMode
+					? t("tui.overlays.modelPicker.titleTask", "Switch Task Model")
+					: selectionOnly
+						? t("tui.overlays.modelPicker.titleSelection", "Select Model")
+						: t("tui.overlays.modelPicker.titleSession", "Switch Model"),
 				borderColor,
 			),
 		);
@@ -381,7 +415,12 @@ export class ModelPickerComponent implements Component {
 		const query = this.#browser.query;
 		const view = this.#browser.pickerOrder({
 			providers: false,
-			rest: mode === "role" ? null : query.trim() ? "Matches" : "All",
+			rest:
+				mode === "role"
+					? null
+					: query.trim()
+						? t("tui.overlays.modelPicker.groupMatches", "Matches")
+						: t("tui.overlays.modelPicker.groupAll", "All"),
 		});
 		const catalogue = this.#browser.pickerItems(this.#roleMode ? this.#quickRoleItems : this.#modelItems);
 		const current =
@@ -407,43 +446,65 @@ export class ModelPickerComponent implements Component {
 		const subtitle: TspPickerProps["subtitle"] = this.#configError
 			? [span(this.#configError, "error")]
 			: mode === "task"
-				? [span(TASK_STATUS_HINT, "warning")]
+				? [span(taskStatusHint(), "warning")]
 				: mode === "selection"
-					? SELECT_ONLY_STATUS_HINT
+					? selectOnlyStatusHint()
 					: mode === "role"
-						? QUICK_ROLE_STATUS_HINT
-						: STATUS_HINT;
+						? quickRoleStatusHint()
+						: statusHint();
 		const cycleKey = editorKey("app.model.cycleForward") || formatKeyHint("ctrl+p");
 		const node = picker(
 			{
-				title: mode === "task" ? "Switch task model" : mode === "selection" ? "Select model" : "Switch model",
+				title:
+					mode === "task"
+						? t("tui.overlays.modelPicker.titleTaskLower", "Switch task model")
+						: mode === "selection"
+							? t("tui.overlays.modelPicker.titleSelectionLower", "Select model")
+							: t("tui.overlays.modelPicker.titleSessionLower", "Switch model"),
 				subtitle,
 				icon: "cpu",
-				noun: mode === "role" ? "roles" : "models",
+				noun:
+					mode === "role"
+						? t("tui.overlays.modelPicker.roles", "roles")
+						: t("tui.overlays.modelPicker.models", "models"),
 				size: "md",
 				layout: "rows",
 				preview: "below",
 				placeholder:
-					mode === "task" || mode === "selection" ? "Search models…" : "Search models, @ for quick roles…",
+					mode === "task" || mode === "selection"
+						? t("tui.overlays.modelPicker.placeholder", "Search models…")
+						: t("tui.overlays.modelPicker.placeholderWithRoles", "Search models, @ for quick roles…"),
 				...this.#browser.pickerRows(catalogue, view, current),
-				empty: mode === "role" ? `No quick roles in the ${cycleKey} cycle` : "No models available",
+				empty:
+					mode === "role"
+						? t("tui.overlays.modelPicker.noQuickRolesInline", "No quick roles in the {cycle} cycle", {
+								cycle: cycleKey,
+							})
+						: t("tui.overlays.modelPicker.noModels", "No models available"),
 				actions: compact([
 					pickerAction(
 						"use",
 						mode === "role"
-							? "Apply role"
+							? t("tui.overlays.modelPicker.applyRole", "Apply role")
 							: mode === "task"
-								? "Use for Task subagents"
+								? t("tui.overlays.modelPicker.useForTask", "Use for Task subagents")
 								: mode === "selection"
-									? "Select model"
-									: "Use for session",
+									? t("tui.overlays.modelPicker.titleSelectionLower", "Select model")
+									: t("tui.overlays.modelPicker.useForSession", "Use for session"),
 						"enter",
 						{ primary: true },
 					),
 					this.#taskModeKey !== undefined && mode !== "role" && mode !== "selection"
-						? pickerAction("task", "Task model", this.#taskModeKey, { on: mode === "task" })
+						? pickerAction(
+								"task",
+								t("tui.overlays.modelPicker.taskModelAction", "Task model"),
+								this.#taskModeKey,
+								{ on: mode === "task" },
+							)
 						: undefined,
-					query.length > 0 ? { ...CLOSE_ACTION, label: "Clear search" } : CLOSE_ACTION,
+					query.length > 0
+						? { ...CLOSE_ACTION, label: t("tui.overlays.modelPicker.clearSearch", "Clear search") }
+						: CLOSE_ACTION,
 				]),
 			},
 			preview,
@@ -461,40 +522,52 @@ export class ModelPickerComponent implements Component {
 		const status = this.#configError
 			? span(this.#configError, "error")
 			: this.#taskMode
-				? span(TASK_STATUS_HINT, "error")
+				? span(taskStatusHint(), "error")
 				: span(
-						mode === "selection"
-							? SELECT_ONLY_STATUS_HINT
-							: this.#roleMode
-								? QUICK_ROLE_STATUS_HINT
-								: STATUS_HINT,
+						mode === "selection" ? selectOnlyStatusHint() : this.#roleMode ? quickRoleStatusHint() : statusHint(),
 						"muted",
 					);
 		const hints: (NativeHint | undefined)[] = [
-			actionHint(["tui.select.up", "tui.select.down"], mode === "role" ? "roles" : "models"),
+			actionHint(
+				["tui.select.up", "tui.select.down"],
+				mode === "role"
+					? t("tui.overlays.modelPicker.roles", "roles")
+					: t("tui.overlays.modelPicker.models", "models"),
+			),
 			{
 				keys: ["enter"],
 				label:
 					mode === "role"
-						? "apply role model"
+						? t("tui.overlays.modelPicker.applyRoleModel", "apply role model")
 						: mode === "task"
-							? "use for Task subagents"
+							? t("tui.overlays.modelPicker.useForTaskLower", "use for Task subagents")
 							: mode === "selection"
-								? "select model"
-								: "use for this session",
+								? t("tui.overlays.modelPicker.selectModelLower", "select model")
+								: t("tui.overlays.modelPicker.useForSessionLower", "use for this session"),
 			},
-			{ keys: [], label: "type to search" },
+			{ keys: [], label: t("tui.overlays.modelPicker.typeToSearch", "type to search") },
 		];
-		if (mode === "session") hints.push({ keys: ["@"], label: "quick roles" });
-		hints.push(actionHint("tui.select.cancel", "close"));
+		if (mode === "session")
+			hints.push({ keys: ["@"], label: t("tui.overlays.modelPicker.quickRoles", "quick roles") });
+		hints.push(actionHint("tui.select.cancel", t("tui.overlays.modelPicker.close", "close")));
 		if (this.#taskModeKey !== undefined && !this.#roleMode && mode !== "selection") {
-			hints.push({ keys: [this.#taskModeKey], label: this.#taskMode ? "session model" : "task model" });
+			hints.push({
+				keys: [this.#taskModeKey],
+				label: this.#taskMode
+					? t("tui.overlays.modelPicker.sessionModel", "session model")
+					: t("tui.overlays.modelPicker.taskModel", "task model"),
+			});
 		}
 		// `card` directly: the task-mode tone is a common prop `overlayCard` doesn't take.
 		const node = card(
 			{
 				role: "omp.overlay.model-picker",
-				head: mode === "task" ? "Switch Task Model" : mode === "selection" ? "Select Model" : "Switch Model",
+				head:
+					mode === "task"
+						? t("tui.overlays.modelPicker.titleTask", "Switch Task Model")
+						: mode === "selection"
+							? t("tui.overlays.modelPicker.titleSelection", "Select Model")
+							: t("tui.overlays.modelPicker.titleSession", "Switch Model"),
 				tone: this.#taskMode ? "error" : undefined,
 			},
 			[text([status], { wrap: "word" }), this.#browser, hintsRow(hints)],

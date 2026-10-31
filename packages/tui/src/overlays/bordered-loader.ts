@@ -5,6 +5,7 @@ import { editorKey } from "../chrome/keybinding-hints";
 import type { NativeNode } from "../native/node";
 import { card } from "../native/describe";
 import { actionHint, hintsRow } from "../native/overlay";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 /** Loader wrapped with borders for hook UI */
 export class BorderedLoader extends Container {
@@ -23,7 +24,16 @@ export class BorderedLoader extends Container {
 		);
 		this.addChild(this.#loader);
 		this.addChild(new Spacer(1));
-		this.addChild(new Text(theme.fg("muted", `${editorKey("tui.select.cancel")} cancel`), 1, 0));
+		this.addChild(
+			new Text(
+				theme.fg(
+					"muted",
+					t("tui.overlays.hookEditor.cancelHint", "{key} cancel", { key: editorKey("tui.select.cancel") }),
+				),
+				1,
+				0,
+			),
+		);
 		this.addChild(new Spacer(1));
 		this.addChild(new DynamicBorder(borderColor));
 	}
@@ -44,7 +54,7 @@ export class BorderedLoader extends Container {
 	override describe(): NativeNode {
 		this.#native ??= card({ role: "omp.hook.loader" }, [
 			this.#loader,
-			hintsRow([actionHint("tui.select.cancel", "cancel")]),
+			hintsRow([actionHint("tui.select.cancel", t("tui.overlays.hookEditor.cancelLower", "cancel"))]),
 		]);
 		return this.#native;
 	}

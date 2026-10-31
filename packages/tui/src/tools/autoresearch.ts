@@ -1,4 +1,5 @@
 import { Text } from "../components/text";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import type { Theme } from "../theme/theme";
 import { replaceTabs, truncateToWidth, shortenPath } from "../render/render-utils";
 import type { TspTone } from "@oh-my-pi/pi-wire";
@@ -229,11 +230,17 @@ function describeSummary(details: LogDetails): NativeToolView {
 			kv([
 				[plainText(state.metricName), [span(formatNum(experiment.metric, state.metricUnit), "accent num")]],
 				[
-					"baseline",
+					t("tui.tools.autoresearch.baseline", "baseline"),
 					state.bestMetric !== null ? [span(formatNum(state.bestMetric, state.metricUnit), "num")] : undefined,
 				],
-				["confidence", state.confidence !== null ? [span(`${state.confidence.toFixed(1)}x`, "num")] : undefined],
-				["deviations", deviations > 0 ? [span(String(deviations), "warning")] : undefined],
+				[
+					t("tui.tools.autoresearch.confidence", "confidence"),
+					state.confidence !== null ? [span(`${state.confidence.toFixed(1)}x`, "num")] : undefined,
+				],
+				[
+					t("tui.tools.autoresearch.deviations", "deviations"),
+					deviations > 0 ? [span(String(deviations), "warning")] : undefined,
+				],
 			]),
 		]),
 	};
@@ -245,13 +252,13 @@ function renderSummary(details: LogDetails, theme: Theme): string {
 	let summary = `${theme.fg(color, experiment.status.toUpperCase())} ${theme.fg("muted", truncateToWidth(replaceTabs(experiment.description), 100))}`;
 	summary += ` ${theme.fg("accent", `${state.metricName}=${formatNum(experiment.metric, state.metricUnit)}`)}`;
 	if (state.bestMetric !== null) {
-		summary += ` ${theme.fg("dim", `baseline ${formatNum(state.bestMetric, state.metricUnit)}`)}`;
+		summary += ` ${theme.fg("dim", t("tui.tools.autoresearch.baselineValue", "baseline {value}", { value: formatNum(state.bestMetric, state.metricUnit) }))}`;
 	}
 	if (state.confidence !== null) {
-		summary += ` ${theme.fg("dim", `conf ${state.confidence.toFixed(1)}x`)}`;
+		summary += ` ${theme.fg("dim", t("tui.tools.autoresearch.confidenceShort", "conf {value}", { value: `${state.confidence.toFixed(1)}x` }))}`;
 	}
 	if (details.scopeDeviations.length > 0) {
-		summary += ` ${theme.fg("warning", `deviations:${details.scopeDeviations.length}`)}`;
+		summary += ` ${theme.fg("warning", t("tui.tools.autoresearch.deviationsCount", "deviations:{count}", { count: details.scopeDeviations.length }))}`;
 	}
 	return summary;
 }
@@ -296,15 +303,18 @@ export const logExperimentToolRenderer = {
 function describeStatus(details: RunDetails): { tone: TspTone; node: NativeNode } {
 	const duration = `${details.durationSeconds.toFixed(1)}s`;
 	let tone: TspTone = "success";
-	let label = "PASS";
+	let label = t("tui.tools.autoresearch.pass", "PASS");
 	let meta = duration;
 	if (details.timedOut) {
 		tone = "error";
-		label = "TIMEOUT";
+		label = t("tui.tools.autoresearch.timedOut", "TIMEOUT");
 	} else if (details.exitCode !== 0) {
 		tone = "error";
-		label = "FAIL";
-		meta = `exit=${details.exitCode} ${duration}`;
+		label = t("tui.tools.autoresearch.fail", "FAIL");
+		meta = t("tui.tools.autoresearch.exitMeta", "exit={code} {duration}", {
+			code: String(details.exitCode),
+			duration,
+		});
 	} else if (details.parsedPrimary !== null) {
 		meta = `${duration} ${plainText(details.metricName)}=${formatNum(details.parsedPrimary, details.metricUnit)}`;
 	}
@@ -316,16 +326,28 @@ function describeStatus(details: RunDetails): { tone: TspTone; node: NativeNode 
 
 function renderStatus(details: RunDetails, theme: Theme): string {
 	if (details.timedOut) {
-		return theme.fg("error", `TIMEOUT ${details.durationSeconds.toFixed(1)}s`);
+		return theme.fg(
+			"error",
+			t("tui.tools.autoresearch.timedOut", "TIMEOUT") + " " + `${details.durationSeconds.toFixed(1)}s`,
+		);
 	}
 	if (details.exitCode !== 0) {
-		return theme.fg("error", `FAIL exit=${details.exitCode} ${details.durationSeconds.toFixed(1)}s`);
+		return theme.fg(
+			"error",
+			t("tui.tools.autoresearch.exitMeta", "exit={code} {duration}", {
+				code: String(details.exitCode),
+				duration: `${details.durationSeconds.toFixed(1)}s`,
+			}),
+		);
 	}
 	const metric =
 		details.parsedPrimary !== null
 			? ` ${details.metricName}=${formatNum(details.parsedPrimary, details.metricUnit)}`
 			: "";
-	return theme.fg("success", `PASS ${details.durationSeconds.toFixed(1)}s${metric}`);
+	return theme.fg(
+		"success",
+		`${t("tui.tools.autoresearch.pass", "PASS")} ${details.durationSeconds.toFixed(1)}s${metric}`,
+	);
 }
 
 function isRunDetails(value: unknown): value is RunDetails {
@@ -349,7 +371,10 @@ export const runExperimentToolRenderer = {
 	},
 	renderResult(result, options, theme): Text {
 		if (isProgressDetails(result.details)) {
-			const header = theme.fg("warning", `Running ${result.details.elapsed}...`);
+			const header = theme.fg(
+				"warning",
+				t("tui.tools.autoresearch.running", "Running {elapsed}...", { elapsed: result.details.elapsed }),
+			);
 			const preview = replaceTabs(result.content.find(part => part.type === "text")?.text ?? "");
 			return new Text(preview ? `${header}\n${theme.fg("dim", preview)}` : header, 0, 0);
 		}
@@ -366,7 +391,7 @@ export const runExperimentToolRenderer = {
 		);
 		const suffix =
 			options.expanded && details.truncation && details.fullOutputPath
-				? `\n${theme.fg("warning", `Full output: ${shortenPath(details.fullOutputPath)}`)}`
+				? `\n${theme.fg("warning", t("tui.tools.autoresearch.fullOutputPath", "Full output: {path}", { path: shortenPath(details.fullOutputPath) }))}`
 				: "";
 		return new Text(preview ? `${statusText}\n${theme.fg("dim", preview)}${suffix}` : statusText, 0, 0);
 	},
@@ -382,7 +407,16 @@ export const runExperimentToolRenderer = {
 					tone: "warning",
 					preview: { lines: 6 },
 					body: compact([
-						node("spinner", { label: [span(`Running ${plainText(details.elapsed)}…`, "warning")] }),
+						node("spinner", {
+							label: [
+								span(
+									t("tui.tools.autoresearch.runningEllipsis", "Running {elapsed}…", {
+										elapsed: plainText(details.elapsed),
+									}),
+									"warning",
+								),
+							],
+						}),
 						output.trim() ? ansi(output, { follow: true }) : undefined,
 					]),
 				};
@@ -396,9 +430,15 @@ export const runExperimentToolRenderer = {
 					status.node,
 					details.tailOutput.trim() ? ansi(details.tailOutput, { follow: true }) : undefined,
 					details.truncation && details.fullOutputPath
-						? text([span("Full output: ", "warning"), span(shortenPath(details.fullOutputPath), "path")], {
-								truncate: "middle",
-							})
+						? text(
+								[
+									span(t("tui.tools.autoresearch.fullOutput", "Full output: "), "warning"),
+									span(shortenPath(details.fullOutputPath), "path"),
+								],
+								{
+									truncate: "middle",
+								},
+							)
 						: undefined,
 				]),
 			};

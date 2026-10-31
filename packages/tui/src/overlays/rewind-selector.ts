@@ -72,6 +72,7 @@ import type { DescribeContext, NativeChild, NativeNode, NativeScreen, NativeUiEv
 import { actionBar, actionButton, actionHint, hintsRow } from "../native/overlay";
 import { isNativeRendering } from "../native/state";
 import { collectBlocks, targetCopy } from "./copy-selector";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 /** One alternate branch at a divergence: its root and message path root → most-recent leaf. */
 export interface BranchVariantPath {
@@ -148,14 +149,6 @@ const kMarked = Symbol("rewind.marked");
 interface MarkTagged {
 	[kMarked]?: MarkedBlock;
 }
-
-/** The page's first row while older history is unreplayed: `a` loads it. */
-const EARLIER_TURNS = node(
-	"row",
-	{ role: "omp.rewind.earlier", gap: "xs", align: "center" },
-	[kbd("a"), text([span("load earlier turns", "muted")])],
-	"earlier",
-);
 
 /** Blank columns between branch-strip columns. */
 const STRIP_GAP = 2;
@@ -436,8 +429,8 @@ export class RewindSelectorComponent implements Component {
 		// The filter must search the whole branch, not just the startup tail.
 		this.#loadFullHistory();
 		const input = new Input();
-		input.prompt = `${theme.fg("accent", "filter:")} `;
-		input.placeholder = "words…";
+		input.prompt = `${theme.fg("accent", `${t("tui.overlays.rewindSelector.filterPrompt", "filter")}:`)} `;
+		input.placeholder = t("tui.overlays.rewindSelector.filterPlaceholder", "words…");
 		this.#filterInput = input;
 		this.#activeVariant = 0;
 		this.#siblingSelected = 0;
@@ -735,11 +728,34 @@ export class RewindSelectorComponent implements Component {
 					page.push(this.#marked(blocks[i]!, picked ? "pick" : undefined));
 			}
 			if (matches.length === 0) {
-				page.push(text([span(`No turns match "${filter}"`, "muted")], { role: "omp.rewind.empty" }));
+				page.push(
+					text(
+						[
+							span(
+								t("tui.overlays.rewindSelector.noTurnsMatch", 'No turns match "{query}"', {
+									query: filter,
+								}),
+								"muted",
+							),
+						],
+						{ role: "omp.rewind.empty" },
+					),
+				);
 			}
 			return page;
 		}
-		if (this.#truncated) page.push(EARLIER_TURNS);
+		if (this.#truncated)
+			page.push(
+				node(
+					"row",
+					{ role: "omp.rewind.earlier", gap: "xs", align: "center" },
+					[
+						kbd("a"),
+						text([span(t("tui.overlays.rewindSelector.loadEarlierTurns", "load earlier turns"), "muted")]),
+					],
+					"earlier",
+				),
+			);
 		const columns = this.#stripColumns();
 		const anchor = this.#targets[this.#selected];
 		if (columns.length === 0 || !anchor) {
@@ -749,7 +765,9 @@ export class RewindSelectorComponent implements Component {
 		// Shared history above the fork at full width, then the branches side by side.
 		for (let i = 0; i < anchor.start; i++) page.push(this.#marked(blocks[i]!, undefined));
 		const count = columns.length + 1;
-		const current: NativeChild[] = [this.#columnHead(0, count, "current")];
+		const current: NativeChild[] = [
+			this.#columnHead(0, count, t("tui.overlays.rewindSelector.currentColumn", "current")),
+		];
 		this.#markRun(
 			current,
 			blocks,
@@ -803,14 +821,29 @@ export class RewindSelectorComponent implements Component {
 		const below = targets.length - picked - 1;
 		const spans = [
 			span(`${theme.icon.rewind} `, "accent"),
-			span(target.isUserTurn ? "Rewind to here" : "Continue from here", "accent strong"),
+			span(
+				target.isUserTurn
+					? t("tui.overlays.rewindSelector.rewindToHere", "Rewind to here")
+					: t("tui.overlays.rewindSelector.continueFromHere", "Continue from here"),
+				"accent strong",
+			),
 		];
-		if (target.isUserTurn) spans.push(span(`${theme.sep.dot}the prompt returns to the editor`, "dim"));
+		if (target.isUserTurn)
+			spans.push(
+				span(
+					`${theme.sep.dot}${t("tui.overlays.rewindSelector.promptReturns", "the prompt returns to the editor")}`,
+					"dim",
+				),
+			);
 		spans.push(
 			span(
 				below > 0
-					? `${theme.sep.dot}${below} turn${below === 1 ? "" : "s"} below dropped`
-					: `${theme.sep.dot}nothing below to drop`,
+					? `${theme.sep.dot}${t(
+							"tui.overlays.rewindSelector.turnsBelowDropped",
+							{ one: "{count} turn below dropped", other: "{count} turns below dropped" },
+							{ count: below },
+						)}`
+					: `${theme.sep.dot}${t("tui.overlays.rewindSelector.nothingBelow", "nothing below to drop")}`,
 				"dim",
 			),
 		);
@@ -856,9 +889,15 @@ export class RewindSelectorComponent implements Component {
 		const memo = `${this.#selected}|${this.#activeVariant}|${this.#siblingSelected}|${this.#truncated}|${columns.length}|${filter ?? "\0"}`;
 		if (this.#bar?.memo === memo && this.#bar.targets === this.#targets) return this.#bar.node;
 
-		const title = text([span(`${theme.icon.rewind} `, "accent"), span("Rewind", "strong")], { wrap: "none" });
-		const upDown = actionHint(["tui.select.up", "tui.select.down"], "step");
-		const rewind = actionButton("Rewind here", "rewind", { keys: "enter", tone: "accent" });
+		const title = text(
+			[span(`${theme.icon.rewind} `, "accent"), span(t("tui.overlays.rewindSelector.title", "Rewind"), "strong")],
+			{ wrap: "none" },
+		);
+		const upDown = actionHint(["tui.select.up", "tui.select.down"], t("tui.overlays.rewindSelector.step", "step"));
+		const rewind = actionButton(t("tui.overlays.rewindSelector.rewindHere", "Rewind here"), "rewind", {
+			keys: "enter",
+			tone: "accent",
+		});
 		let children: NativeChild[];
 		if (filter === undefined) {
 			const column = columns[this.#activeVariant - 1];
@@ -869,11 +908,23 @@ export class RewindSelectorComponent implements Component {
 				text([span(`${at + 1}/${of}`, "dim")], { wrap: "none" }),
 				hintsRow([
 					upDown,
-					{ keys: ["left", "right"], label: columns.length > 0 ? "branches" : "user turns" },
-					{ keys: ["f"], label: "filter" },
-					this.#truncated ? { keys: ["a"], label: "earlier turns" } : undefined,
+					{
+						keys: ["left", "right"],
+						label:
+							columns.length > 0
+								? t("tui.overlays.rewindSelector.branches", "branches")
+								: t("tui.overlays.rewindSelector.userTurns", "user turns"),
+					},
+					{ keys: ["f"], label: t("tui.overlays.rewindSelector.filter", "filter") },
+					this.#truncated
+						? { keys: ["a"], label: t("tui.overlays.rewindSelector.earlierTurns", "earlier turns") }
+						: undefined,
 				]),
-				actionBar([null, actionButton("Cancel", "cancel", { keys: "escape" }), rewind]),
+				actionBar([
+					null,
+					actionButton(t("tui.overlays.rewindSelector.cancel", "Cancel"), "cancel", { keys: "escape" }),
+					rewind,
+				]),
 			];
 		} else {
 			const matches = this.#filterMatches();
@@ -884,13 +935,20 @@ export class RewindSelectorComponent implements Component {
 				text(
 					[
 						matches.length === 0
-							? span("no matches", "error")
+							? span(t("tui.overlays.rewindSelector.noMatches", "no matches"), "error")
 							: span(`${at >= 0 ? at + 1 : "-"}/${matches.length}`, "dim"),
 					],
 					{ wrap: "none" },
 				),
-				hintsRow([upDown, { keys: ["left", "right"], label: "user turns" }]),
-				actionBar([null, actionButton("Show all", "cancel", { keys: "escape" }), rewind]),
+				hintsRow([
+					upDown,
+					{ keys: ["left", "right"], label: t("tui.overlays.rewindSelector.userTurns", "user turns") },
+				]),
+				actionBar([
+					null,
+					actionButton(t("tui.overlays.rewindSelector.showAll", "Show all"), "cancel", { keys: "escape" }),
+					rewind,
+				]),
 			];
 		}
 		const root = node("row", { role: "omp.rewind.bar", gap: "md", align: "center", wrap: true }, children);
@@ -943,8 +1001,11 @@ export class RewindSelectorComponent implements Component {
 		const position = this.#targets.length > 0 ? `${this.#selected + 1}/${this.#targets.length}  ` : "";
 		const upDown = editorKeys("tui.select.up", "tui.select.down");
 		const leftRight = formatKeyHints(["left", "right"]);
-		const lateral = columns.length > 0 ? `${leftRight} branches` : `${leftRight} user turns`;
-		const keys = `${upDown} step  ${lateral}  ${formatKeyHint("f")} filter  ${formatKeyHint("enter")} rewind  ${this.#truncated ? `${formatKeyHint("a")} earlier turns  ` : ""}${expandKeyHint()} expand  ${editorKey("tui.select.cancel")} cancel`;
+		const lateral =
+			columns.length > 0
+				? `${leftRight} ${t("tui.overlays.rewindSelector.branches", "branches")}`
+				: `${leftRight} ${t("tui.overlays.rewindSelector.userTurns", "user turns")}`;
+		const keys = `${upDown} ${t("tui.overlays.rewindSelector.step", "step")}  ${lateral}  ${formatKeyHint("f")} ${t("tui.overlays.rewindSelector.filter", "filter")}  ${formatKeyHint("enter")} ${t("tui.overlays.rewindSelector.rewind", "rewind")}  ${this.#truncated ? `${formatKeyHint("a")} ${t("tui.overlays.rewindSelector.earlierTurns", "earlier turns")}  ` : ""}${expandKeyHint()} ${t("tui.overlays.rewindSelector.expand", "expand")}  ${editorKey("tui.select.cancel")} ${t("tui.overlays.rewindSelector.cancelLower", "cancel")}`;
 		return {
 			header: [this.#header()],
 			body: {
@@ -956,7 +1017,7 @@ export class RewindSelectorComponent implements Component {
 	}
 
 	#header(): string {
-		return `${theme.icon.rewind} ${theme.bold("Rewind")}${theme.sep.dot}${theme.fg("dim", "pick the point to continue from")}`;
+		return `${theme.icon.rewind} ${theme.bold(t("tui.overlays.rewindSelector.title", "Rewind"))}${theme.sep.dot}${theme.fg("dim", t("tui.overlays.rewindSelector.headerHint", "pick the point to continue from"))}`;
 	}
 
 	/** Only the matching items of the current path, concatenated; no branch strip. */
@@ -976,13 +1037,23 @@ export class RewindSelectorComponent implements Component {
 		}
 		const selected = matches.indexOf(this.#selected);
 		const composed = composeOutlineColumn(rows, 0, rows.length, targets, selected, contentWidth, undefined);
-		const lines = matches.length > 0 ? composed.lines : [theme.fg("muted", `  No items match "${query}"`)];
+		const lines =
+			matches.length > 0
+				? composed.lines
+				: [
+						theme.fg(
+							"muted",
+							`  ${t("tui.overlays.rewindSelector.noItemsMatch", 'No items match "{query}"', {
+								query,
+							})}`,
+						),
+					];
 		const count =
 			matches.length === 0
-				? theme.fg("error", "no matches")
+				? theme.fg("error", t("tui.overlays.rewindSelector.noMatches", "no matches"))
 				: theme.fg("dim", `${selected >= 0 ? selected + 1 : "-"}/${matches.length}`);
 		const upDown = editorKeys("tui.select.up", "tui.select.down");
-		const keys = `${upDown} step  ${formatKeyHints(["left", "right"])} user turns  ${formatKeyHint("enter")} rewind  ${editorKey("tui.select.cancel")} show all`;
+		const keys = `${upDown} ${t("tui.overlays.rewindSelector.step", "step")}  ${formatKeyHints(["left", "right"])} ${t("tui.overlays.rewindSelector.userTurns", "user turns")}  ${formatKeyHint("enter")} ${t("tui.overlays.rewindSelector.rewind", "rewind")}  ${editorKey("tui.select.cancel")} ${t("tui.overlays.rewindSelector.showAllLower", "show all")}`;
 		return {
 			header: [this.#header()],
 			body: {
@@ -997,7 +1068,7 @@ export class RewindSelectorComponent implements Component {
 						: undefined,
 			},
 			footer: [
-				`${this.#filterInput!.render(visibleWidth(`filter: ${query}`) + 1)[0]}  ${count}  ${theme.fg("dim", keys)}`,
+				`${this.#filterInput!.render(visibleWidth(`${t("tui.overlays.rewindSelector.filterPrompt", "filter")}: ${query}`) + 1)[0]}  ${count}  ${theme.fg("dim", keys)}`,
 			],
 		};
 	}
@@ -1043,7 +1114,7 @@ export class RewindSelectorComponent implements Component {
 				suffixTargets,
 				this.#activeVariant === 0 ? 0 : -1,
 				colWidth,
-				this.#columnHeader(0, count, "current", colWidth),
+				this.#columnHeader(0, count, t("tui.overlays.rewindSelector.currentColumn", "current"), colWidth),
 			),
 		];
 		for (let index = 0; index < columns.length; index++) {

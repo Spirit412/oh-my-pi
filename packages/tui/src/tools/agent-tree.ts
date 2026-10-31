@@ -1,3 +1,4 @@
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import { formatContextUsage } from "../chrome/context-thresholds";
 import {
 	FEED_MODEL_BADGE_WIDTH,
@@ -29,7 +30,7 @@ export function formatAgentStatRun(stats: AgentStats, theme: Theme): string {
 		line += `${theme.sep.dot}${theme.fg("dim", `${formatNumber(stats.toolCount)} ${theme.icon.extensionTool}`)}`;
 	}
 	if (stats.requests) {
-		line += `${theme.sep.dot}${theme.fg("dim", `${formatNumber(stats.requests)} req`)}`;
+		line += `${theme.sep.dot}${theme.fg("dim", t("tui.tools.agentTree.requests", "{count} req", { count: formatNumber(stats.requests) }))}`;
 	}
 	if (stats.contextTokens && stats.contextTokens > 0) {
 		const context =

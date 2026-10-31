@@ -63,6 +63,7 @@ import {
 	isShadowedExtension,
 	type ProviderTab,
 } from "./types";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 /** Runtime operations remain owned by the embedding application. */
 export interface ExtensionDashboardRuntime {
@@ -89,7 +90,13 @@ function extFooter(): string {
 	const upDown = editorKeys("tui.select.up", "tui.select.down");
 	const pages = editorKeys("tui.select.pageUp", "tui.select.pageDown");
 	const close = interruptKey();
-	return ` ${upDown}: navigate · ${formatKeyHint("space")}: toggle · ${formatKeyHints(["left", "right"])}: provider · ${pages}: inspector · ${expandKeyHint()}: expand · ${close}: close`;
+	const navigate = t("tui.overlays.extensionDashboard.footerNavigate", "navigate");
+	const toggle = t("tui.overlays.extensionDashboard.footerToggle", "toggle");
+	const provider = t("tui.overlays.extensionDashboard.footerProvider", "provider");
+	const inspector = t("tui.overlays.extensionDashboard.footerInspector", "inspector");
+	const expand = t("tui.overlays.extensionDashboard.footerExpand", "expand");
+	const closeLabel = t("tui.overlays.extensionDashboard.footerClose", "close");
+	return ` ${upDown}: ${navigate} · ${formatKeyHint("space")}: ${toggle} · ${formatKeyHints(["left", "right"])}: ${provider} · ${pages}: ${inspector} · ${expandKeyHint()}: ${expand} · ${close}: ${closeLabel}`;
 }
 
 /**
@@ -111,7 +118,9 @@ export function buildTabBarTabs(tabs: ProviderTab[]): Tab[] {
 }
 
 /** The sheet/page title, shared by the ANSI frame and the native views. */
-const DASHBOARD_TITLE = "Extension Control Center";
+function dashboardTitle(): string {
+	return t("tui.overlays.extensionDashboard.title", "Extension Control Center");
+}
 
 /** The kind column shown when rows are not grouped under kind headers (a provider scope or a search). */
 const KIND_COLUMNS: readonly TspPickerColumn[] = [{ id: "kind", format: "dim", priority: 1 }];
@@ -133,16 +142,22 @@ function providerInitials(label: string): string {
  */
 export function buildPickerScopes(tabs: ProviderTab[]): TspPickerScope[] {
 	return tabs.map(tab => {
-		if (tab.id === "all") return { id: tab.id, label: "All", icon: "extension", count: tab.count };
+		if (tab.id === "all")
+			return {
+				id: tab.id,
+				label: t("tui.overlays.extensionDashboard.pickerAll", "All"),
+				icon: "extension",
+				count: tab.count,
+			};
 		const emptyEnabled = tab.count === 0 && tab.enabled;
 		return {
 			id: tab.id,
 			label: tab.label,
 			mark: { text: providerInitials(tab.label), seed: tab.id },
 			count: tab.count,
-			group: "Providers",
+			group: t("tui.overlays.extensionDashboard.pickerProvidersGroup", "Providers"),
 			dot: !tab.enabled ? "muted" : emptyEnabled ? "warning" : "success",
-			disabled: emptyEnabled ? "No extensions" : undefined,
+			disabled: emptyEnabled ? t("tui.overlays.extensionDashboard.emptyProvider", "No extensions") : undefined,
 		};
 	});
 }
@@ -284,7 +299,7 @@ export class ExtensionDashboard implements Component {
 		this.#mainList.setToolSource(toolFrame);
 		this.#inspector.setToolSource(toolFrame);
 
-		this.#frameTop.setLines([topBorder(width, DASHBOARD_TITLE)]);
+		this.#frameTop.setLines([topBorder(width, dashboardTitle())]);
 		this.#frameTabs.setLines(tabLines.map(line => row(line, width)));
 		this.#frameUpperDivider.setLines([divider(width)]);
 		this.#frameBody.setLines(this.#body.render(innerWidth).map(line => row(line, width)));
@@ -648,14 +663,14 @@ export class ExtensionDashboard implements Component {
 		const activeTab = this.#state.tabs[this.#state.activeTabIndex];
 		return picker(
 			{
-				title: DASHBOARD_TITLE,
+				title: dashboardTitle(),
 				icon: "extension",
-				noun: "extensions",
+				noun: t("tui.overlays.extensionDashboard.noun", "extensions"),
 				size: "lg",
 				layout: "rows",
 				preview: "side",
 				...this.#mainList.nativeQuery(),
-				placeholder: "Search extensions…",
+				placeholder: t("tui.overlays.extensionDashboard.searchPlaceholder", "Search extensions…"),
 				scopes: buildPickerScopes(this.#state.tabs),
 				scope: activeTab?.id ?? "all",
 				columns: view.grouped ? undefined : KIND_COLUMNS,
@@ -664,7 +679,7 @@ export class ExtensionDashboard implements Component {
 				hits: view.hits,
 				selected: view.selected,
 				total: this.#state.tabFiltered.length,
-				empty: "No extensions found for this provider.",
+				empty: t("tui.overlays.extensionDashboard.emptyNoMatches", "No extensions found for this provider."),
 				actions: this.#pickerActions(this.#mainList.selectedSwitch()),
 				focus: "list",
 			},
@@ -684,12 +699,21 @@ export class ExtensionDashboard implements Component {
 	#pickerActions(selected: ExtensionListSwitch | undefined): TspPickerAction[] {
 		const expanded = this.#inspector.isExpanded();
 		return [
-			pickerAction("toggle", "Toggle", "space", {
+			pickerAction("toggle", t("tui.overlays.extensionDashboard.actionToggle", "Toggle"), "space", {
 				primary: true,
 				on: selected?.on,
-				disabled: selected ? selected.blocked : "Select an extension",
+				disabled: selected
+					? selected.blocked
+					: t("tui.overlays.extensionDashboard.selectExtension", "Select an extension"),
 			}),
-			pickerAction("expand", expanded ? "Collapse" : "Expand", this.#expandKey(), { on: expanded }),
+			pickerAction(
+				"expand",
+				expanded
+					? t("tui.overlays.extensionDashboard.actionCollapse", "Collapse")
+					: t("tui.overlays.extensionDashboard.actionExpand", "Expand"),
+				this.#expandKey(),
+				{ on: expanded },
+			),
 			CLOSE_ACTION,
 		];
 	}
@@ -708,22 +732,47 @@ export class ExtensionDashboard implements Component {
 			{ justify: "between", align: "center", role: "omp.app.head" },
 			[
 				node("row", { gap: "sm", align: "center", role: "omp.app.where" }, [
-					text(DASHBOARD_TITLE, { role: "omp.app.title" }),
-					text([span(query ? `${shown} of ${total}` : `${total} extensions`, "muted")], { truncate: "end" }),
+					text(dashboardTitle(), { role: "omp.app.title" }),
+					text(
+						[
+							span(
+								query
+									? t("tui.overlays.extensionDashboard.shownOfTotal", "{shown} of {total}", {
+											shown,
+											total,
+										})
+									: t("tui.overlays.extensionDashboard.extensionCount", "{count} extensions", {
+											count: total,
+										}),
+								"muted",
+							),
+						],
+						{ truncate: "end" },
+					),
 				]),
 				node("icon", {
 					name: "x",
 					role: "omp.app.ibtn",
-					title: `Close  ${formatTooltipKey(boundKeys("app.interrupt", ["escape"])[0] ?? "escape")}`,
-					aria: "Close",
+					title: t("tui.overlays.extensionDashboard.closeTooltip", "Close  {key}", {
+						key: formatTooltipKey(boundKeys("app.interrupt", ["escape"])[0] ?? "escape"),
+					}),
+					aria: t("tui.overlays.extensionDashboard.actionClose", "Close"),
 					actions: { click: "close" },
 				}),
 			],
 			"head",
 		);
-		const search = text([span("Search: ", "muted"), query ? span(query, "accent") : span("type to filter", "dim")], {
-			truncate: "end",
-		});
+		const search = text(
+			[
+				span(t("tui.overlays.extensionDashboard.searchLabel", "Search: "), "muted"),
+				query
+					? span(query, "accent")
+					: span(t("tui.overlays.extensionDashboard.searchHint", "type to filter"), "dim"),
+			],
+			{
+				truncate: "end",
+			},
+		);
 		const body = node(
 			"row",
 			{ gap: "md", grow: 1 },
@@ -738,15 +787,39 @@ export class ExtensionDashboard implements Component {
 		);
 		const expanded = this.#inspector.isExpanded();
 		const buttons: (NativeNode | null)[] = [
-			actionButton(selected?.on === false ? "Enable" : selected ? "Disable" : "Toggle", "toggle", {
-				keys: "space",
-				tone: "accent",
-				title: selected?.blocked ?? (selected ? undefined : "Select an extension"),
-			}),
-			actionButton(expanded ? "Collapse" : "Expand", "expand", { keys: this.#expandKey() }),
+			actionButton(
+				selected?.on === false
+					? t("tui.overlays.extensionDashboard.actionEnable", "Enable")
+					: selected
+						? t("tui.overlays.extensionDashboard.actionDisable", "Disable")
+						: t("tui.overlays.extensionDashboard.actionToggle", "Toggle"),
+				"toggle",
+				{
+					keys: "space",
+					tone: "accent",
+					title:
+						selected?.blocked ??
+						(selected ? undefined : t("tui.overlays.extensionDashboard.selectExtension", "Select an extension")),
+				},
+			),
+			actionButton(
+				expanded
+					? t("tui.overlays.extensionDashboard.actionCollapse", "Collapse")
+					: t("tui.overlays.extensionDashboard.actionExpand", "Expand"),
+				"expand",
+				{ keys: this.#expandKey() },
+			),
 		];
-		if (query) buttons.push(actionButton("Clear search", "clear", { keys: "escape" }));
-		buttons.push(null, actionButton("Close", "close", { keys: "escape" }));
+		if (query)
+			buttons.push(
+				actionButton(t("tui.overlays.extensionDashboard.actionClearSearch", "Clear search"), "clear", {
+					keys: "escape",
+				}),
+			);
+		buttons.push(
+			null,
+			actionButton(t("tui.overlays.extensionDashboard.actionClose", "Close"), "close", { keys: "escape" }),
+		);
 		return col([head, this.#tabBar, keyed(search, "search"), body, actionBar(buttons)], { gap: "md", grow: 1 });
 	}
 

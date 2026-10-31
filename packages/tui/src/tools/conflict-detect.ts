@@ -1,3 +1,5 @@
+import { t } from "@oh-my-pi/pi-utils/i18n";
+
 /** Recorded merge-conflict region. */
 export interface ConflictBlock {
 	/** 1-indexed line of the `<<<<<<<` marker. */
@@ -58,7 +60,11 @@ export function renderConflictRegion(
 	if (scope === "base") {
 		if (entry.baseLines === undefined || entry.baseLine === undefined) {
 			throw new Error(
-				`Conflict #${entry.id} has no base section (2-way merge). 'conflict://${entry.id}/base' is only valid for diff3 conflicts.`,
+				t(
+					"tui.tools.conflict.noBase",
+					"Conflict #{id} has no base section (2-way merge). 'conflict://{id}/base' is only valid for diff3 conflicts.",
+					{ id: entry.id },
+				),
 			);
 		}
 		return { lines: [...entry.baseLines], startLine: entry.baseLine + 1 };

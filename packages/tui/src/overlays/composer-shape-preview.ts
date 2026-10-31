@@ -21,6 +21,7 @@ import { type ComposerShape, getComposerShapeOptions } from "./composer-shape-re
 import { theme } from "../theme/theme";
 import type { NativeNode } from "../native/node";
 import { col, node, span, text } from "../native/describe";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 /**
  * Real status renderer the preview borrows rows from — structurally satisfied
@@ -82,7 +83,10 @@ export function renderComposerShapePreview(
 
 	const gutter = style.defaultPromptGutter ?? "";
 	const contentWidth = Math.max(1, previewWidth - chromeWidth * 2 - visibleWidth(gutter));
-	const promptText = truncateToWidth("Ask anything, edit files, run tools", Math.max(1, contentWidth - 1));
+	const promptText = truncateToWidth(
+		t("tui.overlays.composerShapePreview.placeholder", "Ask anything, edit files, run tools"),
+		Math.max(1, contentWidth - 1),
+	);
 	// Mirror the live editor: filled shapes let `surfaceColor` paint their own
 	// foreground, while transparent shapes resolve `text` to a contrast-safe
 	// color so an empty token never falls back to the terminal default.
@@ -147,8 +151,12 @@ export class ComposerShapePreview implements Component {
 		if (option?.description) caption.push(span(` · ${option.description}`, "muted"));
 		const described = col(
 			[
-				text([span("Preview:", "muted")]),
-				node("editor", { placeholder: "Ask anything, edit files, run tools", readonly: true, maxLines: 1 }),
+				text([span(t("tui.overlays.composerShapePreview.preview", "Preview:"), "muted")]),
+				node("editor", {
+					placeholder: t("tui.overlays.composerShapePreview.placeholder", "Ask anything, edit files, run tools"),
+					readonly: true,
+					maxLines: 1,
+				}),
 				text(caption, { wrap: "word" }),
 			],
 			{ role: "omp.preview.composer-shape", gap: "xs" },
@@ -159,6 +167,6 @@ export class ComposerShapePreview implements Component {
 
 	render(width: number): readonly string[] {
 		const lines = renderComposerShapePreview(this.#shape, width, this.#options.status);
-		return ["", theme.fg("muted", "Preview:"), ...lines];
+		return ["", theme.fg("muted", t("tui.overlays.composerShapePreview.preview", "Preview:")), ...lines];
 	}
 }

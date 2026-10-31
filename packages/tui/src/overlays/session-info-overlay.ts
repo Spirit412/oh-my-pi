@@ -6,6 +6,7 @@ import { formatKeyHints } from "../app-keybindings";
 import { editorKey } from "../chrome/keybinding-hints";
 import type { TspSpan } from "@oh-my-pi/pi-wire";
 import { formatNumber } from "@oh-my-pi/pi-utils";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import { col, node, span, text } from "../native/describe";
 import type { DescribeContext, NativeChild, NativeNode, NativeUiEvent } from "../native/node";
 import { actionBar, actionButton } from "../native/overlay";
@@ -120,7 +121,7 @@ export class SessionInfoOverlay implements Component {
 		role: "omp.overlay.sessionInfo",
 		size: "md",
 		anchor: "center",
-		head: "Session info",
+		head: t("tui.overlays.sessionInfo.sheetTitle", "Session info"),
 	} as const;
 	readonly #host: SessionInfoOverlayHost;
 	readonly #onClose: () => void;
@@ -153,7 +154,7 @@ export class SessionInfoOverlay implements Component {
 		});
 		this.#footer = new PanelRows();
 		this.#footer.setHeight(1);
-		this.#panel = new OverlayPanel("Session Info");
+		this.#panel = new OverlayPanel(t("tui.overlays.sessionInfo.panelTitle", "Session Info"));
 		this.#panel.addChild(this.#scrollView);
 		this.#panel.addChild(new PanelDivider());
 		this.#panel.addChild(this.#footer);
@@ -225,13 +226,25 @@ export class SessionInfoOverlay implements Component {
 				for (const entry of entries) {
 					if (!("k" in entry)) rest.push(text(entry.line, { wrap: "word", role: "omp.info.note" }));
 					else if (entry.k === "ID")
-						identity.unshift(identityField("ID", [span(joined(entry.v), "mono")], "id", "Copy session ID"));
+						identity.unshift(
+							identityField(
+								t("tui.overlays.sessionInfo.idLabel", "ID"),
+								[span(joined(entry.v), "mono")],
+								"id",
+								t("tui.overlays.sessionInfo.copySessionId", "Copy session ID"),
+							),
+						);
 					else if (entry.k === "File") {
 						const path = joined(entry.v);
 						identity.push(
 							path.includes("/")
-								? identityField("File", [span(path, "path")], "file", `Copy ${path}`)
-								: identityField("File", [span(path, "muted")], "file"),
+								? identityField(
+										t("tui.overlays.sessionInfo.fileLabel", "File"),
+										[span(path, "path")],
+										"file",
+										t("tui.overlays.sessionInfo.copyPath", "Copy {path}", { path }),
+									)
+								: identityField(t("tui.overlays.sessionInfo.fileLabel", "File"), [span(path, "muted")], "file"),
 						);
 					} else rest.push(node("kv", { items: [{ k: entry.k, v: entry.v }], role: "omp.info.kv" }));
 				}
@@ -269,7 +282,9 @@ export class SessionInfoOverlay implements Component {
 			);
 		}
 		flushStats();
-		body.push(actionBar([null, actionButton("Close", "close", { keys: "escape" })]));
+		body.push(
+			actionBar([null, actionButton(t("tui.overlays.sessionInfo.close", "Close"), "close", { keys: "escape" })]),
+		);
 		const described = col(body, { gap: "md" });
 		this.#nativeNode = { meter, node: described };
 		return described;
@@ -334,7 +349,10 @@ export class SessionInfoOverlay implements Component {
 	/** The context window: a head row (label, `41K / 200K`, the share) over a full-width meter. */
 	#describeContext(context: ContextUsage, meter: boolean): NativeNode {
 		const value = Math.min(1, Math.max(0, context.percent / 100));
-		const title = `${context.tokens.toLocaleString("en-US")} of ${context.contextWindow.toLocaleString("en-US")} tokens`;
+		const title = t("tui.overlays.sessionInfo.contextTitle", "{tokens} of {window} tokens", {
+			tokens: context.tokens.toLocaleString("en-US"),
+			window: context.contextWindow.toLocaleString("en-US"),
+		});
 		return node(
 			"col",
 			{ role: "omp.info.context", title },
@@ -343,7 +361,11 @@ export class SessionInfoOverlay implements Component {
 					"row",
 					{ align: "baseline", role: "omp.info.contextHead" },
 					[
-						text([span("Context window")], { grow: 1, shrink: 1, truncate: "end" }),
+						text([span(t("tui.overlays.sessionInfo.contextWindow", "Context window"))], {
+							grow: 1,
+							shrink: 1,
+							truncate: "end",
+						}),
 						text(
 							[
 								span(`${formatNumber(context.tokens)} / ${formatNumber(context.contextWindow)}`, "mono muted"),
@@ -375,7 +397,10 @@ export class SessionInfoOverlay implements Component {
 
 	render(width: number): readonly string[] {
 		const innerWidth = Math.max(1, width - 4);
-		const footerHint = `${formatKeyHints(["up", "down"])} scroll · ${editorKey("tui.select.cancel")} close`;
+		const footerHint = t("tui.overlays.sessionInfo.footerHint", "{scroll} scroll · {close} close", {
+			scroll: formatKeyHints(["up", "down"]),
+			close: editorKey("tui.select.cancel"),
+		});
 		this.#footer.setLines([theme.fg("dim", truncateToWidth(footerHint, innerWidth))]);
 
 		const maxBodyHeight = Math.max(1, this.#host.terminal.rows - PANEL_CHROME_ROWS);

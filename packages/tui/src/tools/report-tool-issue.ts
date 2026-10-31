@@ -2,15 +2,16 @@ import type { Component } from "../index";
 import type { Theme } from "../theme/theme";
 import type { NativeToolView } from "./renderer";
 import { describeDeviceCallPreview, renderDeviceCallPreview } from "./resolve";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 /** Call preview for an `xd://report_issue` write. */
 export function renderReportIssueDeviceCall(content: unknown, uiTheme: Theme): Component {
-	return renderDeviceCallPreview("Report Tool Issue", content, uiTheme);
+	return renderDeviceCallPreview(t("tui.tools.reportIssue.title", "Report Tool Issue"), content, uiTheme);
 }
 
 /** Native call preview for an `xd://report_issue` write. */
 export function describeReportIssueDeviceCall(content: unknown): NativeToolView {
-	return describeDeviceCallPreview("Report Tool Issue", content);
+	return describeDeviceCallPreview(t("tui.tools.reportIssue.title", "Report Tool Issue"), content);
 }
 
 /** Device name for automatic tool issue reports. */

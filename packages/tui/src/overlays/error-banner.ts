@@ -7,6 +7,7 @@ import type { NativeNode, NativeUiEvent } from "../native/node";
 import { node, span, text } from "../native/describe";
 import { actionButton } from "../native/overlay";
 import { plainText } from "../native/spans";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 /** Max wrapped rows of the error message shown in the pinned banner. */
 const MAX_BANNER_ROWS = 4;
@@ -48,7 +49,13 @@ export class ErrorBannerComponent extends Container {
 				0,
 			),
 		);
-		this.addChild(new Text(theme.fg("dim", "Dismissed when you send your next message."), 1, 0));
+		this.addChild(
+			new Text(
+				theme.fg("dim", t("tui.overlays.errorBanner.dismissedHint", "Dismissed when you send your next message.")),
+				1,
+				0,
+			),
+		);
 		this.addChild(new DynamicBorder(str => theme.fg("error", str)));
 	}
 
@@ -63,16 +70,23 @@ export class ErrorBannerComponent extends Container {
 			this.#message
 				.split("\n")
 				.find(line => line.trim() !== "")
-				?.trim() || "Error";
+				?.trim() || t("tui.overlays.errorBanner.error", "Error");
 		const multiline = this.#message !== headline;
 		const message = this.#expanded
 			? text([span(this.#message, "error")], { wrap: "word", grow: 1 })
 			: text([span(headline, "error")], { truncate: "end", lines: 1, grow: 1, title: this.#message });
 		const children: NativeNode[] = [message];
 		if (multiline || headline.length > 80) {
-			children.push(actionButton(this.#expanded ? "Less" : "Details", "details"));
+			children.push(
+				actionButton(
+					this.#expanded
+						? t("tui.overlays.errorBanner.less", "Less")
+						: t("tui.overlays.errorBanner.details", "Details"),
+					"details",
+				),
+			);
 		}
-		if (this.#onDismiss) children.push(actionButton("Dismiss", "dismiss"));
+		if (this.#onDismiss) children.push(actionButton(t("tui.overlays.errorBanner.dismiss", "Dismiss"), "dismiss"));
 		this.#native = node(
 			"row",
 			{ role: "omp.errorBanner", tone: "error", gap: "sm", align: this.#expanded ? "start" : "center" },

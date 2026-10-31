@@ -11,6 +11,7 @@ import { routeSelectListMouseWithTopBorder } from "../chrome/select-list-mouse-r
 import type { DescribeContext, NativeNode, NativeUiEvent } from "../native/node";
 import { SelectListSheet } from "../native/picker";
 import type { TspPickerItem } from "@oh-my-pi/pi-wire";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 export interface PluginSelectorCallbacks {
 	onSelect: (pluginName: string, marketplace: string, scope?: "user" | "project") => void;
@@ -34,7 +35,7 @@ export class PluginSelectorComponent extends OverlayPanel {
 		installedIds: Set<string>,
 		callbacks: PluginSelectorCallbacks,
 	) {
-		super("Plugins", "omp.overlay.plugins");
+		super(t("tui.overlays.pluginSelector.title", "Plugins"), "omp.overlay.plugins");
 
 		// The sheet draws version, install state and scope as badges instead of bracketed label text.
 		const badgesByValue = new Map<string, NonNullable<TspPickerItem["badges"]>>();
@@ -44,11 +45,13 @@ export class PluginSelectorComponent extends OverlayPanel {
 			const id = scope ? `${plugin.name}@${marketplace}#${scope}` : `${plugin.name}@${marketplace}`;
 			const installed = installedIds.has(`${plugin.name}@${marketplace}`);
 			const version = plugin.version ? `@${plugin.version}` : "";
-			const status = installed ? " [installed]" : "";
+			const status = installed ? t("tui.overlays.pluginSelector.installedSuffix", " [installed]") : "";
 			const scopeTag = scope ? ` [${scope}]` : "";
 			badgesByValue.set(id, [
 				...(plugin.version ? [{ text: plugin.version }] : []),
-				...(installed ? [{ text: "installed", tone: "success" as const }] : []),
+				...(installed
+					? [{ text: t("tui.overlays.pluginSelector.installed", "installed"), tone: "success" as const }]
+					: []),
 				...(scope ? [{ text: scope, tone: "accent" as const }] : []),
 			]);
 
@@ -63,11 +66,13 @@ export class PluginSelectorComponent extends OverlayPanel {
 		if (items.length === 0) {
 			items.push({
 				value: "__empty__",
-				label: "No plugins available",
+				label: t("tui.overlays.pluginSelector.emptyTitle", "No plugins available"),
 				description:
 					marketplaceCount === 0
-						? "Add a marketplace first: /marketplace add <source>"
-						: "Configured marketplaces have no plugins",
+						? t("tui.overlays.pluginSelector.emptyAddMarketplace", "Add a marketplace first: {command}", {
+								command: "/marketplace add <source>",
+							})
+						: t("tui.overlays.pluginSelector.emptyNoPlugins", "Configured marketplaces have no plugins"),
 				disabled: true,
 			});
 		}
@@ -87,10 +92,10 @@ export class PluginSelectorComponent extends OverlayPanel {
 
 		this.addChild(this.#selectList);
 		this.#sheet = new SelectListSheet(this.#selectList, {
-			title: "Plugins",
+			title: t("tui.overlays.pluginSelector.title", "Plugins"),
 			icon: "plus",
-			noun: "plugins",
-			confirm: "Install",
+			noun: t("tui.overlays.pluginSelector.noun", "plugins"),
+			confirm: t("tui.overlays.pluginSelector.install", "Install"),
 			decorate: item => {
 				const [name] = splitPluginId(item.value);
 				if (!name) return undefined;

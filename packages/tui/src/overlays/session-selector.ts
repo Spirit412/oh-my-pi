@@ -15,6 +15,7 @@ import {
 } from "../index";
 import * as path from "node:path";
 import { formatBytes, getProjectDir } from "@oh-my-pi/pi-utils";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import type { TspPickerGroup, TspPickerItem, TspSpan, TspText, TspTone } from "@oh-my-pi/pi-wire";
 import { compact, kv, md, node, span } from "../native/describe";
 import {
@@ -70,15 +71,24 @@ import { boundKeys, interruptKey } from "../chrome/keybinding-hints";
 function formatSessionStatus(status: SessionSelectorStatus | undefined): string | undefined {
 	switch (status) {
 		case "complete":
-			return theme.fg("success", `${theme.status.success} done`);
+			return theme.fg("success", `${theme.status.success} ${t("tui.overlays.sessionSelector.statusDone", "done")}`);
 		case "interrupted":
-			return theme.fg("warning", `${theme.status.warning} interrupted`);
+			return theme.fg(
+				"warning",
+				`${theme.status.warning} ${t("tui.overlays.sessionSelector.statusInterrupted", "interrupted")}`,
+			);
 		case "aborted":
-			return theme.fg("muted", `${theme.status.aborted} aborted`);
+			return theme.fg(
+				"muted",
+				`${theme.status.aborted} ${t("tui.overlays.sessionSelector.statusAborted", "aborted")}`,
+			);
 		case "error":
-			return theme.fg("error", `${theme.status.error} error`);
+			return theme.fg("error", `${theme.status.error} ${t("tui.overlays.sessionSelector.statusError", "error")}`);
 		case "pending":
-			return theme.fg("accent", `${theme.status.pending} pending`);
+			return theme.fg(
+				"accent",
+				`${theme.status.pending} ${t("tui.overlays.sessionSelector.statusPending", "pending")}`,
+			);
 		default:
 			return undefined;
 	}
@@ -88,15 +98,15 @@ function formatSessionStatus(status: SessionSelectorStatus | undefined): string 
 function sessionStatusSpan(status: SessionSelectorStatus | undefined): TspSpan | undefined {
 	switch (status) {
 		case "complete":
-			return span("done", "success");
+			return span(t("tui.overlays.sessionSelector.statusDone", "done"), "success");
 		case "interrupted":
-			return span("interrupted", "warning");
+			return span(t("tui.overlays.sessionSelector.statusInterrupted", "interrupted"), "warning");
 		case "aborted":
-			return span("aborted", "muted");
+			return span(t("tui.overlays.sessionSelector.statusAborted", "aborted"), "muted");
 		case "error":
-			return span("error", "error");
+			return span(t("tui.overlays.sessionSelector.statusError", "error"), "error");
 		case "pending":
-			return span("pending", "accent");
+			return span(t("tui.overlays.sessionSelector.statusPending", "pending"), "accent");
 		default:
 			return undefined;
 	}
@@ -130,15 +140,22 @@ const PREVIEW_EXCERPT_CHARS = 1200;
 /** The preview follows the selection once it rests this long (holding ↓ doesn't flood the wire). */
 const PREVIEW_SETTLE_MS = 60;
 const DAY_MS = 86_400_000;
-const PINNED_GROUP = { id: "pinned", label: "Pinned" };
+/** Group label for pinned sessions; resolved when the picker renders so a locale switch applies. */
+function pinnedGroup(): { id: string; label: string } {
+	return { id: "pinned", label: t("tui.overlays.sessionSelector.groupPinned", "Pinned") };
+}
 
 /** Day group of a session's last modification, relative to local midnight today. */
 function sessionDayGroup(modified: Date, startOfToday: number): { id: string; label: string } {
 	const at = modified.getTime();
-	if (at >= startOfToday) return { id: "today", label: "Today" };
-	if (at >= startOfToday - DAY_MS) return { id: "yesterday", label: "Yesterday" };
-	if (at >= startOfToday - 6 * DAY_MS) return { id: "week", label: "This week" };
-	return { id: "earlier", label: "Earlier" };
+	if (at >= startOfToday) return { id: "today", label: t("tui.overlays.sessionSelector.groupToday", "Today") };
+	if (at >= startOfToday - DAY_MS) {
+		return { id: "yesterday", label: t("tui.overlays.sessionSelector.groupYesterday", "Yesterday") };
+	}
+	if (at >= startOfToday - 6 * DAY_MS) {
+		return { id: "week", label: t("tui.overlays.sessionSelector.groupThisWeek", "This week") };
+	}
+	return { id: "earlier", label: t("tui.overlays.sessionSelector.groupEarlier", "Earlier") };
 }
 
 /** A cwd as dim-prefix / strong-tail path spans. */
@@ -172,14 +189,15 @@ function sessionPreview(session: SessionSelectorEntry, forkedFrom: string | unde
 	return compact([
 		node("text", { text: sessionLabel(session), role: "omp.picker.title" }),
 		kv([
-			["Folder", session.cwd ? cwdSpans(session.cwd) : undefined],
-			["Created", created && pickerDate(created)],
-			["Modified", pickerDate(session.modified)],
-			["Size", formatBytes(session.size)],
-			["Status", status && [status]],
-			["Forked from", forkedFrom],
+			[t("tui.overlays.sessionSelector.previewFolder", "Folder"), session.cwd ? cwdSpans(session.cwd) : undefined],
+			[t("tui.overlays.sessionSelector.previewCreated", "Created"), created && pickerDate(created)],
+			[t("tui.overlays.sessionSelector.previewModified", "Modified"), pickerDate(session.modified)],
+			[t("tui.overlays.sessionSelector.previewSize", "Size"), formatBytes(session.size)],
+			[t("tui.overlays.sessionSelector.previewStatus", "Status"), status && [status]],
+			[t("tui.overlays.sessionSelector.previewForkedFrom", "Forked from"), forkedFrom],
 		]),
-		conversation.length > 0 && node("section", { head: "Conversation" }, conversation),
+		conversation.length > 0 &&
+			node("section", { head: t("tui.overlays.sessionSelector.previewConversation", "Conversation") }, conversation),
 	]);
 }
 
@@ -194,11 +212,28 @@ function formatSessionDate(date: Date): string {
 	const diffHours = Math.floor(diffMs / 3600000);
 	const diffDays = Math.floor(diffMs / 86400000);
 
-	if (diffMins < 1) return "just now";
-	if (diffMins < 60) return `${diffMins} minute${diffMins !== 1 ? "s" : ""} ago`;
-	if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? "s" : ""} ago`;
-	if (diffDays === 1) return "1 day ago";
-	if (diffDays < 7) return `${diffDays} days ago`;
+	if (diffMins < 1) return t("tui.overlays.sessionSelector.ageJustNow", "just now");
+	if (diffMins < 60) {
+		return t(
+			"tui.overlays.sessionSelector.ageMinutes",
+			{ one: "{count} minute ago", other: "{count} minutes ago" },
+			{ count: diffMins },
+		);
+	}
+	if (diffHours < 24) {
+		return t(
+			"tui.overlays.sessionSelector.ageHours",
+			{ one: "{count} hour ago", other: "{count} hours ago" },
+			{ count: diffHours },
+		);
+	}
+	if (diffDays < 7) {
+		return t(
+			"tui.overlays.sessionSelector.ageDays",
+			{ one: "{count} day ago", other: "{count} days ago" },
+			{ count: diffDays },
+		);
+	}
 
 	const cached = localeDateCache.get(date);
 	if (cached?.time === time) return cached.text;
@@ -262,10 +297,12 @@ interface SessionPickerMessage {
 	text: string;
 }
 
-const SCOPE_TABS: readonly { id: "folder" | "all"; label: string }[] = [
-	{ id: "folder", label: "Current folder" },
-	{ id: "all", label: "All projects" },
-];
+function scopeTabs(): readonly { id: "folder" | "all"; label: string }[] {
+	return [
+		{ id: "folder", label: t("tui.overlays.sessionSelector.currentFolder", "Current folder") },
+		{ id: "all", label: t("tui.overlays.sessionSelector.allProjects", "All projects") },
+	];
+}
 
 /** Returns the IDs of sessions whose recorded prompts match a query, best first. */
 export type SessionHistoryMatcher = (query: string) => string[];
@@ -979,7 +1016,7 @@ class SessionList<T extends SessionSelectorEntry> implements Component {
 			const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
 			// Pins lead the listing (`#pinnedFirst`), so they get their own group ahead of the days.
 			const groups = visible.map(session =>
-				this.#pinnedIds.has(session.id) ? PINNED_GROUP : sessionDayGroup(session.modified, startOfToday),
+				this.#pinnedIds.has(session.id) ? pinnedGroup() : sessionDayGroup(session.modified, startOfToday),
 			);
 			for (let i = 0; i < visible.length; i++) {
 				const group = groups[i]!;
@@ -1054,9 +1091,16 @@ class SessionList<T extends SessionSelectorEntry> implements Component {
 		const title = session.title ? plainText(session.title).trim() : "";
 		const badges: { text: string; tone?: TspTone; title?: string }[] = [];
 		if (session.parentSessionPath) {
-			badges.push({ text: "fork", title: `Forked from “${this.parentLabel(session.parentSessionPath)}”` });
+			badges.push({
+				text: t("tui.overlays.sessionSelector.badgeFork", "fork"),
+				title: t("tui.overlays.sessionSelector.badgeForkTitle", "Forked from “{name}”", {
+					name: this.parentLabel(session.parentSessionPath),
+				}),
+			});
 		}
-		if (session.path === currentPath) badges.push({ text: "current", tone: "accent" });
+		if (session.path === currentPath) {
+			badges.push({ text: t("tui.overlays.sessionSelector.badgeCurrent", "current"), tone: "accent" });
+		}
 		const when = pickerDate(session.modified);
 		const detail = this.#showCwd ? (session.cwd ? cwdSpans(session.cwd) : undefined) : title ? message : undefined;
 		const dot = sessionStatusTone(session.status);
@@ -1101,7 +1145,16 @@ class SessionList<T extends SessionSelectorEntry> implements Component {
 			if (!base) continue;
 			add.push(
 				now.has(key)
-					? { ...base, badges: [...(base.badges ?? []), { text: "history", title: "Matched in prompt history" }] }
+					? {
+							...base,
+							badges: [
+								...(base.badges ?? []),
+								{
+									text: t("tui.overlays.sessionSelector.badgeHistory", "history"),
+									title: t("tui.overlays.sessionSelector.badgeHistoryTitle", "Matched in prompt history"),
+								},
+							],
+						}
 					: base,
 			);
 		}
@@ -1139,8 +1192,15 @@ class SessionList<T extends SessionSelectorEntry> implements Component {
 		const memo = this.#listNative;
 		if (memo?.items === items.items && memo.selected === selected && memo.query === query) return memo.node;
 		const empty: TspText = this.#showCwd
-			? [span("No sessions found", "muted")]
-			: [span("No sessions in current folder. Press ", "muted"), span("tab", "key"), span(" to view all.", "muted")];
+			? [span(t("tui.overlays.sessionSelector.emptyNoSessionsFound", "No sessions found"), "muted")]
+			: [
+					span(
+						t("tui.overlays.sessionSelector.emptyFolderPrefix", "No sessions in current folder. Press "),
+						"muted",
+					),
+					span("tab", "key"),
+					span(t("tui.overlays.sessionSelector.emptyFolderSuffix", " to view all."), "muted"),
+				];
 		const list = node(
 			"list",
 			{ selected: selected ?? null, filter: query.trim() || undefined, empty, virtual: true },
@@ -1172,10 +1232,10 @@ class SessionList<T extends SessionSelectorEntry> implements Component {
 			detail.push(part);
 		};
 		if (session.title && message) push(span(message, "dim"));
-		if (current) push(span("current", "accent"));
+		if (current) push(span(t("tui.overlays.sessionSelector.badgeCurrent", "current"), "accent"));
 		const status = sessionStatusSpan(session.status);
 		if (status) push(status);
-		if (session.parentSessionPath) push(span("fork", "dim"));
+		if (session.parentSessionPath) push(span(t("tui.overlays.sessionSelector.badgeFork", "fork"), "dim"));
 		if (this.#showCwd && session.cwd) push(span(shortenPath(session.cwd), "path"));
 		const item = node(
 			"item",
@@ -1206,12 +1266,26 @@ class SessionList<T extends SessionSelectorEntry> implements Component {
 
 		if (this.#menu.visibleItems.length === 0) {
 			if (this.#showCwd) {
-				lines.push(truncateToWidth(theme.fg("muted", "No sessions found"), width));
+				lines.push(
+					truncateToWidth(
+						theme.fg("muted", t("tui.overlays.sessionSelector.emptyNoSessionsFound", "No sessions found")),
+						width,
+					),
+				);
 			} else {
 				// "Current folder" scope - hint to try "all"
 				lines.push(
 					truncateToWidth(
-						theme.fg("muted", `No sessions in current folder. Press ${formatKeyHint("tab")} to view all.`),
+						theme.fg(
+							"muted",
+							t(
+								"tui.overlays.sessionSelector.emptyFolderHint",
+								"No sessions in current folder. Press {key} to view all.",
+								{
+									key: formatKeyHint("tab"),
+								},
+							),
+						),
 						width,
 					),
 				);
@@ -1284,14 +1358,14 @@ class SessionList<T extends SessionSelectorEntry> implements Component {
 			const modified = formatSessionDate(session.modified);
 			let metadata = `  ${dim(modified)} ${dot} ${dim(formatBytes(session.size))}`;
 			if (currentPath !== undefined && session.path === currentPath) {
-				metadata += ` ${dot} ${theme.fg("accent", "current")}`;
+				metadata += ` ${dot} ${theme.fg("accent", t("tui.overlays.sessionSelector.badgeCurrent", "current"))}`;
 			}
 			const status = formatSessionStatus(session.status);
 			if (status) {
 				metadata += ` ${dot} ${status}`;
 			}
 			if (session.parentSessionPath) {
-				metadata += ` ${dot} ${dim(`${theme.icon.branch} fork`)}`;
+				metadata += ` ${dot} ${dim(`${theme.icon.branch} ${t("tui.overlays.sessionSelector.badgeFork", "fork")}`)}`;
 			}
 			if (this.#showCwd && session.cwd) {
 				metadata += ` ${dot} ${dim(shortenPath(session.cwd))}`;
@@ -1315,7 +1389,7 @@ class SessionList<T extends SessionSelectorEntry> implements Component {
 			height: sessionLines.length,
 			scrollbar: "auto",
 			totalRows,
-			theme: { track: t => theme.fg("muted", t), thumb: t => theme.fg("accent", t) },
+			theme: { track: text => theme.fg("muted", text), thumb: text => theme.fg("accent", text) },
 		});
 		sv.setScrollOffset(offsetRows);
 		const sessionRegionStart = lines.length;
@@ -1557,7 +1631,7 @@ export class SessionSelectorComponent<T extends SessionSelectorEntry = SessionSe
 		onExit: () => void,
 		options: SessionSelectorOptions<T> = {},
 	) {
-		super(options.title ?? "Resume Session");
+		super(options.title ?? t("tui.overlays.sessionSelector.title", "Resume Session"));
 
 		this.#messageContainer = new Container();
 		this.#onDelete = options.onDelete;
@@ -1571,8 +1645,8 @@ export class SessionSelectorComponent<T extends SessionSelectorEntry = SessionSe
 		this.#globalSessions = options.allSessions ?? null;
 		this.#getTerminalRows = options.getTerminalRows ?? (() => 24);
 		this.#fillHeight = options.fillHeight ?? false;
-		this.#title = options.title ?? "Resume Session";
-		this.#actionLabel = options.actionLabel ?? "Resume";
+		this.#title = options.title ?? t("tui.overlays.sessionSelector.title", "Resume Session");
+		this.#actionLabel = options.actionLabel ?? t("tui.overlays.sessionSelector.actionResume", "Resume");
 		this.#pickerTitle = options.title;
 		this.#standalone = options.standalone ?? false;
 		this.#scopeLabel = options.scopeLabel;
@@ -1634,8 +1708,15 @@ export class SessionSelectorComponent<T extends SessionSelectorEntry = SessionSe
 
 	#headerLabel(): string {
 		if (this.#scopeLabel === false) return this.#title;
-		const scopeLabel = this.#scopeLabel ?? (this.#scope === "all" ? "all projects" : "current folder");
-		return `${this.#title} (${scopeLabel})`;
+		const scopeLabel =
+			this.#scopeLabel ??
+			(this.#scope === "all"
+				? t("tui.overlays.sessionSelector.scopeAllProjects", "all projects")
+				: t("tui.overlays.sessionSelector.scopeCurrentFolder", "current folder"));
+		return t("tui.overlays.sessionSelector.headerWithScope", "{title} ({scope})", {
+			title: this.#title,
+			scope: scopeLabel,
+		});
 	}
 
 	/**
@@ -1651,8 +1732,9 @@ export class SessionSelectorComponent<T extends SessionSelectorEntry = SessionSe
 				if (!this.#loadAllSessions) return;
 				this.#toggling = true;
 				this.#messageContainer.clear();
-				this.#messageContainer.addChild(new Text(theme.fg("muted", "Loading all projects…"), 0, 0));
-				this.#message = { kind: "loading", text: "Loading all projects…" };
+				const loadingText = t("tui.overlays.sessionSelector.loadingAllProjects", "Loading all projects…");
+				this.#messageContainer.addChild(new Text(theme.fg("muted", loadingText), 0, 0));
+				this.#message = { kind: "loading", text: loadingText };
 				this.#onRequestRender?.();
 				try {
 					global = await this.#loadAllSessions();
@@ -1707,14 +1789,22 @@ export class SessionSelectorComponent<T extends SessionSelectorEntry = SessionSe
 
 	#showError(message: string): void {
 		this.#messageContainer.clear();
-		this.#message = { kind: "error", text: `Error: ${plainText(message)}` };
+		this.#message = {
+			kind: "error",
+			text: t("tui.overlays.sessionSelector.errorPrefix", "Error: {message}", { message: plainText(message) }),
+		};
 		this.#pickerErrorOpen = true;
-		this.#messageContainer.addChild(new Text(theme.fg("error", `Error: ${replaceTabs(message)}`), 0, 0));
+		const errorText = t("tui.overlays.sessionSelector.errorPrefix", "Error: {message}", {
+			message: replaceTabs(message),
+		});
+		this.#messageContainer.addChild(new Text(theme.fg("error", errorText), 0, 0));
 		this.#messageContainer.addChild(new Spacer(1));
 	}
 
 	#showDeleteConfirmation(session: T): void {
 		const displayName = session.title || session.firstMessage.slice(0, 40) || session.id;
+		const yes = t("tui.overlays.sessionSelector.confirmYes", "Yes");
+		const no = t("tui.overlays.sessionSelector.confirmNo", "No");
 		const closeDialog = () => {
 			this.#confirmationDialog = null;
 			this.#deleteChoice = null;
@@ -1726,7 +1816,7 @@ export class SessionSelectorComponent<T extends SessionSelectorEntry = SessionSe
 			this.#onRequestRender?.();
 		};
 		const answer = async (option: string) => {
-			if (option === "Yes" && this.#onDelete) {
+			if (option === yes && this.#onDelete) {
 				this.#clearError();
 				try {
 					const deleted = await this.#onDelete(session);
@@ -1744,8 +1834,8 @@ export class SessionSelectorComponent<T extends SessionSelectorEntry = SessionSe
 			closeDialog();
 		};
 		this.#confirmationDialog = new HookSelectorComponent(
-			`Delete session?\n${displayName}`,
-			["Yes", "No"],
+			t("tui.overlays.sessionSelector.deleteConfirmTitle", "Delete session?\n{name}", { name: displayName }),
+			[yes, no],
 			answer,
 			closeDialog,
 		);
@@ -1754,7 +1844,7 @@ export class SessionSelectorComponent<T extends SessionSelectorEntry = SessionSe
 			confirm: () => {
 				// The strip goes at once; the dialog stays until the delete settles, as after Enter on "Yes".
 				this.#deleteChoice = null;
-				void answer("Yes");
+				void answer(yes);
 			},
 			cancel: closeDialog,
 		};
@@ -1805,7 +1895,7 @@ export class SessionSelectorComponent<T extends SessionSelectorEntry = SessionSe
 		let pending = false;
 		// This editor's own identity: a submit that settles after the user
 		// opened another editor must not close it.
-		const owner = new OverlayPanel("Rename Session");
+		const owner = new OverlayPanel(t("tui.overlays.sessionSelector.renameTitle", "Rename Session"));
 		const submit = async (value: string) => {
 			if (pending) return;
 			const title = value.trim();
@@ -1831,7 +1921,7 @@ export class SessionSelectorComponent<T extends SessionSelectorEntry = SessionSe
 					this.#syncScopeTitles(session.path, stored);
 					if (this.#preview?.session === session) this.#preview = undefined;
 				} else {
-					this.#showError("Failed to rename session.");
+					this.#showError(t("tui.overlays.sessionSelector.renameFailed", "Failed to rename session."));
 				}
 			} catch (err) {
 				this.#showError(err instanceof Error ? err.message : String(err));
@@ -1842,7 +1932,7 @@ export class SessionSelectorComponent<T extends SessionSelectorEntry = SessionSe
 		};
 		const field = new TextFormField({
 			theme: formTheme,
-			label: "Rename session",
+			label: t("tui.overlays.sessionSelector.renameFieldLabel", "Rename session"),
 			initialValue: session.title ?? "",
 			empty: "cancel",
 			onSubmit: value => {
@@ -1907,23 +1997,36 @@ export class SessionSelectorComponent<T extends SessionSelectorEntry = SessionSe
 	}
 
 	/** The pin action that applies to the selected session: unpin when it is pinned, else pin. */
-	#pinAction(): { binding: "app.session.pin" | "app.session.unpin"; label: string } | undefined {
+	#pinAction():
+		| { binding: "app.session.pin" | "app.session.unpin"; action: "pin" | "unpin"; label: string }
+		| undefined {
 		if (!this.#onSetPinned) return undefined;
 		return this.#sessionList.selectedPinned
-			? { binding: "app.session.unpin", label: "unpin" }
-			: { binding: "app.session.pin", label: "pin" };
+			? {
+					binding: "app.session.unpin",
+					action: "unpin",
+					label: t("tui.overlays.sessionSelector.unpinHint", "unpin"),
+				}
+			: {
+					binding: "app.session.pin",
+					action: "pin",
+					label: t("tui.overlays.sessionSelector.pinHint", "pin"),
+				};
 	}
 
 	/** Blank · keybinding hint · bottom border. Rendered by {@link render}. */
 	#footerLines(width: number): string[] {
-		const scopeHint = this.#scope === "all" ? "current folder" : "all projects";
+		const scopeHint =
+			this.#scope === "all"
+				? t("tui.overlays.sessionSelector.scopeCurrentFolder", "current folder")
+				: t("tui.overlays.sessionSelector.scopeAllProjects", "all projects");
 		// Keys mirror SessionList#handleInput; cancel is `app.interrupt` (raw Escape when unbound).
 		const cancel = interruptKey();
 		const pin = this.#pinAction();
 		const pinKey = pin && getKeybindings().getKeys(pin.binding)[0];
 		const hint = theme.fg(
 			"muted",
-			`[${this.#onDelete ? `${formatKeyHints(["delete", "backspace"])} delete · ` : ""}${this.#onRename ? `${formatKeyHint("f2")} rename · ` : ""}${pinKey ? `${formatKeyHint(pinKey)} ${pin.label} · ` : ""}${formatKeyHint("enter")} select · ${formatKeyHint("tab")} ${scopeHint} · ${cancel} cancel]`,
+			`[${this.#onDelete ? `${formatKeyHints(["delete", "backspace"])} ${t("tui.overlays.sessionSelector.hintDelete", "delete")} · ` : ""}${this.#onRename ? `${formatKeyHint("f2")} ${t("tui.overlays.sessionSelector.hintRename", "rename")} · ` : ""}${pinKey ? `${formatKeyHint(pinKey)} ${pin.label} · ` : ""}${formatKeyHint("enter")} ${t("tui.overlays.sessionSelector.hintSelect", "select")} · ${formatKeyHint("tab")} ${scopeHint} · ${cancel} ${t("tui.overlays.sessionSelector.hintCancel", "cancel")}]`,
 		);
 		return [row("", width), row(hint, width), row("", width), bottomBorder(width)];
 	}
@@ -1967,7 +2070,7 @@ export class SessionSelectorComponent<T extends SessionSelectorEntry = SessionSe
 		}
 		const tabs = this.#hasScopeTabs();
 		const children: NativeChild[] = [];
-		if (tabs) children.push(node("tabs", { items: SCOPE_TABS, active: this.#scope }, undefined, "scope"));
+		if (tabs) children.push(node("tabs", { items: scopeTabs(), active: this.#scope }, undefined, "scope"));
 		const message = this.#message;
 		if (message?.kind === "loading") {
 			children.push(node("spinner", { label: [span(message.text, "muted")] }, undefined, "message"));
@@ -1980,15 +2083,25 @@ export class SessionSelectorComponent<T extends SessionSelectorEntry = SessionSe
 			children.push(this.#sessionList.searchInput, list);
 		}
 		const hints: (NativeHint | undefined)[] = [];
-		if (this.#onDelete) hints.push({ keys: ["delete", "backspace"], label: "delete" });
-		if (this.#onRename) hints.push({ keys: ["f2"], label: "rename" });
+		if (this.#onDelete)
+			hints.push({ keys: ["delete", "backspace"], label: t("tui.overlays.sessionSelector.hintDelete", "delete") });
+		if (this.#onRename) hints.push({ keys: ["f2"], label: t("tui.overlays.sessionSelector.hintRename", "rename") });
 		const pin = this.#pinAction();
 		if (pin) hints.push(actionHint(pin.binding, pin.label));
-		hints.push({ keys: ["enter"], label: "select" });
+		hints.push({ keys: ["enter"], label: t("tui.overlays.sessionSelector.hintSelect", "select") });
 		if (this.#sessionList.onToggleScope) {
-			hints.push({ keys: ["tab"], label: this.#scope === "all" ? "current folder" : "all projects" });
+			hints.push({
+				keys: ["tab"],
+				label:
+					this.#scope === "all"
+						? t("tui.overlays.sessionSelector.scopeCurrentFolder", "current folder")
+						: t("tui.overlays.sessionSelector.scopeAllProjects", "all projects"),
+			});
 		}
-		hints.push({ keys: [boundKeys("app.interrupt", ["escape"])[0] ?? "escape"], label: "cancel" });
+		hints.push({
+			keys: [boundKeys("app.interrupt", ["escape"])[0] ?? "escape"],
+			label: t("tui.overlays.sessionSelector.hintCancel", "cancel"),
+		});
 		const result = overlayCard("omp.overlay.sessions", tabs ? this.#title : this.title, [
 			...children,
 			hintsRow(hints),
@@ -2035,29 +2148,56 @@ export class SessionSelectorComponent<T extends SessionSelectorEntry = SessionSe
 		const loading = message?.kind === "loading";
 		const toggle = list.onToggleScope !== undefined;
 		const actions = [pickerAction("resume", this.#actionLabel, "enter", { primary: true })];
-		if (this.#onDelete) actions.push(pickerAction("delete", "Delete", "backspace"));
-		if (this.#onRename) actions.push(pickerAction("rename", "Rename", "f2"));
+		if (this.#onDelete) {
+			actions.push(pickerAction("delete", t("tui.overlays.sessionSelector.actionDelete", "Delete"), "backspace"));
+		}
+		if (this.#onRename) {
+			actions.push(pickerAction("rename", t("tui.overlays.sessionSelector.actionRename", "Rename"), "f2"));
+		}
 		const pin = this.#pinAction();
-		if (pin) actions.push(pickerAction("pin", pin.label === "pin" ? "Pin" : "Unpin", bindingKeys(pin.binding)));
+		if (pin) {
+			actions.push(
+				pickerAction(
+					"pin",
+					pin.action === "pin"
+						? t("tui.overlays.sessionSelector.pinAction", "Pin")
+						: t("tui.overlays.sessionSelector.unpinAction", "Unpin"),
+					bindingKeys(pin.binding),
+				),
+			);
+		}
 		if (toggle) {
-			actions.push(pickerAction("scope", this.#scope === "all" ? "This folder" : "All projects", "tab"));
+			actions.push(
+				pickerAction(
+					"scope",
+					this.#scope === "all"
+						? t("tui.overlays.sessionSelector.actionThisFolder", "This folder")
+						: t("tui.overlays.sessionSelector.allProjects", "All projects"),
+					"tab",
+				),
+			);
 		}
 		actions.push(
-			pickerAction("close", "Close", boundKeys("app.interrupt", ["escape"])[0] ?? "escape", { end: true }),
+			pickerAction(
+				"close",
+				t("tui.overlays.sessionSelector.actionClose", "Close"),
+				boundKeys("app.interrupt", ["escape"])[0] ?? "escape",
+				{ end: true },
+			),
 		);
 		const folder = this.#scopeLabel === false ? undefined : (this.#scopeLabel ?? path.basename(getProjectDir()));
 		const title = this.#pickerTitle;
 		const placeholder =
 			loading || this.#scope === "all"
-				? "Search all sessions…"
+				? t("tui.overlays.sessionSelector.searchAllSessions", "Search all sessions…")
 				: folder && !title
-					? `Search sessions in ${folder}…`
-					: "Search sessions…";
+					? t("tui.overlays.sessionSelector.searchSessionsIn", "Search sessions in {folder}…", { folder })
+					: t("tui.overlays.sessionSelector.searchSessions", "Search sessions…");
 		const result = picker(
 			{
 				...(title ? { title, ...(folder ? { subtitle: folder } : {}) } : {}),
 				icon: "history",
-				noun: "sessions",
+				noun: t("tui.overlays.sessionSelector.nounSessions", "sessions"),
 				size: this.#standalone ? "screen" : "lg",
 				layout: "cards",
 				preview: "side",
@@ -2078,12 +2218,19 @@ export class SessionSelectorComponent<T extends SessionSelectorEntry = SessionSe
 				actions,
 				state: loading ? "loading" : errorOpen ? "error" : "ready",
 				...(loading || errorOpen ? { message: message!.text } : {}),
-				empty: this.#scope === "all" || !toggle ? "No sessions yet" : "No sessions in this folder yet",
+				empty:
+					this.#scope === "all" || !toggle
+						? t("tui.overlays.sessionSelector.emptyNoSessionsYet", "No sessions yet")
+						: t("tui.overlays.sessionSelector.emptyNoSessionsInFolderYet", "No sessions in this folder yet"),
 				confirm: choice
 					? {
-							text: `Delete “${sessionLabel(choice.session)}”? This removes the session file.`,
+							text: t(
+								"tui.overlays.sessionSelector.deleteConfirm",
+								"Delete “{name}”? This removes the session file.",
+								{ name: sessionLabel(choice.session) },
+							),
 							act: "delete-confirm",
-							label: "Delete",
+							label: t("tui.overlays.sessionSelector.actionDelete", "Delete"),
 						}
 					: null,
 			},

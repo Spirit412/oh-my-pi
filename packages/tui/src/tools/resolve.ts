@@ -17,6 +17,7 @@ import { Ellipsis, padToWidth, renderStatusLine, truncateToWidth } from "../rend
 
 import { replaceTabs } from "../render/render-utils";
 
+import { t } from "@oh-my-pi/pi-utils/i18n";
 /** Device name for applying a staged action. */
 export const RESOLVE_DEVICE_NAME = "resolve";
 
@@ -97,7 +98,10 @@ export const resolveRenderer = {
 				title: "Resolve",
 				description: args.action,
 				badge: {
-					label: args.action === "apply" ? "proposed -> resolved" : "proposed -> rejected",
+					label:
+						args.action === "apply"
+							? t("tui.tools.resolve.proposedResolved", "proposed -> resolved")
+							: t("tui.tools.resolve.proposedRejected", "proposed -> rejected"),
 					color: args.action === "apply" ? "success" : "warning",
 				},
 				meta: reason ? [uiTheme.fg("muted", reason)] : undefined,
@@ -113,8 +117,8 @@ export const resolveRenderer = {
 		uiTheme: Theme,
 	): Component {
 		const details = result.details;
-		const label = replaceTabs(details?.label ?? "pending action");
-		const reason = replaceTabs(details?.reason?.trim() || "No reason provided");
+		const label = replaceTabs(details?.label ?? t("tui.tools.resolve.pendingAction", "pending action"));
+		const reason = replaceTabs(details?.reason?.trim() || t("tui.tools.resolve.noReason", "No reason provided"));
 		const action = details?.action ?? "apply";
 		const isApply = action === "apply" && !result.isError;
 		const isFailedApply = action === "apply" && result.isError;
@@ -123,7 +127,11 @@ export const resolveRenderer = {
 		// reset (styledSymbol/status glyphs carry their own \x1b[39m) would drop the
 		// inverse block back to the default background mid-line.
 		const icon = uiTheme.symbol(isApply ? "tool.resolve" : "status.error");
-		const verb = isApply ? "Accept" : isFailedApply ? "Failed" : "Discard";
+		const verb = isApply
+			? t("tui.tools.resolve.accept", "Accept")
+			: isFailedApply
+				? t("tui.tools.resolve.failed", "Failed")
+				: t("tui.tools.resolve.discard", "Discard");
 		const separator = ": ";
 		const separatorIndex = label.indexOf(separator);
 		const sourceLabel = separatorIndex > 0 ? label.slice(0, separatorIndex).trim() : undefined;
@@ -155,7 +163,9 @@ export const resolveRenderer = {
 			head.push(
 				span(" "),
 				span(
-					args.action === "apply" ? "proposed → resolved" : "proposed → rejected",
+					args.action === "apply"
+						? t("tui.tools.resolve.proposedResolvedArrow", "proposed → resolved")
+						: t("tui.tools.resolve.proposedRejectedArrow", "proposed → rejected"),
 					args.action === "apply" ? "success" : "warning",
 				),
 			);
@@ -171,11 +181,15 @@ export const resolveRenderer = {
 	}): NativeToolView | undefined {
 		return resolveResultMemo.get(result, [], () => {
 			const details = result.details;
-			const label = plainText(details?.label ?? "pending action");
-			const reason = plainText(details?.reason?.trim() || "No reason provided");
+			const label = plainText(details?.label ?? t("tui.tools.resolve.pendingAction", "pending action"));
+			const reason = plainText(details?.reason?.trim() || t("tui.tools.resolve.noReason", "No reason provided"));
 			const action = details?.action ?? "apply";
 			const isApply = action === "apply" && !result.isError;
-			const verb = isApply ? "Accept" : action === "apply" ? "Failed" : "Discard";
+			const verb = isApply
+				? t("tui.tools.resolve.accept", "Accept")
+				: action === "apply"
+					? t("tui.tools.resolve.failed", "Failed")
+					: t("tui.tools.resolve.discard", "Discard");
 			const tone = result.isError ? "error" : isApply ? "success" : "warning";
 			const separatorIndex = label.indexOf(": ");
 			const sourceLabel = separatorIndex > 0 ? label.slice(0, separatorIndex).trim() : undefined;

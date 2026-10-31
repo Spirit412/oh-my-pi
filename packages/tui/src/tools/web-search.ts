@@ -1,4 +1,5 @@
 import type { NativeToolView, ToolRenderer, ToolRenderResult } from "./renderer";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 /**
  * Web Search TUI Rendering
  *
@@ -40,10 +41,10 @@ function renderFallbackText(contentText: string, expanded: boolean, theme: Theme
 
 	const headerIcon = formatStatusIcon("warning", theme);
 	const expandHint = formatExpandHint(theme, expanded, remaining > 0);
-	let text = `${headerIcon} ${theme.fg("dim", "Response")}${expandHint}`;
+	let text = `${headerIcon} ${theme.fg("dim", t("tui.tools.webSearch.response", "Response"))}${expandHint}`;
 
 	if (displayLines.length === 0) {
-		text += `\n ${theme.fg("dim", theme.tree.last)} ${theme.fg("muted", "No response data")}`;
+		text += `\n ${theme.fg("dim", theme.tree.last)} ${theme.fg("muted", t("tui.tools.webSearch.noResponseData", "No response data"))}`;
 		return new Text(text, 0, 0);
 	}
 
@@ -69,7 +70,10 @@ export interface SearchRenderDetails {
 /** Render a web search failure as a framed error panel, matching the success layout. */
 function renderSearchErrorPanel(message: string, providerLabel: string | undefined, theme: Theme): Component {
 	const header = renderStatusLine({ icon: "error", title: "Web Search", description: providerLabel }, theme);
-	const body = theme.fg("error", `Error: ${replaceTabs(message)}`);
+	const body = theme.fg(
+		"error",
+		t("tui.tools.webSearch.error", "Error: {message}", { message: replaceTabs(message) }),
+	);
 	return framedToolCard(theme, () => ({
 		header,
 		phase: "error",
@@ -114,7 +118,8 @@ export function renderSearchResult(
 	const answerText = typeof response.answer === "string" ? response.answer.trim() : "";
 	const contentText = answerText || rawText;
 
-	const providerLabel = provider !== "none" ? getSearchProviderLabel(provider) : "None";
+	const providerLabel =
+		provider !== "none" ? getSearchProviderLabel(provider) : t("tui.tools.webSearch.providerNone", "None");
 	const queryPreview = args?.query
 		? truncateToWidth(args.query, 80)
 		: searchQueries[0]
@@ -142,15 +147,25 @@ export function renderSearchResult(
 		response.authMode === "oauth" ? "OAuth" : response.authMode === "api_key" ? "API" : response.authMode;
 	let providerInfo = response.model ? `${response.model} @ ${providerLabel}` : providerLabel;
 	if (authShort) providerInfo += ` (${authShort})`;
-	const metaLines: string[] = [`${theme.fg("muted", "Provider:")} ${theme.fg("text", providerInfo)}`];
+	const metaLines: string[] = [
+		`${theme.fg("muted", t("tui.tools.webSearch.providerLabel", "Provider:"))} ${theme.fg("text", providerInfo)}`,
+	];
 	if (response.usage) {
 		const usageParts: string[] = [];
-		if (response.usage.inputTokens !== undefined) usageParts.push(`in ${response.usage.inputTokens}`);
-		if (response.usage.outputTokens !== undefined) usageParts.push(`out ${response.usage.outputTokens}`);
-		if (response.usage.totalTokens !== undefined) usageParts.push(`total ${response.usage.totalTokens}`);
-		if (response.usage.searchRequests !== undefined) usageParts.push(`search ${response.usage.searchRequests}`);
+		if (response.usage.inputTokens !== undefined)
+			usageParts.push(t("tui.tools.webSearch.usageIn", "in {count}", { count: response.usage.inputTokens }));
+		if (response.usage.outputTokens !== undefined)
+			usageParts.push(t("tui.tools.webSearch.usageOut", "out {count}", { count: response.usage.outputTokens }));
+		if (response.usage.totalTokens !== undefined)
+			usageParts.push(t("tui.tools.webSearch.usageTotal", "total {count}", { count: response.usage.totalTokens }));
+		if (response.usage.searchRequests !== undefined)
+			usageParts.push(
+				t("tui.tools.webSearch.usageSearch", "search {count}", { count: response.usage.searchRequests }),
+			);
 		if (usageParts.length > 0)
-			metaLines.push(`${theme.fg("muted", "Usage:")} ${theme.fg("text", usageParts.join(theme.sep.dot))}`);
+			metaLines.push(
+				`${theme.fg("muted", t("tui.tools.webSearch.usageLabel", "Usage:"))} ${theme.fg("text", usageParts.join(theme.sep.dot))}`,
+			);
 	}
 
 	const answerMarkdown = contentText ? new Markdown(contentText, 0, 0, getMarkdownTheme()) : undefined;
@@ -163,7 +178,7 @@ export function renderSearchResult(
 		const renderedAnswer = answerMarkdown ? answerMarkdown.render(contentWidth) : [];
 		let answerLines: readonly string[];
 		if (renderedAnswer.length === 0) {
-			answerLines = [theme.fg("muted", "No answer text returned")];
+			answerLines = [theme.fg("muted", t("tui.tools.webSearch.noAnswer", "No answer text returned"))];
 		} else if (args?.maxAnswerLines !== undefined && !expanded) {
 			// CLI compact mode (`omp q`) caps the answer; the TUI passes no cap and shows it in full.
 			// `renderedAnswer` is the Markdown component's shared cache — slice copies before appending.
@@ -189,7 +204,7 @@ export function renderSearchResult(
 							? src.title
 							: typeof src.url === "string" && src.url.trim()
 								? src.url
-								: "Untitled";
+								: t("tui.tools.webSearch.untitled", "Untitled");
 					const url = typeof src.url === "string" ? src.url : "";
 					const domain = url ? getDomain(url) : "";
 					const age =
@@ -218,19 +233,27 @@ export function renderSearchResult(
 				...(queryPreview
 					? [
 							{
-								content: [`${theme.fg("muted", "Query:")} ${theme.fg("text", queryPreview)}`],
+								content: [
+									`${theme.fg("muted", t("tui.tools.webSearch.queryLabel", "Query:"))} ${theme.fg("text", queryPreview)}`,
+								],
 							},
 						]
 					: []),
 				{
-					label: theme.fg("toolTitle", "Answer"),
+					label: theme.fg("toolTitle", t("tui.tools.webSearch.answerLabel", "Answer")),
 					content: answerLines,
 				},
 				{
-					label: theme.fg("toolTitle", "Sources"),
-					content: sourceTree.length > 0 ? sourceTree : [theme.fg("muted", "No sources returned")],
+					label: theme.fg("toolTitle", t("tui.tools.webSearch.sourcesLabel", "Sources")),
+					content:
+						sourceTree.length > 0
+							? sourceTree
+							: [theme.fg("muted", t("tui.tools.webSearch.noSources", "No sources returned"))],
 				},
-				{ label: theme.fg("toolTitle", "Metadata"), content: metaLines },
+				{
+					label: theme.fg("toolTitle", t("tui.tools.webSearch.metadataLabel", "Metadata")),
+					content: metaLines,
+				},
 			],
 		};
 	});
@@ -264,7 +287,12 @@ function searchHead(query: string | undefined, meta?: string, badge?: { text: st
 /** One cited source row: domain-initial mark, linked title, muted `domain · age`. */
 function sourceRow(src: SearchResponse["sources"][number], index: number): NativeChild {
 	const url = typeof src.url === "string" ? src.url : "";
-	const title = typeof src.title === "string" && src.title.trim() ? src.title : url.trim() ? url : "Untitled";
+	const title =
+		typeof src.title === "string" && src.title.trim()
+			? src.title
+			: url.trim()
+				? url
+				: t("tui.tools.webSearch.untitled", "Untitled");
 	const domain = url ? getDomain(url) : "";
 	const age =
 		formatAge(src.ageSeconds).replace(/ ago$/, "") ||
@@ -295,7 +323,7 @@ function describeSearchResult(
 		return {
 			tool: searchHead(argQuery, label),
 			tone: "error",
-			body: [errorText(plainText(details.error).trim() || "Web search failed")],
+			body: [errorText(plainText(details.error).trim() || t("tui.tools.webSearch.failed", "Web search failed"))],
 		};
 	}
 
@@ -305,7 +333,7 @@ function describeSearchResult(
 		return {
 			tool: searchHead(argQuery),
 			tone: "warning",
-			body: [noteText(rawText || "No response data")],
+			body: [noteText(rawText || t("tui.tools.webSearch.noResponseData", "No response data"))],
 		};
 	}
 
@@ -313,7 +341,10 @@ function describeSearchResult(
 	const searchQueries = Array.isArray(response.searchQueries)
 		? response.searchQueries.filter(entry => typeof entry === "string")
 		: [];
-	const providerLabel = response.provider !== "none" ? getSearchProviderLabel(response.provider) : "None";
+	const providerLabel =
+		response.provider !== "none"
+			? getSearchProviderLabel(response.provider)
+			: t("tui.tools.webSearch.providerNone", "None");
 	const query = argQuery || searchQueries[0];
 	const answer = (typeof response.answer === "string" ? response.answer.trim() : "") || rawText;
 
@@ -323,10 +354,14 @@ function describeSearchResult(
 	if (authShort) providerInfo += ` (${authShort})`;
 	const usage = response.usage;
 	const usageParts: string[] = [];
-	if (usage?.inputTokens !== undefined) usageParts.push(`in ${usage.inputTokens}`);
-	if (usage?.outputTokens !== undefined) usageParts.push(`out ${usage.outputTokens}`);
-	if (usage?.totalTokens !== undefined) usageParts.push(`total ${usage.totalTokens}`);
-	if (usage?.searchRequests !== undefined) usageParts.push(`search ${usage.searchRequests}`);
+	if (usage?.inputTokens !== undefined)
+		usageParts.push(t("tui.tools.webSearch.usageIn", "in {count}", { count: usage.inputTokens }));
+	if (usage?.outputTokens !== undefined)
+		usageParts.push(t("tui.tools.webSearch.usageOut", "out {count}", { count: usage.outputTokens }));
+	if (usage?.totalTokens !== undefined)
+		usageParts.push(t("tui.tools.webSearch.usageTotal", "total {count}", { count: usage.totalTokens }));
+	if (usage?.searchRequests !== undefined)
+		usageParts.push(t("tui.tools.webSearch.usageSearch", "search {count}", { count: usage.searchRequests }));
 	const tooltip = plainText([providerInfo, usageParts.join(" · ")].filter(Boolean).join("\n"));
 	const badge = response.model ? { text: plainText(response.model), title: tooltip } : undefined;
 
@@ -334,10 +369,12 @@ function describeSearchResult(
 		tool: searchHead(query, `${providerLabel} · ${formatCount("source", sources.length)}`, badge),
 		tone: sources.length > 0 ? undefined : "warning",
 		body: compact([
-			answer ? { ...md(plainText(answer), { title: tooltip }), key: "answer" } : noteText("No answer text returned"),
+			answer
+				? { ...md(plainText(answer), { title: tooltip }), key: "answer" }
+				: noteText(t("tui.tools.webSearch.noAnswer", "No answer text returned")),
 			sources.length > 0
 				? node("col", { role: "omp.tool.files" }, sources.map(sourceRow), "sources")
-				: noteText("No sources returned"),
+				: noteText(t("tui.tools.webSearch.noSources", "No sources returned")),
 		]),
 	};
 }

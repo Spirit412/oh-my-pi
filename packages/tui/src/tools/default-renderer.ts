@@ -1,5 +1,6 @@
 import type { Component } from "../index";
 import { isRecord } from "@oh-my-pi/pi-utils";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import type { NativeToolHead, NativeToolView, RenderResultOptions } from "./renderer";
 import { ansi } from "../native/describe";
 import { noteText } from "./native-view";
@@ -83,7 +84,7 @@ function buildDefaultToolBody(input: DefaultToolRenderInput, uiTheme: Theme, con
 
 	if (options.expanded && input.args !== undefined) {
 		body.push("");
-		body.push(uiTheme.fg("dim", "Args"));
+		body.push(uiTheme.fg("dim", t("tui.tools.default.args", "Args")));
 		const tree = renderJsonTreeLines(
 			input.args,
 			uiTheme,
@@ -101,7 +102,7 @@ function buildDefaultToolBody(input: DefaultToolRenderInput, uiTheme: Theme, con
 	if (result) {
 		const textContent = result.output.trimEnd();
 		if (!textContent) {
-			body.push(uiTheme.fg("dim", "(no output)"));
+			body.push(uiTheme.fg("dim", t("tui.tools.default.noOutput", "(no output)")));
 		} else {
 			let renderedAsJson = false;
 			if (isTreeSafeJson(textContent)) {
@@ -204,7 +205,7 @@ export function describeDefaultToolExecution(input: DefaultToolRenderInput): Nat
 	if (!result) return { tool };
 	const output = result.output.trimEnd();
 	const tone = result.skipped ? "info" : result.isError ? "error" : undefined;
-	if (!output) return { tool, tone, body: [noteText("(no output)")] };
+	if (!output) return { tool, tone, body: [noteText(t("tui.tools.default.noOutput", "(no output)"))] };
 	if (isTreeSafeJson(output)) {
 		let parsed: unknown;
 		try {

@@ -1,6 +1,7 @@
 import type { Component } from "../index";
 import { Markdown, Text } from "../index";
 import { sanitizeText } from "@oh-my-pi/pi-utils";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import type {
 	NativeToolHead,
 	NativeToolView,
@@ -428,55 +429,92 @@ function formatStatusEvent(event: EvalStatusEvent, theme: Theme): string {
 			break;
 		}
 		case "read":
-			parts.push(`${data.chars ?? data.bytes ?? 0} chars`);
-			if (data.path) parts.push(`from ${shortenPath(String(data.path))}`);
+			parts.push(t("tui.tools.eval.chars", "{count} chars", { count: String(data.chars ?? data.bytes ?? 0) }));
+			if (data.path)
+				parts.push(t("tui.tools.eval.fromPath", "from {path}", { path: shortenPath(String(data.path)) }));
 			break;
 		case "write":
-			parts.push(`${data.chars ?? data.bytes ?? 0} chars`);
-			if (data.path) parts.push(`to ${shortenPath(String(data.path))}`);
+			parts.push(t("tui.tools.eval.chars", "{count} chars", { count: String(data.chars ?? data.bytes ?? 0) }));
+			if (data.path) parts.push(t("tui.tools.eval.toPath", "to {path}", { path: shortenPath(String(data.path)) }));
 			break;
 		case "cat":
-			parts.push(`${data.files} file${(data.files as number) !== 1 ? "s" : ""}`);
-			parts.push(`${data.chars} chars`);
+			parts.push(
+				t("tui.tools.eval.files", { one: "{count} file", other: "{count} files" }, { count: String(data.files) }),
+			);
+			parts.push(t("tui.tools.eval.chars", "{count} chars", { count: String(data.chars) }));
 			break;
 		case "ls":
-			parts.push(`${data.count} entr${(data.count as number) !== 1 ? "ies" : "y"}`);
+			parts.push(
+				t(
+					"tui.tools.eval.entries",
+					{ one: "{count} entry", other: "{count} entries" },
+					{ count: String(data.count) },
+				),
+			);
 			break;
 		case "env":
 			if (data.action === "set") {
-				parts.push(`set ${data.key}=${truncateToWidth(String(data.value ?? ""), 30)}`);
+				parts.push(
+					t("tui.tools.eval.setEnv", "set {key}={value}", {
+						key: String(data.key),
+						value: truncateToWidth(String(data.value ?? ""), 30),
+					}),
+				);
 			} else if (data.action === "get") {
 				parts.push(`${data.key}=${truncateToWidth(String(data.value ?? ""), 30)}`);
 			} else {
-				parts.push(`${data.count} variable${(data.count as number) !== 1 ? "s" : ""}`);
+				parts.push(
+					t(
+						"tui.tools.eval.variables",
+						{ one: "{count} variable", other: "{count} variables" },
+						{ count: String(data.count) },
+					),
+				);
 			}
 			break;
 		case "git_status":
 			if (data.clean) {
-				parts.push("clean");
+				parts.push(t("tui.tools.eval.clean", "clean"));
 			} else {
 				const statusParts: string[] = [];
-				if (data.staged) statusParts.push(`${data.staged} staged`);
-				if (data.modified) statusParts.push(`${data.modified} modified`);
-				if (data.untracked) statusParts.push(`${data.untracked} untracked`);
-				parts.push(statusParts.join(", ") || "unknown");
+				if (data.staged)
+					statusParts.push(t("tui.tools.eval.staged", "{count} staged", { count: String(data.staged) }));
+				if (data.modified)
+					statusParts.push(t("tui.tools.eval.modified", "{count} modified", { count: String(data.modified) }));
+				if (data.untracked)
+					statusParts.push(t("tui.tools.eval.untracked", "{count} untracked", { count: String(data.untracked) }));
+				parts.push(statusParts.join(", ") || t("tui.tools.eval.unknown", "unknown"));
 			}
-			if (data.branch) parts.push(`on ${data.branch}`);
+			if (data.branch) parts.push(t("tui.tools.eval.onBranch", "on {branch}", { branch: String(data.branch) }));
 			break;
 		case "git_log":
-			parts.push(`${data.commits} commit${(data.commits as number) !== 1 ? "s" : ""}`);
+			parts.push(
+				t(
+					"tui.tools.eval.commits",
+					{ one: "{count} commit", other: "{count} commits" },
+					{ count: String(data.commits) },
+				),
+			);
 			break;
 		case "git_diff":
-			parts.push(`${data.lines} line${(data.lines as number) !== 1 ? "s" : ""}`);
-			if (data.staged) parts.push("(staged)");
+			parts.push(
+				t("tui.tools.eval.lines", { one: "{count} line", other: "{count} lines" }, { count: String(data.lines) }),
+			);
+			if (data.staged) parts.push(t("tui.tools.eval.stagedSuffix", "(staged)"));
 			break;
 		case "batch":
-			parts.push(`${data.files} file${(data.files as number) !== 1 ? "s" : ""} processed`);
+			parts.push(
+				t(
+					"tui.tools.eval.filesProcessed",
+					{ one: "{count} file processed", other: "{count} files processed" },
+					{ count: String(data.files) },
+				),
+			);
 			break;
 		case "completion":
 			if (data.model) parts.push(String(data.model));
 			if (data.tier && data.tier !== data.model) parts.push(`(${data.tier})`);
-			parts.push(`${data.chars ?? 0} chars`);
+			parts.push(t("tui.tools.eval.chars", "{count} chars", { count: String(data.chars ?? 0) }));
 			break;
 		case "tool_define":
 			parts.push(`${data.name}(${(Array.isArray(data.params) ? data.params : []).join(", ")})`);
@@ -484,13 +522,17 @@ function formatStatusEvent(event: EvalStatusEvent, theme: Theme): string {
 		case "workpool":
 			parts.push(`${data.action} ${data.pool}`);
 			if (data.count !== undefined) {
-				parts.push(data.action === "create" ? `${data.count} agent(s)` : `${data.count} item(s)`);
+				parts.push(
+					data.action === "create"
+						? t("tui.tools.eval.workpoolAgents", "{count} agent(s)", { count: String(data.count) })
+						: t("tui.tools.eval.workpoolItems", "{count} item(s)", { count: String(data.count) }),
+				);
 			}
 			break;
 		case "judge_batch":
 			parts.push(`${data.action} ${data.id}`);
 			parts.push(`${data.done ?? 0}/${data.total ?? 0}`);
-			if (data.failed) parts.push(`${data.failed} failed`);
+			if (data.failed) parts.push(t("tui.tools.eval.failedCount", "{count} failed", { count: String(data.failed) }));
 			if (data.model) parts.push(String(data.model));
 			break;
 		case "wc":
@@ -537,7 +579,7 @@ function formatStatusEventExpanded(event: EvalStatusEvent, theme: Theme): string
 			lines.push(`   ${theme.fg("dim", formatter(arr[i]))}`);
 		}
 		if (arr.length > max) {
-			lines.push(`   ${theme.fg("dim", `… ${arr.length - max} more`)}`);
+			lines.push(`   ${theme.fg("dim", t("tui.tools.eval.more", "… {count} more", { count: arr.length - max }))}`);
 		}
 	};
 
@@ -547,7 +589,9 @@ function formatStatusEventExpanded(event: EvalStatusEvent, theme: Theme): string
 			lines.push(`   ${theme.fg("toolOutput", truncateToWidth(replaceTabs(line), 80))}`);
 		}
 		if (previewLines.hidden > 0) {
-			lines.push(`   ${theme.fg("dim", `… ${previewLines.hidden} more lines`)}`);
+			lines.push(
+				`   ${theme.fg("dim", t("tui.tools.eval.moreLines", { one: "… {count} more line", other: "… {count} more lines" }, { count: previewLines.hidden }))}`,
+			);
 		}
 	};
 
@@ -603,7 +647,9 @@ function renderStatusEvents(events: EvalStatusEvent[], theme: Theme, expanded: b
 	const lines: string[] = [];
 	if (hidden > 0) {
 		const glyph = visible.length > 0 ? theme.tree.branch : theme.tree.last;
-		lines.push(`${theme.fg("dim", glyph)} ${theme.fg("dim", `… ${hidden} earlier`)}`);
+		lines.push(
+			`${theme.fg("dim", glyph)} ${theme.fg("dim", t("tui.tools.eval.earlier", "… {count} earlier", { count: hidden }))}`,
+		);
 	}
 	for (let i = 0; i < visible.length; i++) {
 		const isLast = i === visible.length - 1;
@@ -758,12 +804,18 @@ function evalToolHead(
 ): NativeToolHead {
 	const badges: { text: string; title?: string }[] = [...new Set(languages)].map(language => ({ text: language }));
 	if (details?.async?.state === "running") {
-		badges.push({ text: "background", title: `Backgrounded as job ${details.async.jobId}` });
+		badges.push({
+			text: t("tui.tools.eval.backgroundBadge", "background"),
+			title: t("tui.tools.eval.backgroundTitle", "Backgrounded as job {jobId}", { jobId: details.async.jobId }),
+		});
 	}
 	return {
 		title: (cellCount > 1 ? "" : plainText(title ?? "").trim()) || "Eval",
 		badges: badges.length > 0 ? badges : undefined,
-		meta: cellCount > 1 ? [`${cellCount} cells`] : undefined,
+		meta:
+			cellCount > 1
+				? [t("tui.tools.eval.cells", { one: "{count} cell", other: "{count} cells" }, { count: cellCount })]
+				: undefined,
 	};
 }
 
@@ -867,7 +919,14 @@ function evalStatusSection(log: StatusEventLog, expanded: boolean): NativeNode |
 	return node(
 		"col",
 		{ role: "omp.run.status", gap: "none" },
-		compact<NativeNode>([hidden > 0 && keyed(text([span(`${hidden} earlier`, "muted")]), "earlier"), ...lines]),
+		compact<NativeNode>([
+			hidden > 0 &&
+				keyed(
+					text([span(t("tui.tools.eval.earlierCount", "{count} earlier", { count: hidden }), "muted")]),
+					"earlier",
+				),
+			...lines,
+		]),
 		"status",
 	);
 }
@@ -1014,7 +1073,13 @@ export const evalToolRenderer = {
 		const timeoutSeconds = options.renderContext?.timeout;
 		const timeoutLine =
 			typeof timeoutSeconds === "number"
-				? uiTheme.fg("dim", wrapBrackets(`Timeout: ${timeoutSeconds}s`, uiTheme))
+				? uiTheme.fg(
+						"dim",
+						wrapBrackets(
+							t("tui.tools.eval.timeout", "Timeout: {seconds}s", { seconds: timeoutSeconds }),
+							uiTheme,
+						),
+					)
 				: undefined;
 		let warningLine: string | undefined;
 		if (details?.meta?.truncation || details?.meta?.artifactError) {
@@ -1023,7 +1088,13 @@ export const evalToolRenderer = {
 		const noticeLine = details?.notice ? uiTheme.fg("dim", wrapBrackets(details.notice, uiTheme)) : undefined;
 		const asyncLine =
 			details?.async?.state === "running"
-				? uiTheme.fg("dim", wrapBrackets(`Backgrounded: ${details.async.jobId}`, uiTheme))
+				? uiTheme.fg(
+						"dim",
+						wrapBrackets(
+							t("tui.tools.eval.backgrounded", "Backgrounded: {jobId}", { jobId: details.async.jobId }),
+							uiTheme,
+						),
+					)
 				: undefined;
 
 		const cellResults = details?.cells;
@@ -1078,13 +1149,20 @@ export const evalToolRenderer = {
 									outputLines.push(
 										uiTheme.fg(
 											"dim",
-											`… ${outputContent.hiddenCount} more lines (${expandKeyHint()} to expand)`,
+											t(
+												"tui.tools.eval.moreLinesExpand",
+												{
+													one: "… {count} more line ({hint} to expand)",
+													other: "… {count} more lines ({hint} to expand)",
+												},
+												{ count: outputContent.hiddenCount, hint: expandKeyHint() },
+											),
 										),
 									);
 								}
 								if (statusLines.length > 0) {
 									if (outputLines.length > 0) {
-										outputLines.push(uiTheme.fg("dim", "Status"));
+										outputLines.push(uiTheme.fg("dim", t("tui.tools.eval.status", "Status")));
 									}
 									outputLines.push(...statusLines);
 								}
@@ -1171,7 +1249,7 @@ export const evalToolRenderer = {
 
 		if (!output && statusLines.length > 0) {
 			const lines = [
-				uiTheme.fg("dim", "Status"),
+				uiTheme.fg("dim", t("tui.tools.eval.status", "Status")),
 				...statusLines,
 				timeoutLine,
 				noticeLine,
@@ -1188,7 +1266,9 @@ export const evalToolRenderer = {
 				.join("\n");
 			const lines = [
 				styledOutput,
-				...(statusLines.length > 0 ? [uiTheme.fg("dim", "Status"), ...statusLines] : []),
+				...(statusLines.length > 0
+					? [uiTheme.fg("dim", t("tui.tools.eval.status", "Status")), ...statusLines]
+					: []),
 				timeoutLine,
 				noticeLine,
 				asyncLine,
@@ -1226,13 +1306,22 @@ export const evalToolRenderer = {
 					outputLines.push("");
 					const skippedLine = uiTheme.fg(
 						"dim",
-						`… (${cachedSkipped} earlier lines, showing ${cachedLines.length} of ${cachedSkipped + cachedLines.length}) (${expandKeyHint()} to expand)`,
+						t(
+							"tui.tools.eval.earlierLinesExpand",
+							"… ({skipped} earlier lines, showing {shown} of {total}) ({hint} to expand)",
+							{
+								skipped: cachedSkipped,
+								shown: cachedLines.length,
+								total: cachedSkipped + cachedLines.length,
+								hint: expandKeyHint(),
+							},
+						),
 					);
 					outputLines.push(truncateToWidth(skippedLine, width));
 				}
 				outputLines.push(...cachedLines);
 				if (statusLines.length > 0) {
-					outputLines.push(truncateToWidth(uiTheme.fg("dim", "Status"), width));
+					outputLines.push(truncateToWidth(uiTheme.fg("dim", t("tui.tools.eval.status", "Status")), width));
 					for (const statusLine of statusLines) {
 						outputLines.push(truncateToWidth(statusLine, width));
 					}

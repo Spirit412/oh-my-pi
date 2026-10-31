@@ -32,10 +32,11 @@ import { truncateToWidth, visibleWidth } from "../utils";
 import { formatOutputPaneLines, styleToolOutputLine } from "../render/output-pane";
 import type { StatusLineOptions } from "../render/status-line";
 import { plainToolCard, type ToolCardPhase } from "../render/tool-card";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 /** Expanded Args tree shared by the MCP result cards. */
 function buildMcpArgsSection(args: Record<string, unknown>, theme: Theme): readonly string[] {
-	const lines: string[] = [theme.fg("dim", "Args")];
+	const lines: string[] = [theme.fg("dim", t("tui.tools.mcp.args", "Args"))];
 	const tree = renderJsonTreeLines(
 		args,
 		theme,
@@ -237,7 +238,7 @@ export function renderMCPResult(
 		// component selection so the opt-in Markdown path can use its own renderer.
 
 		if (!trimmedOutput) {
-			body.push(theme.fg("dim", "(no output)"));
+			body.push(theme.fg("dim", t("tui.tools.mcp.noOutput", "(no output)")));
 			return body;
 		}
 
@@ -309,7 +310,7 @@ function mcpArgsSection(entries: readonly [string, unknown][], json: boolean): N
 	if (entries.length === 0) return undefined;
 	return node(
 		"section",
-		{ head: [span("Args", "muted")], collapsible: true, collapsed: true },
+		{ head: [span(t("tui.tools.mcp.args", "Args"), "muted")], collapsible: true, collapsed: true },
 		[describeJsonValue(Object.fromEntries(entries), { native: json })],
 		"args",
 	);
@@ -361,7 +362,7 @@ export function describeMCPResult(
 				// Bracketed non-JSON text falls through to Markdown/raw output.
 			}
 		}
-		if (!output) body.push(noteText("(no output)"));
+		if (!output) body.push(noteText(t("tui.tools.mcp.noOutput", "(no output)")));
 		else if (isError) body.push(errorText(output));
 		else if (isJson) body.push(describeJsonValue(parsed, { native: json }));
 		else if (renderMarkdownResults) body.push(md(output));

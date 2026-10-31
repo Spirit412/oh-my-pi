@@ -3,6 +3,7 @@
  * map rows have an ANSI form (`render`) and a native form (`describe`); keep the twins visually identical.
  */
 import { formatNumber } from "@oh-my-pi/pi-utils";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import type { TspSpan } from "@oh-my-pi/pi-wire";
 import type { ContextBreakdown } from "../status-line/context-usage";
 import { type ContextMapCell, planContextMap } from "../chrome/context-map";
@@ -100,7 +101,9 @@ export function overviewLabel(category: ContextViewCategory): string {
 function formatShare(tokens: number, window: number): string {
 	if (window <= 0) return "—";
 	const percent = (tokens / window) * 100;
-	return percent > 0 && percent < 0.05 ? "<0.1%" : `${percent.toFixed(1)}%`;
+	return percent > 0 && percent < 0.05
+		? t("tui.overlays.contextViewerOverview.belowTenth", "<0.1%")
+		: `${percent.toFixed(1)}%`;
 }
 
 /** Category and child rows, then buffer and free space, with aligned token and share columns. */
@@ -130,8 +133,18 @@ export function buildOverviewRows(
 			});
 	}
 	rows.push(
-		{ key: "buffer", id: "buffer", label: "Auto-Compact Buffer", tokens: data.breakdown.autoCompactBufferTokens },
-		{ key: "free", id: "free", label: "Free Space", tokens: data.breakdown.freeTokens },
+		{
+			key: "buffer",
+			id: "buffer",
+			label: t("tui.overlays.contextViewerOverview.autoCompactBufferLabel", "Auto-Compact Buffer"),
+			tokens: data.breakdown.autoCompactBufferTokens,
+		},
+		{
+			key: "free",
+			id: "free",
+			label: t("tui.overlays.contextViewerOverview.freeSpaceLabel", "Free Space"),
+			tokens: data.breakdown.freeTokens,
+		},
 	);
 	const tokenWidth = Math.max(...rows.map(row => (row.tokens === undefined ? 1 : formatNumber(row.tokens).length)));
 	const shareWidth = Math.max(
@@ -243,9 +256,9 @@ export function mapRowSpans(cells: readonly ContextMapCell<ContextPresentationId
 }
 
 function percentString(part: number, whole: number, fractionDigits = 1): string {
-	if (whole <= 0) return "0%";
+	if (whole <= 0) return t("tui.overlays.contextViewerOverview.zeroPercent", "0%");
 	const pct = (part / whole) * 100;
-	if (pct > 0 && pct < 0.05) return "<0.1%";
+	if (pct > 0 && pct < 0.05) return t("tui.overlays.contextViewerOverview.belowTenth", "<0.1%");
 	return `${pct.toFixed(fractionDigits)}%`;
 }
 
@@ -253,37 +266,84 @@ function percentString(part: number, whole: number, fractionDigits = 1): string 
 export function contextSnapcompactLines(breakdown: ContextBreakdown): string[] {
 	const snap = breakdown.snapcompact;
 	if (!snap) return [];
-	if (!snap.visionCapable) return ["Snapcompact: inactive (model has no image input)"];
-	const lines = ["Snapcompact (estimated wire savings)"];
+	if (!snap.visionCapable)
+		return [
+			t(
+				"tui.overlays.contextViewerOverview.snapcompactInactive",
+				"Snapcompact: inactive (model has no image input)",
+			),
+		];
+	const lines = [t("tui.overlays.contextViewerOverview.snapcompactHeading", "Snapcompact (estimated wire savings)")];
 	if (snap.systemPrompt) {
 		const sp = snap.systemPrompt;
-		const scope = sp.scope === "agents-md" ? "AGENTS.md" : "all";
+		const scope = sp.scope === "agents-md" ? "AGENTS.md" : t("tui.overlays.contextViewerOverview.scopeAll", "all");
 		if (sp.applied) {
-			const frames = `${sp.frames} frame${sp.frames === 1 ? "" : "s"}`;
+			const frames = t(
+				"tui.overlays.contextViewerOverview.frames",
+				{ one: "{count} frame", other: "{count} frames" },
+				{ count: sp.frames },
+			);
 			lines.push(
-				`  System prompt (${scope}): saves ~${formatNumber(sp.savedTokens)} (${formatNumber(sp.textTokens)} text → ${frames} ≈ ${formatNumber(sp.imageTokens)})`,
+				`  ${t(
+					"tui.overlays.contextViewerOverview.systemPromptSaves",
+					"System prompt ({scope}): saves ~{saved} ({text} text → {frames} ≈ {image})",
+					{
+						scope,
+						saved: formatNumber(sp.savedTokens),
+						text: formatNumber(sp.textTokens),
+						frames,
+						image: formatNumber(sp.imageTokens),
+					},
+				)}`,
 			);
 		} else {
 			const reason =
 				sp.reason === "budget"
-					? "image budget exhausted"
+					? t("tui.overlays.contextViewerOverview.reasonBudget", "image budget exhausted")
 					: sp.reason === "empty"
-						? "nothing to image"
-						: "frames would not save tokens";
-			lines.push(`  System prompt (${scope}): stays text (${reason})`);
+						? t("tui.overlays.contextViewerOverview.reasonEmpty", "nothing to image")
+						: t("tui.overlays.contextViewerOverview.reasonFrames", "frames would not save tokens");
+			lines.push(
+				`  ${t(
+					"tui.overlays.contextViewerOverview.systemPromptStaysText",
+					"System prompt ({scope}): stays text ({reason})",
+					{ scope, reason },
+				)}`,
+			);
 		}
 	}
 	if (snap.toolResults) {
 		const tr = snap.toolResults;
 		lines.push(
 			tr.swapped > 0
-				? `  Tool results: saves ~${formatNumber(tr.savedTokens)} (${tr.swapped}/${tr.total} imaged, ${formatNumber(tr.textTokens)} text → ${tr.frames} frames ≈ ${formatNumber(tr.imageTokens)})`
-				: `  Tool results: none imaged (${tr.total} in history)`,
+				? `  ${t(
+						"tui.overlays.contextViewerOverview.toolResultsSaves",
+						"Tool results: saves ~{saved} ({swapped}/{total} imaged, {text} text → {frames} ≈ {image})",
+						{
+							saved: formatNumber(tr.savedTokens),
+							swapped: tr.swapped,
+							total: tr.total,
+							text: formatNumber(tr.textTokens),
+							frames: t(
+								"tui.overlays.contextViewerOverview.frames",
+								{ one: "{count} frame", other: "{count} frames" },
+								{ count: tr.frames },
+							),
+							image: formatNumber(tr.imageTokens),
+						},
+					)}`
+				: `  ${t(
+						"tui.overlays.contextViewerOverview.toolResultsNone",
+						"Tool results: none imaged ({total} in history)",
+						{ total: tr.total },
+					)}`,
 		);
 	}
 	if (snap.savedTokens > 0) {
 		lines.push(
-			`  Next request: ~${formatNumber(Math.max(0, breakdown.usedTokens - snap.savedTokens))} tokens on the wire`,
+			`  ${t("tui.overlays.contextViewerOverview.nextRequest", "Next request: ~{tokens} tokens on the wire", {
+				tokens: formatNumber(Math.max(0, breakdown.usedTokens - snap.savedTokens)),
+			})}`,
 		);
 	}
 	return lines;
@@ -306,19 +366,33 @@ function contextMeterParts(
 		.map(category => ({
 			value: category.tokens / window,
 			token: category.color,
-			label: `${category.label} · ${formatNumber(category.tokens)} tokens (${percentString(category.tokens, window)})`,
+			label: t("tui.overlays.contextViewerOverview.meterCategory", "{label} · {tokens} tokens ({percent})", {
+				label: category.label,
+				tokens: formatNumber(category.tokens),
+				percent: percentString(category.tokens, window),
+			}),
 		}));
 	parts.push({
 		value: breakdown.freeTokens / window,
 		token: "track",
-		label: `Free space · ${formatNumber(breakdown.freeTokens)} tokens (${percentString(breakdown.freeTokens, window)})`,
+		label: t("tui.overlays.contextViewerOverview.meterFreeSpace", "Free space · {tokens} tokens ({percent})", {
+			tokens: formatNumber(breakdown.freeTokens),
+			percent: percentString(breakdown.freeTokens, window),
+		}),
 	});
 	if (breakdown.autoCompactBufferTokens > 0) {
 		parts.push({
 			value: breakdown.autoCompactBufferTokens / window,
 			token: "warning",
 			hatch: true,
-			label: `Autocompact buffer · ${formatNumber(breakdown.autoCompactBufferTokens)} tokens (${percentString(breakdown.autoCompactBufferTokens, window)})`,
+			label: t(
+				"tui.overlays.contextViewerOverview.meterAutocompactBuffer",
+				"Autocompact buffer · {tokens} tokens ({percent})",
+				{
+					tokens: formatNumber(breakdown.autoCompactBufferTokens),
+					percent: percentString(breakdown.autoCompactBufferTokens, window),
+				},
+			),
 		});
 	}
 	return parts;
@@ -331,13 +405,27 @@ export function contextUsageSummary(
 	const { contextWindow: window, usedTokens, freeTokens, thresholdTokens } = breakdown;
 	const room =
 		thresholdTokens === undefined
-			? `${formatNumber(freeTokens)} free`
+			? t("tui.overlays.contextViewerOverview.roomFree", "{tokens} free", {
+					tokens: formatNumber(freeTokens),
+				})
 			: usedTokens >= thresholdTokens
-				? `Past auto-compaction at ${percentString(thresholdTokens, window, 0)}`
-				: `${formatNumber(thresholdTokens - usedTokens)} left before auto-compaction at ${percentString(thresholdTokens, window, 0)}`;
+				? t("tui.overlays.contextViewerOverview.pastAutoCompaction", "Past auto-compaction at {percent}", {
+						percent: percentString(thresholdTokens, window, 0),
+					})
+				: t(
+						"tui.overlays.contextViewerOverview.leftBeforeAutoCompaction",
+						"{tokens} left before auto-compaction at {percent}",
+						{
+							tokens: formatNumber(thresholdTokens - usedTokens),
+							percent: percentString(thresholdTokens, window, 0),
+						},
+					);
 	return {
 		used: formatNumber(usedTokens),
-		detail: ` of ${formatNumber(window)} tokens · ${percentString(usedTokens, window, 0)}`,
+		detail: ` ${t("tui.overlays.contextViewerOverview.usageDetail", "of {tokens} tokens · {percent}", {
+			tokens: formatNumber(window),
+			percent: percentString(usedTokens, window, 0),
+		})}`,
 		room,
 	};
 }
@@ -367,13 +455,27 @@ export function describeContextMeter(breakdown: ContextMeterData): [NativeNode, 
 					{
 						at: thresholdTokens / window,
 						tone: "warning" as const,
-						title: `Auto-compaction at ${percentString(thresholdTokens, window, 0)} · ${formatNumber(thresholdTokens)} tokens`,
+						title: t(
+							"tui.overlays.contextViewerOverview.autoCompactionMark",
+							"Auto-compaction at {percent} · {tokens} tokens",
+							{
+								percent: percentString(thresholdTokens, window, 0),
+								tokens: formatNumber(thresholdTokens),
+							},
+						),
 					},
 				]
 			: undefined;
 	const bar = node(
 		"meter",
-		{ value: used, style: "bar", size: "lg", parts, ...(marks ? { marks } : {}), aria: "Context usage by category" },
+		{
+			value: used,
+			style: "bar",
+			size: "lg",
+			parts,
+			...(marks ? { marks } : {}),
+			aria: t("tui.overlays.contextViewerOverview.aria", "Context usage by category"),
+		},
 		undefined,
 		"bar",
 	);

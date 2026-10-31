@@ -1,4 +1,5 @@
 import * as path from "node:path";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import { sanitizeText } from "@oh-my-pi/pi-utils";
 import type { HighlightStream } from "@oh-my-pi/pi-natives";
 import type { Component } from "../tui";
@@ -197,7 +198,10 @@ function writeContentOf(args: unknown): string {
 
 function formatLineCountSuffix(lineCount: number, uiTheme: Theme): string {
 	if (lineCount <= 0) return "";
-	return uiTheme.fg("dim", ` · ${lineCount} line${lineCount === 1 ? "" : "s"}`);
+	return uiTheme.fg(
+		"dim",
+		t("tui.tools.write.lineSuffix", { one: " · {count} line", other: " · {count} lines" }, { count: lineCount }),
+	);
 }
 
 function normalizeDisplayText(text: unknown): string {
@@ -572,7 +576,7 @@ function writeToolHead(
 ): NativeToolHead {
 	const lineCount = countLines(content);
 	const badges: { text: string; tone?: TspTone }[] = [];
-	if (details?.madeExecutable) badges.push({ text: "executable", tone: "success" });
+	if (details?.madeExecutable) badges.push({ text: t("tui.tools.write.executable", "executable"), tone: "success" });
 	const diagnostics = diagnosticsBadge([details?.diagnostics]);
 	if (diagnostics) badges.push(diagnostics);
 	return {
@@ -580,7 +584,10 @@ function writeToolHead(
 		target: rawPath ? sanitizeText(displayPath(rawPath)) : undefined,
 		targetKind: "path",
 		href: fileHref(details?.resolvedPath),
-		meta: lineCount > 0 ? [`${lineCount} line${lineCount === 1 ? "" : "s"}`] : undefined,
+		meta:
+			lineCount > 0
+				? [t("tui.tools.write.lineMeta", { one: "{count} line", other: "{count} lines" }, { count: lineCount })]
+				: undefined,
 		badges: badges.length > 0 ? badges : undefined,
 	};
 }
@@ -750,7 +757,7 @@ export const writeToolRenderer = {
 		const lineSuffix = formatLineCountSuffix(lineCount, uiTheme);
 		const execSuffix =
 			!isPartial && result.details?.madeExecutable
-				? `${uiTheme.fg("dim", " · ")}${uiTheme.fg("success", "made executable!")}`
+				? `${uiTheme.fg("dim", " · ")}${uiTheme.fg("success", t("tui.tools.write.madeExecutable", "made executable!"))}`
 				: "";
 		const header = renderStatusLine(
 			{

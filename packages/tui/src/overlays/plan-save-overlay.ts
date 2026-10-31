@@ -6,6 +6,7 @@ import { col, keyed, span, text } from "../native/describe";
 import type { NativeChild, NativeNode, NativeUiEvent } from "../native/node";
 import { actionBar, actionButton } from "../native/overlay";
 import { getKeybindings } from "../keybindings";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 /** A confirmed destination chosen from {@link PlanSaveOverlay}. */
 export interface PlanSaveOverlayResult {
@@ -26,10 +27,10 @@ export class PlanSaveOverlay implements Component, Focusable {
 	constructor(suggestedPath: string, done: (result: PlanSaveOverlayResult | undefined) => void) {
 		this.#suggestedPath = suggestedPath;
 		this.#done = done;
-		this.#input.prompt = theme.fg("dim", "Path: ");
+		this.#input.prompt = theme.fg("dim", t("tui.overlays.planSave.pathPrompt", "Path: "));
 		this.#input.onSubmit = value => this.#done({ path: value.trim() || this.#suggestedPath });
 		this.#input.onEscape = () => this.#done(undefined);
-		this.#panel = new OverlayPanel("Save and quit");
+		this.#panel = new OverlayPanel(t("tui.overlays.planSave.title", "Save and quit"));
 		this.#body = new PanelRows();
 		this.#body.setHeight(2);
 		this.#panel.addChild(this.#body);
@@ -65,13 +66,20 @@ export class PlanSaveOverlay implements Component, Focusable {
 	render(width: number): readonly string[] {
 		const innerWidth = Math.max(0, width - 4);
 		this.#input.focused = this.#focused;
-		const hint = `${editorKey("tui.input.submit")} save and quit · ${editorKey("tui.select.cancel")} cancel`;
+		const hint = t("tui.overlays.planSave.hint", "{saveKey} save and quit · {cancelKey} cancel", {
+			saveKey: editorKey("tui.input.submit"),
+			cancelKey: editorKey("tui.select.cancel"),
+		});
 		this.#body.setLines([this.#renderInput(innerWidth), theme.fg("dim", hint)]);
 		return this.#panel.render(width);
 	}
 
 	/** A small glass sheet titled "Save and quit". */
-	readonly nativeOverlay = { role: "omp.overlay.planSave", size: "sm", head: "Save and quit" } as const;
+	readonly nativeOverlay = {
+		role: "omp.overlay.planSave",
+		size: "sm",
+		head: t("tui.overlays.planSave.title", "Save and quit"),
+	} as const;
 
 	describe(): NativeNode {
 		this.#input.focused = this.#focused;
@@ -85,7 +93,15 @@ export class PlanSaveOverlay implements Component, Focusable {
 		if (showDefault) {
 			children.push(
 				keyed(
-					text([span("Empty saves to ", "dim"), span(this.#suggestedPath, "path")], { truncate: "middle" }),
+					text(
+						[
+							span(t("tui.overlays.planSave.emptySavesTo", "Empty saves to "), "dim"),
+							span(this.#suggestedPath, "path"),
+						],
+						{
+							truncate: "middle",
+						},
+					),
 					"default",
 				),
 			);
@@ -93,8 +109,11 @@ export class PlanSaveOverlay implements Component, Focusable {
 		children.push(
 			actionBar([
 				null,
-				actionButton("Cancel", "cancel", cancelKey ? { keys: cancelKey } : {}),
-				actionButton("Save and quit", "save", { tone: "accent", ...(submitKey ? { keys: submitKey } : {}) }),
+				actionButton(t("tui.overlays.planSave.cancel", "Cancel"), "cancel", cancelKey ? { keys: cancelKey } : {}),
+				actionButton(t("tui.overlays.planSave.title", "Save and quit"), "save", {
+					tone: "accent",
+					...(submitKey ? { keys: submitKey } : {}),
+				}),
 			]),
 		);
 		this.#nativeSig = sig;

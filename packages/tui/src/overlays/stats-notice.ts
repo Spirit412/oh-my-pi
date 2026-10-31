@@ -10,6 +10,7 @@ import { Container } from "../tui";
 import { node, span } from "../native/describe";
 import type { NativeNode } from "../native/node";
 import { actionButton } from "../native/overlay";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 export class StatsNotice extends Container {
 	readonly #native: NativeNode;
@@ -21,7 +22,10 @@ export class StatsNotice extends Container {
 		this.addChild(new Text(message, 1, 0).setStyleFn(line => theme.fg("dim", line)));
 		this.#native = node("row", { gap: "md", align: "center", wrap: true }, [
 			node("text", { spans: [span(message)], role: "omp.stats", wrap: "word", grow: 1 }),
-			actionButton("Open dashboard ↗", "open", { href: url, title: url }),
+			actionButton(t("tui.overlays.statsNotice.openDashboard", "Open dashboard ↗"), "open", {
+				href: url,
+				title: url,
+			}),
 		]);
 	}
 

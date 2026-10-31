@@ -1,6 +1,7 @@
 /**
  * Edit tool renderer.
  */
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 import { type EditInspection, editInspect } from "@oh-my-pi/pi-natives";
 import type { Component } from "../tui";
@@ -273,7 +274,11 @@ function countEditFiles(edits: EditRenderEntry[]): number {
 }
 
 function getOperationTitle(op: Operation | undefined): string {
-	return op === "create" ? "Create" : op === "delete" ? "Delete" : "Edit";
+	return op === "create"
+		? t("tui.tools.edit.op.create", "Create")
+		: op === "delete"
+			? t("tui.tools.edit.op.delete", "Delete")
+			: t("tui.tools.edit.op.edit", "Edit");
 }
 
 interface EditPathDisplayOptions {
@@ -426,7 +431,7 @@ function renderInlineEditRow(
 					? undefined
 					: uiTheme.styledSymbol(isDelete ? "tool.delete" : "tool.move", "accent"),
 				op: opts.op,
-				title: isDelete ? "Delete" : "Move",
+				title: isDelete ? t("tui.tools.edit.op.delete", "Delete") : t("tui.tools.edit.op.move", "Move"),
 				rawPath: opts.rawPath,
 				rename: opts.rename,
 				linkPath: opts.linkPath,
@@ -485,7 +490,14 @@ function renderPlainTextPreview(text: string, uiTheme: Theme, _filePath?: string
 		preview += `${uiTheme.fg("toolOutput", truncateToWidth(replaceTabs(line), CALL_TEXT_PREVIEW_WIDTH))}\n`;
 	}
 	if (previewLines.hidden > 0) {
-		preview += uiTheme.fg("dim", `… ${previewLines.hidden} more lines`);
+		preview += uiTheme.fg(
+			"dim",
+			t(
+				"tui.tools.edit.moreLines",
+				{ one: "… {count} more line", other: "… {count} more lines" },
+				{ count: previewLines.hidden },
+			),
+		);
 	}
 	return preview.trimEnd();
 }
@@ -575,7 +587,7 @@ function formatStreamingDiff(
 		if (tail.hidden) {
 			// Exact hidden line/hunk counts require scanning the discarded prefix,
 			// which would make every streaming update scale with the complete diff.
-			rendered += `${uiTheme.fg("dim", "… (content above)")}\n`;
+			rendered += `${uiTheme.fg("dim", t("tui.tools.edit.contentAbove", "… (content above)"))}\n`;
 		}
 		rendered += renderDiffColored(tail.content, { filePath: rawPath, theme: uiTheme });
 		return rendered;
@@ -1030,8 +1042,22 @@ function renderDiffSection(
 		let text = `\n${visibleDiff}`;
 		if (!expanded && (hiddenHunks > 0 || hiddenLines > 0)) {
 			const remainder: string[] = [];
-			if (hiddenHunks > 0) remainder.push(`${hiddenHunks} more hunks`);
-			if (hiddenLines > 0) remainder.push(`${hiddenLines} more lines`);
+			if (hiddenHunks > 0)
+				remainder.push(
+					t(
+						"tui.tools.edit.moreHunks",
+						{ one: "{count} more hunk", other: "{count} more hunks" },
+						{ count: hiddenHunks },
+					),
+				);
+			if (hiddenLines > 0)
+				remainder.push(
+					t(
+						"tui.tools.edit.moreLinesPlain",
+						{ one: "{count} more line", other: "{count} more lines" },
+						{ count: hiddenLines },
+					),
+				);
 			text += uiTheme.fg("toolOutput", `\n… (${remainder.join(", ")}) ${formatExpandHint(uiTheme)}`);
 		}
 		return text;
@@ -1116,7 +1142,8 @@ export const editToolRenderer = {
 		if (!facts.rawPath) return { label };
 		let detail = formatEditTitlePath(facts.rawPath);
 		if (facts.rename) detail += ` → ${formatEditTitlePath(facts.rename)}`;
-		if (facts.fileCount > 1) detail += ` (+${facts.fileCount - 1} more)`;
+		if (facts.fileCount > 1)
+			detail += ` (${t("tui.tools.edit.moreFilesLabel", "+{count} more", { count: facts.fileCount - 1 })})`;
 		return { label, detail };
 	},
 
@@ -1152,7 +1179,13 @@ export const editToolRenderer = {
 					op,
 					rawPath,
 					rename,
-					extraSuffix: fileCount > 1 ? uiTheme.fg("dim", ` (+${fileCount - 1} more)`) : undefined,
+					extraSuffix:
+						fileCount > 1
+							? uiTheme.fg(
+									"dim",
+									` (${t("tui.tools.edit.moreFilesLabel", "+{count} more", { count: fileCount - 1 })})`,
+								)
+							: undefined,
 				});
 				let body = getCallPreview(
 					editArgs,
@@ -1284,7 +1317,16 @@ export const editToolRenderer = {
 			if (remaining > 0) {
 				body.push(
 					node("spinner", {
-						label: [span(`${remaining} more file${remaining > 1 ? "s" : ""} pending…`, "muted")],
+						label: [
+							span(
+								t(
+									"tui.tools.edit.filesPending",
+									{ one: "{count} more file pending…", other: "{count} more files pending…" },
+									{ count: remaining },
+								),
+								"muted",
+							),
+						],
 					}),
 				);
 			}
@@ -1350,7 +1392,7 @@ function editToolHead(facts: EditHeadFacts): NativeToolHead {
 	]);
 	const badge = facts.diagnostics && diagnosticsBadge(facts.diagnostics);
 	const target = multi
-		? `${facts.files} files`
+		? t("tui.tools.edit.files", { one: "{count} file", other: "{count} files" }, { count: facts.files ?? 0 })
 		: facts.path
 			? `${displayPath(sanitizeText(facts.path))}${facts.line ? `:${facts.line}` : ""}`
 			: undefined;
@@ -1439,7 +1481,13 @@ function editFileParts(
 	} else if (editDiffPreview && "error" in editDiffPreview) {
 		body.push(errorText(editDiffPreview.error));
 	} else if (details && op !== "delete" && op !== "create" && !rename) {
-		body.push(noteText(`No changes were made${shownPath ? ` to ${shownPath}` : ""}.`));
+		body.push(
+			noteText(
+				shownPath
+					? t("tui.tools.edit.noChangesTo", "No changes were made to {path}.", { path: shownPath })
+					: t("tui.tools.edit.noChanges", "No changes were made."),
+			),
+		);
 	}
 	const diagnostics = diagnosticsSection(details?.diagnostics);
 	if (diagnostics) body.push(diagnostics);
@@ -1596,7 +1644,12 @@ function renderSingleFileResult(
 						: rawPath
 							? shortenPath(sanitizeText(rawPath))
 							: "";
-					body = uiTheme.fg("dim", `No changes were made${noChangePath ? ` to ${noChangePath}` : ""}.`);
+					body = uiTheme.fg(
+						"dim",
+						noChangePath
+							? t("tui.tools.edit.noChangesTo", "No changes were made to {path}.", { path: noChangePath })
+							: t("tui.tools.edit.noChanges", "No changes were made."),
+					);
 				}
 			} else if (editDiffPreview) {
 				if ("error" in editDiffPreview) body = uiTheme.fg("error", replaceTabs(editDiffPreview.error));
@@ -1690,7 +1743,14 @@ function renderMultiFileResult(
 						{
 							iconOverride: spinner,
 							title: "Edit",
-							description: uiTheme.fg("dim", `${remaining} more file${remaining > 1 ? "s" : ""} pending…`),
+							description: uiTheme.fg(
+								"dim",
+								t(
+									"tui.tools.edit.filesPending",
+									{ one: "{count} more file pending…", other: "{count} more files pending…" },
+									{ count: remaining },
+								),
+							),
 						},
 						uiTheme,
 					),

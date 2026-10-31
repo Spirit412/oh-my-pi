@@ -43,6 +43,7 @@ import { formatContextUsage } from "../chrome/context-thresholds";
 import { node, span, text } from "../native/describe";
 import type { DescribeContext, NativeChild, NativeNode, NativeUiEvent } from "../native/node";
 import { actionHint, escCloseButton, hintsRow, overlayCard } from "../native/overlay";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 /** Parsed message and model metadata relevant to a transcript viewer. */
 export type AgentTranscriptEntry = SessionMessageEntryLike | { type: "model_change"; model: string };
@@ -688,7 +689,13 @@ export class AgentTranscriptViewer implements Component {
 		// Top row: the agent's meta on the left, a clickable `esc` (close) on the right.
 		const top: NativeChild[] = [];
 		if (ref) {
-			const kindTag = ref.parentId ? `${ref.kind} ${theme.sep.dot} of ${ref.parentId}` : ref.kind;
+			const kindTag = ref.parentId
+				? t("tui.overlays.agentTranscript.kindOf", "{kind} {sep} of {parent}", {
+						kind: ref.kind,
+						sep: theme.sep.dot,
+						parent: ref.parentId,
+					})
+				: ref.kind;
 			const meta: NativeChild[] = [
 				text([span(id, "strong")]),
 				node("badge", { text: ref.status, tone: STATUS_TONE[ref.status] }),
@@ -762,11 +769,20 @@ export class AgentTranscriptViewer implements Component {
 		}
 		children.push(
 			hintsRow([
-				this.#editor ? actionHint("tui.input.submit", "send") : undefined,
-				{ keys: [this.#deps.expandKeys[0] ?? "ctrl+o"], label: "expand" },
+				this.#editor
+					? actionHint("tui.input.submit", t("tui.overlays.agentTranscript.hintSend", "send"))
+					: undefined,
+				{
+					keys: [this.#deps.expandKeys[0] ?? "ctrl+o"],
+					label: t("tui.overlays.agentTranscript.hintExpand", "expand"),
+				},
 			]),
 		);
-		const head = [span("Agent Hub", "accent"), span(` ${theme.sep.dot} `, "dim"), span(id, "accent")];
+		const head = [
+			span(t("tui.overlays.agentTranscript.title", "Agent Hub"), "accent"),
+			span(` ${theme.sep.dot} `, "dim"),
+			span(id, "accent"),
+		];
 		const described = overlayCard("omp.hub.transcript", head, children);
 		this.#nativeCache = { signature, node: described };
 		return described;
@@ -814,9 +830,20 @@ export class AgentTranscriptViewer implements Component {
 	}
 
 	#headerLines(status: AgentStatus | undefined, kind: string | undefined, parentId: string | undefined): string[] {
-		const lines = [theme.fg("accent", `Agent Hub ${theme.sep.dot} ${this.#deps.agentId}`)];
+		const lines = [
+			theme.fg(
+				"accent",
+				t("tui.overlays.agentTranscript.titleWithAgent", "Agent Hub {sep} {id}", {
+					sep: theme.sep.dot,
+					id: this.#deps.agentId,
+				}),
+			),
+		];
 		if (status && kind) {
-			const kindTag = theme.fg("dim", ` ${parentId ? `${kind} ${theme.sep.dot} of ${parentId}` : kind}`);
+			const kindTag = theme.fg(
+				"dim",
+				` ${parentId ? t("tui.overlays.agentTranscript.kindOf", "{kind} {sep} of {parent}", { kind, sep: theme.sep.dot, parent: parentId }) : kind}`,
+			);
 			const modelLabel = this.#model ? theme.fg("muted", `${theme.sep.dot}${this.#model}`) : "";
 			lines.push(`${theme.bold(this.#deps.agentId)} ${statusBadge(status)}${kindTag}${modelLabel}`);
 		}
@@ -827,10 +854,23 @@ export class AgentTranscriptViewer implements Component {
 		const lines: string[] = [];
 		const statsLine = this.#statsLine();
 		if (statsLine) lines.push(statsLine);
-		const keys =
-			`${formatKeyHint("escape")}:close  ${formatKeyHint(this.#deps.expandKeys[0] ?? "ctrl+o")}:expand  ` +
-			`${this.#editor ? "empty input → " : ""}${formatKeyHints(["j", "k"])}:scroll  ${formatKeyHints(["g", "shift+g"])}:top/bottom`;
-		const hint = this.#editor ? `${editorKey("tui.input.submit")}:send  ${keys}` : keys;
+		const keys = t(
+			"tui.overlays.agentTranscript.footerKeys",
+			"{escapeKey}:close  {expandKey}:expand  {emptyInput}{scrollKeys}:scroll  {pageKeys}:top/bottom",
+			{
+				escapeKey: formatKeyHint("escape"),
+				expandKey: formatKeyHint(this.#deps.expandKeys[0] ?? "ctrl+o"),
+				emptyInput: this.#editor ? t("tui.overlays.agentTranscript.emptyInput", "empty input → ") : "",
+				scrollKeys: formatKeyHints(["j", "k"]),
+				pageKeys: formatKeyHints(["g", "shift+g"]),
+			},
+		);
+		const hint = this.#editor
+			? t("tui.overlays.agentTranscript.footerWithSend", "{sendKey}:send  {keys}", {
+					sendKey: editorKey("tui.input.submit"),
+					keys,
+				})
+			: keys;
 		lines.push(theme.fg("dim", hint));
 		return lines;
 	}
@@ -861,10 +901,14 @@ export class AgentTranscriptViewer implements Component {
 	#placeholder(maxWidth: number): string {
 		if (this.#deps.remote) {
 			if (this.#remoteError) return sanitizeErrorLine(this.#remoteError, maxWidth);
-			if (this.#remoteUnavailable) return "Transcript lives on the host — not available.";
-			return this.#hasRemoteData ? "No messages yet." : "Loading transcript from host…";
+			if (this.#remoteUnavailable)
+				return t("tui.overlays.agentTranscript.hostUnavailable", "Transcript lives on the host — not available.");
+			return this.#hasRemoteData
+				? t("tui.overlays.agentTranscript.noMessages", "No messages yet.")
+				: t("tui.overlays.agentTranscript.loadingFromHost", "Loading transcript from host…");
 		}
-		if (!this.#deps.registry.get(this.#deps.agentId)?.sessionFile) return "No session file available yet.";
-		return "No messages yet.";
+		if (!this.#deps.registry.get(this.#deps.agentId)?.sessionFile)
+			return t("tui.overlays.agentTranscript.noSessionFile", "No session file available yet.");
+		return t("tui.overlays.agentTranscript.noMessages", "No messages yet.");
 	}
 }

@@ -1,5 +1,6 @@
 import { isReadableUrlPath, readSelectorRangeStart } from "./read";
 import type { Component } from "../tui";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import { Text } from "../components/text";
 import type { NativeToolHead, NativeToolView, RenderResultOptions } from "./renderer";
 import type { TspSpan } from "@oh-my-pi/pi-wire";
@@ -162,11 +163,14 @@ export function describeReadUrlResult(result: {
 	const details = result.details;
 	if (result.isError || !details) {
 		const urlText = details?.finalUrl ?? details?.url ?? "";
-		const message = plainText(resultText(result) || "No response data").replace(/^Error:\s*/, "");
+		const message = plainText(resultText(result) || t("tui.tools.fetch.noResponse", "No response data")).replace(
+			/^Error:\s*/,
+			"",
+		);
 		return {
 			tool: readUrlHead(urlText),
 			tone: "error",
-			body: [errorText(message.trim() || "Read failed")],
+			body: [errorText(message.trim() || t("tui.tools.fetch.readFailed", "Read failed"))],
 		};
 	}
 
@@ -183,29 +187,36 @@ export function describeReadUrlResult(result: {
 
 	const stats = statsText(
 		[
-			plainText(details.contentType || "unknown"),
+			plainText(details.contentType || t("tui.tools.fetch.unknown", "unknown")),
 			details.method ? plainText(details.method) : "",
-			`${contentLines.length} line${contentLines.length === 1 ? "" : "s"}`,
-			`${contentBody.trim().length} chars`,
+			t("tui.tools.fetch.lines", { one: "{count} line", other: "{count} lines" }, { count: contentLines.length }),
+			t("tui.tools.fetch.chars", "{count} chars", { count: contentBody.trim().length }),
 			hidden > 0 ? formatMoreItems(hidden, "line") : "",
 			...details.notes.map(note => plainText(note)),
 		].filter(Boolean),
 	);
 	return {
-		tool: readUrlHead(details.finalUrl, redirected ? [`from ${plainText(getDomain(details.url))}`] : []),
+		tool: readUrlHead(
+			details.finalUrl,
+			redirected
+				? [t("tui.tools.fetch.fromDomain", "from {domain}", { domain: plainText(getDomain(details.url)) })]
+				: [],
+		),
 		tone: truncated ? "warning" : undefined,
 		body: compact([
 			shown.length > 0
 				? text([span(plainText(shown.map(line => line.trimEnd()).join("\n")), "dim")], { wrap: "word" })
-				: noteText("(no content)"),
+				: noteText(t("tui.tools.fetch.noContent", "(no content)")),
 			stats,
 			truncated
 				? text(
 						[
 							span(
 								truncation?.artifactId
-									? `Output truncated · ${formatFullOutputReference(truncation.artifactId)}`
-									: "Output truncated",
+									? t("tui.tools.fetch.truncatedWithRef", "Output truncated · {reference}", {
+											reference: formatFullOutputReference(truncation.artifactId),
+										})
+									: t("tui.tools.fetch.truncated", "Output truncated"),
 								"warning",
 							),
 						],
@@ -226,7 +237,7 @@ export function renderReadUrlResult(
 
 	if (result.isError || !details) {
 		const rawErrorText = result.content?.find(c => c.type === "text")?.text ?? "";
-		const errorText = (rawErrorText || "No response data").replace(/^Error:\s*/, "");
+		const errorText = (rawErrorText || t("tui.tools.fetch.noResponse", "No response data")).replace(/^Error:\s*/, "");
 		const urlText = details?.finalUrl ?? details?.url ?? "";
 		const description = urlText ? formatReadUrlDescription(urlText) : undefined;
 		const header = renderStatusLine({ icon: "error", title: "Read", description }, uiTheme);
@@ -262,23 +273,25 @@ export function renderReadUrlResult(
 	const contentLines = contentBody.split("\n").filter(l => l.trim());
 
 	const metadataLines: string[] = [
-		`${uiTheme.fg("muted", "Content-Type:")} ${details.contentType || "unknown"}`,
-		`${uiTheme.fg("muted", "Method:")} ${details.method}`,
+		`${uiTheme.fg("muted", t("tui.tools.fetch.contentType", "Content-Type:"))} ${details.contentType || t("tui.tools.fetch.unknown", "unknown")}`,
+		`${uiTheme.fg("muted", t("tui.tools.fetch.method", "Method:"))} ${details.method}`,
 	];
 	if (hasRedirect) {
 		metadataLines.push(
-			`${uiTheme.fg("muted", "Final URL:")} ${formatReadUrlMetadataValue(details.finalUrl, uiTheme)}`,
+			`${uiTheme.fg("muted", t("tui.tools.fetch.finalUrl", "Final URL:"))} ${formatReadUrlMetadataValue(details.finalUrl, uiTheme)}`,
 		);
 	}
-	const lineLabel = `${lineCount} line${lineCount === 1 ? "" : "s"}`;
-	metadataLines.push(`${uiTheme.fg("muted", "Lines:")} ${lineLabel}`);
-	metadataLines.push(`${uiTheme.fg("muted", "Chars:")} ${charCount}`);
+	const lineLabel = t("tui.tools.fetch.lines", { one: "{count} line", other: "{count} lines" }, { count: lineCount });
+	metadataLines.push(`${uiTheme.fg("muted", t("tui.tools.fetch.linesLabel", "Lines:"))} ${lineLabel}`);
+	metadataLines.push(`${uiTheme.fg("muted", t("tui.tools.fetch.charsLabel", "Chars:"))} ${charCount}`);
 	if (truncated) {
-		metadataLines.push(uiTheme.fg("warning", `${uiTheme.status.warning} Output truncated`));
+		metadataLines.push(
+			uiTheme.fg("warning", `${uiTheme.status.warning} ${t("tui.tools.fetch.truncated", "Output truncated")}`),
+		);
 		if (truncation?.artifactId) metadataLines.push(formatStyledArtifactReference(truncation.artifactId, uiTheme));
 	}
 	if (hasNotes) {
-		metadataLines.push(`${uiTheme.fg("muted", "Notes:")} ${details.notes.join("; ")}`);
+		metadataLines.push(`${uiTheme.fg("muted", t("tui.tools.fetch.notes", "Notes:"))} ${details.notes.join("; ")}`);
 	}
 
 	let lastExpanded: boolean | undefined;
@@ -302,10 +315,15 @@ export function renderReadUrlResult(
 				contentPreviewLines =
 					previewLines.length > 0
 						? previewLines.map(line => uiTheme.fg("dim", line))
-						: [uiTheme.fg("dim", "(no content)")];
+						: [uiTheme.fg("dim", t("tui.tools.fetch.noContent", "(no content)"))];
 				if (remaining > 0) {
 					const hint = formatExpandHint(uiTheme, expanded, true);
-					contentPreviewLines.push(uiTheme.fg("muted", `… ${remaining} more lines${hint ? ` ${hint}` : ""}`));
+					contentPreviewLines.push(
+						uiTheme.fg(
+							"muted",
+							`${t("tui.tools.fetch.moreLines", { one: "… {count} more line", other: "… {count} more lines" }, { count: remaining })}${hint ? ` ${hint}` : ""}`,
+						),
+					);
 				}
 				lastExpanded = expanded;
 			}
@@ -314,8 +332,11 @@ export function renderReadUrlResult(
 				header,
 				phase: truncated ? "warning" : "success",
 				sections: [
-					{ label: uiTheme.fg("toolTitle", "Metadata"), content: metadataLines },
-					{ label: uiTheme.fg("toolTitle", "Content Preview"), content: contentPreviewLines },
+					{ label: uiTheme.fg("toolTitle", t("tui.tools.fetch.metadata", "Metadata")), content: metadataLines },
+					{
+						label: uiTheme.fg("toolTitle", t("tui.tools.fetch.contentPreview", "Content Preview")),
+						content: contentPreviewLines,
+					},
 				],
 				applyBg: false,
 			};

@@ -46,17 +46,10 @@ import { code, compact, md, node, row, span, text } from "../native/describe";
 import type { DescribeContext, NativeChild, NativeNode, NativeUiEvent } from "../native/node";
 import { actionHint, hintsRow, type NativeHint, overlayCard } from "../native/overlay";
 import { CLOSE_ACTION, type PickerEvent, picker, pickerAction, pickerEvent } from "../native/picker";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 /** Key of the leading list item that replays the history older than the startup tail. */
 const EARLIER_TURNS_KEY = "earlier";
-
-/** Leading item of a truncated transcript list; selecting it loads the older turns. */
-const earlierTurnsItem: NativeNode = node(
-	"item",
-	{ label: [span("Earlier turns…", "muted")], hint: ["a"] },
-	undefined,
-	EARLIER_TURNS_KEY,
-);
 
 /** First non-blank line of `source`, whitespace collapsed. */
 function firstLine(source: string): string {
@@ -81,15 +74,18 @@ function turnSummary(entry: TranscriptEntry): { label: string; role: string } {
 			return { label, role: "omp.assistant" };
 		}
 		case "toolResult":
-			return { label: `${message.toolName} result`, role: `omp.tool.${message.toolName}` };
+			return {
+				label: t("tui.overlays.copySelector.toolResult", "{tool} result", { tool: message.toolName }),
+				role: `omp.tool.${message.toolName}`,
+			};
 		case "bashExecution":
 			return { label: `$ ${firstLine(message.command)}`, role: "omp.tool.bash" };
 		case "pythonExecution":
 			return { label: firstLine(message.code), role: "omp.tool.eval" };
 		case "compactionSummary":
-			return { label: "Compaction summary", role: "omp.summary" };
+			return { label: t("tui.overlays.copySelector.compactionSummary", "Compaction summary"), role: "omp.summary" };
 		case "branchSummary":
-			return { label: "Branch summary", role: "omp.summary" };
+			return { label: t("tui.overlays.copySelector.branchSummary", "Branch summary"), role: "omp.summary" };
 		case "custom":
 		case "hookMessage": {
 			const draft = userTurnDraft(entry);
@@ -119,7 +115,7 @@ function turnItem(target: OutlineTarget, detail?: TspText): NativeNode {
 	return node(
 		"item",
 		{
-			label: label || "(empty)",
+			label: label || t("tui.overlays.copySelector.empty", "(empty)"),
 			detail: detail ?? (time || undefined),
 			value: detail !== undefined && time ? [span(time, "dim")] : undefined,
 			role,
@@ -132,7 +128,7 @@ function turnItem(target: OutlineTarget, detail?: TspText): NativeNode {
 
 /** Preview of a turn's text: prose as markdown, command/tool output as a plain code block. */
 export function turnPreview(target: OutlineTarget, content: string): NativeNode {
-	if (!content.trim()) return text([span("(no text)", "muted")]);
+	if (!content.trim()) return text([span(t("tui.overlays.copySelector.noText", "(no text)"), "muted")]);
 	const message = transcriptEntryMessage(target.entries[0]!);
 	switch (message?.role) {
 		case "assistant":
@@ -175,7 +171,7 @@ function timelineItem(target: OutlineTarget): TspPickerItem {
 	const entry = target.entries[0]!;
 	const id = target.turnId;
 	const summary = turnSummary(entry);
-	const label = summary.label || "(empty)";
+	const label = summary.label || t("tui.overlays.copySelector.empty", "(empty)");
 	if (target.isUserTurn) {
 		const at = entryTime(entry);
 		return { id, label, node: "user", ...(at ? { facts: { at } } : {}) };
@@ -219,8 +215,12 @@ const PREVIEW_BLOCK_LINES = 400;
 function blockCaption(block: CopyBlock): string {
 	if (block.href || block.kind === "quote") return block.label;
 	const lines = block.content.split("\n").length;
-	const kind = block.kind === "code" ? (block.language ?? "code") : block.label;
-	return `${kind}${theme.sep.dot}${lines} line${lines === 1 ? "" : "s"}`;
+	const kind = block.kind === "code" ? (block.language ?? t("tui.overlays.copySelector.code", "code")) : block.label;
+	return `${kind}${theme.sep.dot}${t(
+		"tui.overlays.copySelector.lines",
+		{ one: "{count} line", other: "{count} lines" },
+		{ count: lines },
+	)}`;
 }
 
 /** A block's preview content: the link, the quote as markdown, else highlighted code. */
@@ -232,7 +232,14 @@ function blockBody(block: CopyBlock): NativeNode {
 	const shown = lines.slice(0, PREVIEW_BLOCK_LINES).join("\n");
 	return node("col", { gap: "xs" }, [
 		code(shown, { lang: block.language, wrap: true }),
-		text([span(`… +${lines.length - PREVIEW_BLOCK_LINES} more lines`, "dim")]),
+		text([
+			span(
+				t("tui.overlays.copySelector.moreLines", "… +{count} more lines", {
+					count: lines.length - PREVIEW_BLOCK_LINES,
+				}),
+				"dim",
+			),
+		]),
 	]);
 }
 
@@ -704,12 +711,14 @@ export class CopySelectorComponent implements Component {
 		const blocks = target ? this.#blocksFor(target) : [];
 		const descended = this.#blocks !== undefined;
 		const focused = this.#blocks?.[this.#blockSelected];
-		const action = this.deps.actionLabel ?? "copy";
+		const action = this.deps.actionLabel ?? t("tui.overlays.copySelector.copyAction", "copy");
 		const props: TspPickerProps = {
-			title: this.deps.title ?? "Copy",
-			...(this.deps.title ? {} : { subtitle: "Pick what to put on the clipboard" }),
+			title: this.deps.title ?? t("tui.overlays.copySelector.title", "Copy"),
+			...(this.deps.title
+				? {}
+				: { subtitle: t("tui.overlays.copySelector.subtitle", "Pick what to put on the clipboard") }),
 			icon: "clipboard",
-			noun: "turns",
+			noun: t("tui.overlays.copySelector.noun", "turns"),
 			size: "lg",
 			layout: "timeline",
 			preview: "side",
@@ -718,14 +727,20 @@ export class CopySelectorComponent implements Component {
 			items: this.#pickerItems.of(this.#targets),
 			selected: target?.turnId ?? null,
 			total: this.#targets.length,
-			empty: "Nothing to copy",
+			empty: t("tui.overlays.copySelector.emptyPicker", "Nothing to copy"),
 			focus: descended ? "preview" : "list",
 			actions: compact([
 				pickerAction("pick", `${action[0]!.toUpperCase()}${action.slice(1)}`, "enter", { primary: true }),
-				!descended && blocks.length > 0 ? pickerAction("blocks", "Blocks", "right") : undefined,
-				focused?.href && this.deps.onOpen ? pickerAction("open-link", "Open link", "o") : undefined,
-				!descended && this.#truncated ? pickerAction("earlier", "Earlier turns", "a") : undefined,
-				descended ? { ...CLOSE_ACTION, label: "Back" } : CLOSE_ACTION,
+				!descended && blocks.length > 0
+					? pickerAction("blocks", t("tui.overlays.copySelector.blocks", "Blocks"), "right")
+					: undefined,
+				focused?.href && this.deps.onOpen
+					? pickerAction("open-link", t("tui.overlays.copySelector.openLink", "Open link"), "o")
+					: undefined,
+				!descended && this.#truncated
+					? pickerAction("earlier", t("tui.overlays.copySelector.earlierTurns", "Earlier turns"), "a")
+					: undefined,
+				descended ? { ...CLOSE_ACTION, label: t("tui.overlays.copySelector.back", "Back") } : CLOSE_ACTION,
 			]),
 		};
 		const preview: NativeNode[] = [];
@@ -733,7 +748,13 @@ export class CopySelectorComponent implements Component {
 			const whole = targetCopy(target, blocks);
 			if (whole.content.trim()) {
 				preview.push(
-					previewSection("whole", "Whole message", turnPreview(target, whole.content), whole.content, false),
+					previewSection(
+						"whole",
+						t("tui.overlays.copySelector.wholeMessage", "Whole message"),
+						turnPreview(target, whole.content),
+						whole.content,
+						false,
+					),
 				);
 			}
 			blocks.forEach((block, index) => {
@@ -761,23 +782,47 @@ export class CopySelectorComponent implements Component {
 			return cached.node;
 		}
 		const target = this.#targets[this.#selected];
-		const action = this.deps.actionLabel ?? "copy";
-		const upDown = actionHint(["tui.select.up", "tui.select.down"], this.#blocks ? "block" : "step");
-		const cancel = actionHint("tui.select.cancel", this.#blocks ? "back" : "close");
+		const action = this.deps.actionLabel ?? t("tui.overlays.copySelector.copyAction", "copy");
+		const upDown = actionHint(
+			["tui.select.up", "tui.select.down"],
+			this.#blocks ? t("tui.overlays.copySelector.block", "block") : t("tui.overlays.copySelector.step", "step"),
+		);
+		const cancel = actionHint(
+			"tui.select.cancel",
+			this.#blocks
+				? t("tui.overlays.copySelector.backLower", "back")
+				: t("tui.overlays.copySelector.closeLower", "close"),
+		);
 		const children: NativeChild[] = [];
 		let hints: (NativeHint | undefined)[];
 		if (this.#blocks && target) {
 			const block = this.#blocks[this.#blockSelected];
 			children.push(
-				row([text([span("‹ back", "accent")], { actions: { click: "back" } })], { gap: "md" }),
+				row(
+					[
+						text([span(t("tui.overlays.copySelector.backLink", "‹ back"), "accent")], {
+							actions: { click: "back" },
+						}),
+					],
+					{
+						gap: "md",
+					},
+				),
 				node(
 					"list",
-					{ selected: String(this.#blockSelected), empty: "No blocks" },
+					{ selected: String(this.#blockSelected), empty: t("tui.overlays.copySelector.noBlocks", "No blocks") },
 					this.#blocks.map((item, index) => {
 						const lines = item.content.split("\n").length;
 						return node(
 							"item",
-							{ label: item.label, detail: `${lines} line${lines === 1 ? "" : "s"}` },
+							{
+								label: item.label,
+								detail: t(
+									"tui.overlays.copySelector.lines",
+									{ one: "{count} line", other: "{count} lines" },
+									{ count: lines },
+								),
+							},
 							undefined,
 							String(index),
 						);
@@ -788,16 +833,23 @@ export class CopySelectorComponent implements Component {
 			if (block) children.push(this.#blockPreview(block, action));
 			hints = [
 				upDown,
-				{ keys: ["left", ...(cancel?.keys ?? [])], label: "back" },
+				{ keys: ["left", ...(cancel?.keys ?? [])], label: t("tui.overlays.copySelector.backLower", "back") },
 				{ keys: ["enter"], label: action },
-				block?.href && this.deps.onOpen ? { keys: ["o"], label: "open" } : undefined,
+				block?.href && this.deps.onOpen
+					? { keys: ["o"], label: t("tui.overlays.copySelector.openLower", "open") }
+					: undefined,
 			];
 		} else {
 			const blocks = target ? this.#blocksFor(target) : [];
 			children.push(
 				node(
 					"list",
-					{ selected: target?.turnId ?? null, virtual: true, max: 0.5, empty: "Nothing to copy" },
+					{
+						selected: target?.turnId ?? null,
+						virtual: true,
+						max: 0.5,
+						empty: t("tui.overlays.copySelector.emptyPicker", "Nothing to copy"),
+					},
 					this.#transcriptItems(),
 					"list",
 				),
@@ -807,26 +859,45 @@ export class CopySelectorComponent implements Component {
 				const body: NativeChild[] = [turnPreview(target, item.content)];
 				if (blocks.length > 0) {
 					body.push(
-						text([span(`${blocks.length} block${blocks.length === 1 ? "" : "s"} ›`, "accent")], {
-							actions: { click: "blocks" },
-						}),
+						text(
+							[
+								span(
+									`${t(
+										"tui.overlays.copySelector.blocksCount",
+										{ one: "{count} block", other: "{count} blocks" },
+										{ count: blocks.length },
+									)} ›`,
+									"accent",
+								),
+							],
+							{
+								actions: { click: "blocks" },
+							},
+						),
 					);
 				}
 				children.push(node("section", { head: [span(item.label, "strong")] }, body, "preview"));
 			}
 			hints = [
 				upDown,
-				blocks.length > 0 ? { keys: ["right"], label: "blocks" } : undefined,
+				blocks.length > 0
+					? { keys: ["right"], label: t("tui.overlays.copySelector.blocksLower", "blocks") }
+					: undefined,
 				{ keys: ["enter"], label: action },
-				this.#truncated ? { keys: ["a"], label: "earlier turns" } : undefined,
+				this.#truncated
+					? { keys: ["a"], label: t("tui.overlays.copySelector.earlierTurnsLower", "earlier turns") }
+					: undefined,
 				cancel,
 			];
 		}
 		children.push(hintsRow(hints));
 		const head: TspText = this.deps.title ?? [
 			span(`${theme.cmd.copy} `),
-			span("Copy", "strong"),
-			span(`${theme.sep.dot}pick what to put on the clipboard`, "dim"),
+			span(t("tui.overlays.copySelector.title", "Copy"), "strong"),
+			span(
+				`${theme.sep.dot}${t("tui.overlays.copySelector.subtitleLower", "pick what to put on the clipboard")}`,
+				"dim",
+			),
 		];
 		const root = overlayCard("omp.overlay.copy", head, children);
 		this.#native = { memo, targets: this.#targets, blocks: this.#blocks, node: root };
@@ -837,7 +908,18 @@ export class CopySelectorComponent implements Component {
 		const cached = this.#nativeItems;
 		if (cached?.targets === this.#targets && cached.truncated === this.#truncated) return cached.items;
 		const items = this.#targets.map(target => turnItem(target));
-		if (this.#truncated) items.unshift(earlierTurnsItem);
+		if (this.#truncated)
+			items.unshift(
+				node(
+					"item",
+					{
+						label: [span(t("tui.overlays.copySelector.earlierTurnsEllipsis", "Earlier turns…"), "muted")],
+						hint: ["a"],
+					},
+					undefined,
+					EARLIER_TURNS_KEY,
+				),
+			);
 		this.#nativeItems = { targets: this.#targets, truncated: this.#truncated, items };
 		return items;
 	}
@@ -852,7 +934,11 @@ export class CopySelectorComponent implements Component {
 			text([span(`${theme.cmd.copy} ${action}`, "accent")], { actions: { click: "copy" } }),
 		];
 		if (block.href && this.deps.onOpen) {
-			controls.push(text([span(`${theme.cmd.share} open`, "accent")], { actions: { click: "open" } }));
+			controls.push(
+				text([span(`${theme.cmd.share} ${t("tui.overlays.copySelector.openLower", "open")}`, "accent")], {
+					actions: { click: "open" },
+				}),
+			);
 		}
 		return node("section", { head: [span(block.label, "strong")] }, [body, row(controls, { gap: "md" })], "preview");
 	}
@@ -909,21 +995,40 @@ export class CopySelectorComponent implements Component {
 					color: OUTLINE_COLOR,
 					caption:
 						blocks.length > 0
-							? `${blocks.length} block${blocks.length === 1 ? "" : "s"} ${formatKeyHint("right")}`
+							? `${t(
+									"tui.overlays.copySelector.blocksCount",
+									{ one: "{count} block", other: "{count} blocks" },
+									{ count: blocks.length },
+								)} ${formatKeyHint("right")}`
 							: undefined,
 				},
 			}).column;
 		}
 
 		const selectedBlock = this.#blocks?.[this.#blockSelected];
-		const openHint = selectedBlock?.href && this.deps.onOpen ? `  ${formatKeyHint("o")} open` : "";
-		const action = this.deps.actionLabel ?? "copy";
+		const openHint =
+			selectedBlock?.href && this.deps.onOpen
+				? `  ${formatKeyHint("o")} ${t("tui.overlays.copySelector.openLower", "open")}`
+				: "";
+		const action = this.deps.actionLabel ?? t("tui.overlays.copySelector.copyAction", "copy");
 		const upDown = editorKeys("tui.select.up", "tui.select.down");
 		const enter = formatKeyHint("enter");
 		const cancel = editorKey("tui.select.cancel");
 		const hint = this.#blocks
-			? `${this.#blockSelected + 1}/${this.#blocks.length}  ${upDown} block  ${formatKeyHint("left")}/${cancel} back  ${enter} ${action}${openHint}  click ${theme.cmd.copy}/${theme.cmd.share}`
-			: `${this.#targets.length > 0 ? `${this.#selected + 1}/${this.#targets.length}  ` : ""}${upDown} step  ${blocks.length > 0 ? `${formatKeyHint("right")} blocks  ` : ""}${enter} ${action}  ${this.#truncated ? `${formatKeyHint("a")} earlier turns  ` : ""}${expandKeyHint()} expand  ${cancel} close`;
+			? `${this.#blockSelected + 1}/${this.#blocks.length}  ${upDown} ${t(
+					"tui.overlays.copySelector.block",
+					"block",
+				)}  ${formatKeyHint("left")}/${cancel} ${t(
+					"tui.overlays.copySelector.backLower",
+					"back",
+				)}  ${enter} ${action}${openHint}  ${t(
+					"tui.overlays.copySelector.click",
+					"click",
+				)} ${theme.cmd.copy}/${theme.cmd.share}`
+			: `${this.#targets.length > 0 ? `${this.#selected + 1}/${this.#targets.length}  ` : ""}${upDown} ${t(
+					"tui.overlays.copySelector.step",
+					"step",
+				)}  ${blocks.length > 0 ? `${formatKeyHint("right")} ${t("tui.overlays.copySelector.blocksLower", "blocks")}  ` : ""}${enter} ${action}  ${this.#truncated ? `${formatKeyHint("a")} ${t("tui.overlays.copySelector.earlierTurnsLower", "earlier turns")}  ` : ""}${expandKeyHint()} ${t("tui.overlays.copySelector.expand", "expand")}  ${cancel} ${t("tui.overlays.copySelector.closeLower", "close")}`;
 		const anchorId = target
 			? this.#blocks
 				? `copy:${target.turnId}:block:${this.#blockSelected}`
@@ -933,7 +1038,7 @@ export class CopySelectorComponent implements Component {
 			header: [
 				this.deps.title
 					? theme.bold(this.deps.title)
-					: `${theme.cmd.copy} ${theme.bold("Copy")}${theme.sep.dot}${theme.fg("dim", "pick what to put on the clipboard")}`,
+					: `${theme.cmd.copy} ${theme.bold(t("tui.overlays.copySelector.title", "Copy"))}${theme.sep.dot}${theme.fg("dim", t("tui.overlays.copySelector.subtitleLower", "pick what to put on the clipboard"))}`,
 			],
 			body: {
 				lines: composed.lines,
@@ -969,7 +1074,11 @@ export class CopySelectorComponent implements Component {
 			if (block.href && this.deps.onOpen) controls.push({ action: "open", text: `${theme.cmd.share} open` });
 			const controlsWidth = controls.reduce((sum, control) => sum + visibleWidth(control.text) + 2, 0);
 			const summary = truncateToWidth(
-				`${index + 1}/${blocks.length}${theme.sep.dot}${block.label}${theme.sep.dot}${lineCount} line${lineCount === 1 ? "" : "s"}`,
+				`${index + 1}/${blocks.length}${theme.sep.dot}${block.label}${theme.sep.dot}${t(
+					"tui.overlays.copySelector.lines",
+					{ one: "{count} line", other: "{count} lines" },
+					{ count: lineCount },
+				)}`,
 				Math.max(4, inner - controlsWidth),
 			);
 			// Caption: two-space gutter, summary, then the controls, each preceded by two spaces.
@@ -1013,7 +1122,14 @@ export class CopySelectorComponent implements Component {
 			const styled = block.language ? highlightCode(shown.join("\n"), block.language) : shown;
 			const rows = styled.map(row => truncateToWidth(replaceTabs(row), inner));
 			if (raw.length > shown.length) {
-				rows.push(theme.fg("dim", `… +${raw.length - shown.length} more lines`));
+				rows.push(
+					theme.fg(
+						"dim",
+						t("tui.overlays.copySelector.moreLines", "… +{count} more lines", {
+							count: raw.length - shown.length,
+						}),
+					),
+				);
 			}
 			return { rows, lineCount: raw.length };
 		});
@@ -1053,21 +1169,31 @@ function pushMarkdownBlocks(blocks: CopyBlock[], text: string, entry: Transcript
 	for (const block of extractBlocks(text)) {
 		if (block.kind === "code") {
 			blocks.push({
-				label: block.lang ? `${block.lang} code` : "code",
+				label: block.lang
+					? t("tui.overlays.copySelector.codeWithLang", "{lang} code", { lang: block.lang })
+					: t("tui.overlays.copySelector.code", "code"),
 				content: block.code,
 				entry,
 				kind: "code",
 				language: block.lang || undefined,
 			});
 		} else {
-			blocks.push({ label: "quote", content: block.text, entry, kind: "quote" });
+			blocks.push({
+				label: t("tui.overlays.copySelector.quote", "quote"),
+				content: block.text,
+				entry,
+				kind: "quote",
+			});
 		}
 	}
 	// Links follow the message's blocks. The preview shows the whole URL on one
 	// row, so a link the transcript wrapped is copied or opened intact.
 	for (const link of extractLinks(text)) {
 		blocks.push({
-			label: link.text !== link.href ? `link${theme.sep.dot}${link.text}` : "link",
+			label:
+				link.text !== link.href
+					? `${t("tui.overlays.copySelector.link", "link")}${theme.sep.dot}${link.text}`
+					: t("tui.overlays.copySelector.link", "link"),
 			content: link.href,
 			entry,
 			href: link.href,
@@ -1092,7 +1218,10 @@ export function collectBlocks(entries: readonly TranscriptEntry[]): CopyBlock[] 
 					const command = commandFromToolCall(content);
 					if (command) {
 						blocks.push({
-							label: command.kind === "bash" ? "bash command" : "eval code",
+							label:
+								command.kind === "bash"
+									? t("tui.overlays.copySelector.bashCommand", "bash command")
+									: t("tui.overlays.copySelector.evalCode", "eval code"),
 							content: command.code,
 							entry,
 							kind: "command",
@@ -1104,16 +1233,43 @@ export function collectBlocks(entries: readonly TranscriptEntry[]): CopyBlock[] 
 			}
 			case "toolResult": {
 				const text = toolResultText(message);
-				if (text) blocks.push({ label: `${message.toolName} result`, content: text, entry });
+				if (text)
+					blocks.push({
+						label: t("tui.overlays.copySelector.toolResult", "{tool} result", {
+							tool: message.toolName,
+						}),
+						content: text,
+						entry,
+					});
 				break;
 			}
 			case "bashExecution":
-				blocks.push({ label: "command", content: message.command, entry, language: "bash" });
-				if (message.output.trim()) blocks.push({ label: "output", content: message.output, entry });
+				blocks.push({
+					label: t("tui.overlays.copySelector.command", "command"),
+					content: message.command,
+					entry,
+					language: "bash",
+				});
+				if (message.output.trim())
+					blocks.push({
+						label: t("tui.overlays.copySelector.output", "output"),
+						content: message.output,
+						entry,
+					});
 				break;
 			case "pythonExecution":
-				blocks.push({ label: "eval code", content: message.code, entry, language: "python" });
-				if (message.output.trim()) blocks.push({ label: "output", content: message.output, entry });
+				blocks.push({
+					label: t("tui.overlays.copySelector.evalCode", "eval code"),
+					content: message.code,
+					entry,
+					language: "python",
+				});
+				if (message.output.trim())
+					blocks.push({
+						label: t("tui.overlays.copySelector.output", "output"),
+						content: message.output,
+						entry,
+					});
 				break;
 			default:
 				break;
@@ -1128,35 +1284,41 @@ export function targetCopy(target: OutlineTarget, blocks: readonly CopyBlock[]):
 	const message = transcriptEntryMessage(entry);
 	switch (message?.role) {
 		case "user":
-			return { content: rawUserText(message), label: "user message" };
+			return { content: rawUserText(message), label: t("tui.overlays.copySelector.userMessage", "user message") };
 		case "assistant": {
 			const text = assistantVisibleText(message);
-			if (text) return { content: text, label: "assistant message" };
+			if (text)
+				return { content: text, label: t("tui.overlays.copySelector.assistantMessage", "assistant message") };
 			break;
 		}
 		case "toolResult": {
 			const text = toolResultText(message);
-			if (text) return { content: text, label: `${message.toolName} result` };
+			if (text)
+				return {
+					content: text,
+					label: t("tui.overlays.copySelector.toolResult", "{tool} result", { tool: message.toolName }),
+				};
 			break;
 		}
 		case "bashExecution":
 			return {
 				content: [message.command, message.output].filter(part => part.trim()).join("\n"),
-				label: "bash execution",
+				label: t("tui.overlays.copySelector.bashExecution", "bash execution"),
 			};
 		case "pythonExecution":
 			return {
 				content: [message.code, message.output].filter(part => part.trim()).join("\n"),
-				label: "eval execution",
+				label: t("tui.overlays.copySelector.evalExecution", "eval execution"),
 			};
 		case "compactionSummary":
 		case "branchSummary":
-			return { content: message.summary, label: "summary" };
+			return { content: message.summary, label: t("tui.overlays.copySelector.summary", "summary") };
 		case "custom":
 		case "hookMessage": {
 			// A user-invoked skill/collab prompt copies as what the user typed, not the expanded body.
 			const draft = message.role === "custom" ? userTurnDraft(entry) : undefined;
-			if (draft?.trim()) return { content: draft, label: "user message" };
+			if (draft?.trim())
+				return { content: draft, label: t("tui.overlays.copySelector.userMessage", "user message") };
 			const content =
 				typeof message.content === "string"
 					? message.content
@@ -1164,12 +1326,15 @@ export function targetCopy(target: OutlineTarget, blocks: readonly CopyBlock[]):
 							.filter((block): block is { type: "text"; text: string } => block.type === "text")
 							.map(block => block.text)
 							.join("\n");
-			if (content.trim()) return { content, label: "message" };
+			if (content.trim()) return { content, label: t("tui.overlays.copySelector.message", "message") };
 			break;
 		}
 		default:
 			break;
 	}
 	// No direct prose (e.g. a pure tool turn): fall back to its blocks joined.
-	return { content: blocks.map(block => block.content).join("\n\n"), label: "turn content" };
+	return {
+		content: blocks.map(block => block.content).join("\n\n"),
+		label: t("tui.overlays.copySelector.turnContent", "turn content"),
+	};
 }

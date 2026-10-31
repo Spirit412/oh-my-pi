@@ -6,6 +6,7 @@ import { theme } from "../theme/theme";
 import { formatMetricRow, MetricRow, type MetricSpec } from "../components/metric";
 import { node, row, span, text } from "../native/describe";
 import type { DescribeContext, NativeChild, NativeNode } from "../native/node";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 /** Below this the rate is nonsense (cached/instant responses yield absurd tok/s). */
 const MIN_DURATION_MS = 100;
@@ -101,7 +102,10 @@ export function formatTurnUsage(summary: TurnUsageSummary): { text: string; titl
 	const text = [time, `${formatNumber(tokens)} tok`, cost].filter(part => part !== undefined).join(" · ");
 	const exact = `${tokens.toLocaleString("en-US")} tokens (${summary.input.toLocaleString("en-US")} in · ${summary.output.toLocaleString("en-US")} out)`;
 	const title = [time, exact, cost].filter(part => part !== undefined).join(" · ");
-	return { text: `${text} this turn`, title: `This turn: ${title}` };
+	return {
+		text: t("tui.overlays.usageRow.thisTurnSuffix", "{text} this turn", { text }),
+		title: t("tui.overlays.usageRow.thisTurnTitle", "This turn: {title}", { title }),
+	};
 }
 
 /** Output tokens per second over the whole request; undefined when the duration is too short to mean anything. */

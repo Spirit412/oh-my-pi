@@ -12,6 +12,7 @@ import {
 	type ExtensionProvider,
 	type TreeNode,
 } from "./types";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 export function resolveExtensionState(
 	source: { provider: string; level: string },
@@ -191,25 +192,25 @@ export function applyFilter(extensions: Extension[], query: string): Extension[]
 function getKindDisplayName(kind: ExtensionKind): string {
 	switch (kind) {
 		case "extension-module":
-			return "Extension Modules";
+			return t("tui.overlays.extensionsState.extensionModules", "Extension Modules");
 		case "skill":
-			return "Skills";
+			return t("tui.overlays.extensionsState.skills", "Skills");
 		case "rule":
-			return "Rules";
+			return t("tui.overlays.extensionsState.rules", "Rules");
 		case "tool":
-			return "Tools";
+			return t("tui.overlays.extensionsState.tools", "Tools");
 		case "mcp":
-			return "MCP Servers";
+			return t("tui.overlays.extensionsState.mcpServers", "MCP Servers");
 		case "prompt":
-			return "Prompts";
+			return t("tui.overlays.extensionsState.prompts", "Prompts");
 		case "instruction":
-			return "Instructions";
+			return t("tui.overlays.extensionsState.instructions", "Instructions");
 		case "context-file":
-			return "Context Files";
+			return t("tui.overlays.extensionsState.contextFiles", "Context Files");
 		case "hook":
-			return "Hooks";
+			return t("tui.overlays.extensionsState.hooks", "Hooks");
 		case "slash-command":
-			return "Slash Commands";
+			return t("tui.overlays.extensionsState.slashCommands", "Slash Commands");
 		default:
 			return kind;
 	}
@@ -231,7 +232,7 @@ export function buildProviderTabs(extensions: Extension[], providers: readonly E
 	// ALL tab first
 	tabs.push({
 		id: "all",
-		label: "ALL",
+		label: t("tui.overlays.extensionsState.allTab", "ALL"),
 		enabled: true,
 		count: extensions.length,
 	});

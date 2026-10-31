@@ -14,6 +14,7 @@ import type { NativeNode, NativeUiEvent } from "../native/node";
 import { col, node, span, text } from "../native/describe";
 import { actionBar, actionButton } from "../native/overlay";
 import { isNativeRendering } from "../native/state";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 const FRAME_INTERVAL_MS = 85;
 const FRAME_COUNT = 34;
@@ -181,14 +182,23 @@ function drawBanner(
 	const top = height - 3;
 	const innerWidth = panelWidth - 2;
 	const titleText =
-		event.kind === "unscheduled-weekly-reset" ? " O P E N A I   R E S E T " : " S A V E D   R E S E T ";
+		event.kind === "unscheduled-weekly-reset"
+			? t("tui.overlays.codexReset.bannerOpenAiReset", " O P E N A I   R E S E T ")
+			: t("tui.overlays.codexReset.bannerSavedReset", " S A V E D   R E S E T ");
 	const esc = formatKeyHint("escape");
 	const subtitleText =
 		event.kind === "unscheduled-weekly-reset"
-			? `Weekly usage cleared early · ${esc} to return`
-			: event.added === 1
-				? `New reset banked · ${event.available} available · ${esc} to return`
-				: `${event.added} resets banked · ${event.available} available · ${esc} to return`;
+			? t("tui.overlays.codexReset.weeklyClearedReturn", "Weekly usage cleared early · {key} to return", {
+					key: esc,
+				})
+			: t(
+					"tui.overlays.codexReset.resetsBankedReturn",
+					{
+						one: "New reset banked · {available} available · {key} to return",
+						other: "{added} resets banked · {available} available · {key} to return",
+					},
+					{ count: event.added, added: event.added, available: event.available, key: esc },
+				);
 	const title = truncateToWidth(titleText, innerWidth, "");
 	const subtitle = truncateToWidth(subtitleText, innerWidth, "");
 	const titleOffset = Math.floor((innerWidth - visibleWidth(title)) / 2);
@@ -267,13 +277,21 @@ function drawBurst(
  * is ANSI-only art.
  */
 function describeCodexResetFireworks(event: CodexResetFireworksEvent): NativeNode {
-	const title = event.kind === "unscheduled-weekly-reset" ? "OpenAI reset" : "Saved reset";
+	const title =
+		event.kind === "unscheduled-weekly-reset"
+			? t("tui.overlays.codexReset.titleOpenAiReset", "OpenAI reset")
+			: t("tui.overlays.codexReset.titleSavedReset", "Saved reset");
 	const subtitle =
 		event.kind === "unscheduled-weekly-reset"
-			? "Weekly usage cleared early"
-			: event.added === 1
-				? `New reset banked · ${event.available} available`
-				: `${event.added} resets banked · ${event.available} available`;
+			? t("tui.overlays.codexReset.weeklyCleared", "Weekly usage cleared early")
+			: t(
+					"tui.overlays.codexReset.resetsBanked",
+					{
+						one: "New reset banked · {available} available",
+						other: "{added} resets banked · {available} available",
+					},
+					{ count: event.added, added: event.added, available: event.available },
+				);
 	const spark = (glyph: string, color: FireworkColor): TspSpan =>
 		span(glyph, FIREWORK_THEME_COLORS[color], { fx: "pulse" });
 	// The sheet is the frame (Tern bursts confetti from the pane's top edge for this role).
@@ -289,7 +307,7 @@ function describeCodexResetFireworks(event: CodexResetFireworksEvent): NativeNod
 				},
 			}),
 			text([span(subtitle, FIREWORK_THEME_COLORS.cyan)]),
-			actionBar([null, actionButton("Close", "close", { keys: "escape" })]),
+			actionBar([null, actionButton(t("tui.overlays.codexReset.close", "Close"), "close", { keys: "escape" })]),
 		],
 		{ align: "center", gap: "sm" },
 	);

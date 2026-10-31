@@ -6,6 +6,7 @@ import { code, col, keyed, span, text } from "../native/describe";
 import type { NativeNode } from "../native/node";
 import { formatHashlineHeader } from "./hashline-format";
 import { fileRow } from "./native-view";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 // =============================================================================
 // Grouped file output (grep / ast-grep / ast-edit / lsp diagnostics)
@@ -402,7 +403,14 @@ export function describeGroupedOutput(
 		const chip = current.suffix
 			? { text: current.suffix.replace(/^\(|\)$/g, "") }
 			: count > 0
-				? { text: String(count), title: count === 1 ? "1 match" : `${count} matches` }
+				? {
+						text: String(count),
+						title: t(
+							"tui.tools.search.matchCount",
+							{ one: "{count} match", other: "{count} matches" },
+							{ count },
+						),
+					}
 				: undefined;
 		const head = fileRow(current.path, { chip, key: "file" });
 		files.push(

@@ -2,6 +2,7 @@ import type { ToolRenderer } from "./renderer";
 
 import type { Component } from "../index";
 import { Text } from "../index";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import { sanitizeText } from "@oh-my-pi/pi-utils";
 import chalk from "@oh-my-pi/pi-utils/chalk";
 import type { RenderResultOptions } from "./renderer";
@@ -11,7 +12,7 @@ import { renderStatusLine, renderTreeList } from "../render";
 import { wrapTreeLine } from "../render/hanging-wrap";
 import { framedToolCard } from "../render/tool-card";
 
-import { formatErrorDetail, formatMoreItems, PREVIEW_LIMITS, pluralize, replaceTabs } from "../render/render-utils";
+import { formatErrorDetail, formatMoreItems, PREVIEW_LIMITS, replaceTabs } from "../render/render-utils";
 import type { TspChecklistItem, TspChecklistPhase } from "@oh-my-pi/pi-wire";
 import { node } from "../native/describe";
 import { OwnerMemo } from "../native/memo";
@@ -181,7 +182,11 @@ function selectWithinCap<T extends { status: TodoStatus }>(
 		const hiddenActive = active.length - cap;
 		return {
 			items: active.slice(0, cap),
-			summary: `… ${hiddenActive} more active ${pluralize("todo", hiddenActive)}`,
+			summary: t(
+				"tui.tools.todo.moreActive",
+				{ one: "… {count} more active todo", other: "… {count} more active todos" },
+				{ count: hiddenActive },
+			),
 		};
 	}
 
@@ -384,7 +389,9 @@ function formatTodoLine(
 		case "abandoned":
 			return uiTheme.fg("error", `${prefix}${checkbox.unchecked} ${strikethroughText(text)}`);
 		case "blocked": {
-			const note = item.blocker ? `blocked: ${forDisplay(item.blocker)}` : "blocked";
+			const note = item.blocker
+				? t("tui.tools.todo.blockedWith", "blocked: {blocker}", { blocker: forDisplay(item.blocker) })
+				: t("tui.tools.todo.blocked", "blocked");
 			return uiTheme.fg("warning", `${prefix}${checkbox.unchecked} ${text} (${note})`);
 		}
 		default:
@@ -513,13 +520,16 @@ function describeTodoResult(
 		return {
 			tool: { title: "Todo" },
 			tone: "error",
-			body: [errorText(resultText(result) || "Todo operation failed")],
+			body: [errorText(resultText(result) || t("tui.tools.todo.operationFailed", "Todo operation failed"))],
 		};
 	}
 	const phases = (result.details?.phases ?? []).filter(phase => phase.tasks.length > 0);
 	const total = phases.reduce((sum, phase) => sum + phase.tasks.length, 0);
 	if (total === 0) {
-		return { tool: { title: "Todo" }, body: [noteText(forDisplay(resultText(result) || "No todos"))] };
+		return {
+			tool: { title: "Todo" },
+			body: [noteText(forDisplay(resultText(result) || t("tui.tools.todo.noTodos", "No todos")))],
+		};
 	}
 	const closed = phases.reduce((sum, phase) => sum + phase.tasks.filter(isClosedTodo).length, 0);
 	const activeDescs = options.expanded ? [] : activeTodoDescriptionsProvider();
@@ -547,13 +557,19 @@ export const todoToolRenderer = {
 		// `renderStatusLine` only flattens CR/LF and leaves the rest to the caller.
 		const ops =
 			opsList.length === 0
-				? ["update"]
+				? [t("tui.tools.todo.defaultOp", "update")]
 				: opsList.map(e => {
-						const parts = [forDisplay(e.op ?? "update")];
+						const parts = [forDisplay(e.op ?? t("tui.tools.todo.defaultOp", "update"))];
 						if (e.task) parts.push(forDisplay(e.task));
 						if (e.phase) parts.push(forDisplay(e.phase));
 						if (Array.isArray(e.items) && e.items.length) {
-							parts.push(`${e.items.length} item${e.items.length === 1 ? "" : "s"}`);
+							parts.push(
+								t(
+									"tui.tools.todo.itemCount",
+									{ one: "{count} item", other: "{count} items" },
+									{ count: e.items.length },
+								),
+							);
 						}
 						return parts.join(" ");
 					});
@@ -573,7 +589,9 @@ export const todoToolRenderer = {
 		args?: TodoRenderArgs,
 	): Component {
 		if (result.isError) {
-			const errorText = result.content?.find(content => content.type === "text")?.text ?? "Todo operation failed";
+			const errorText =
+				result.content?.find(content => content.type === "text")?.text ??
+				t("tui.tools.todo.operationFailed", "Todo operation failed");
 			const header = renderStatusLine({ icon: "error", title: "Todo" }, uiTheme);
 			return framedToolCard(uiTheme, () => ({
 				header,
@@ -599,7 +617,7 @@ export const todoToolRenderer = {
 			{
 				iconOverride: uiTheme.styledSymbol("tool.todo", "accent"),
 				title: "Todo",
-				meta: [`${allTasks.length} tasks`],
+				meta: [t("tui.tools.todo.tasksMeta", "{count} tasks", { count: allTasks.length })],
 			},
 			uiTheme,
 		);
@@ -607,7 +625,9 @@ export const todoToolRenderer = {
 			// Provider text on the Cursor path (the todo summary or a refusal note),
 			// so sanitize like every other label. The error branch above already
 			// goes through `formatErrorDetail`.
-			const fallback = forDisplay(result.content?.find(content => content.type === "text")?.text ?? "No todos");
+			const fallback = forDisplay(
+				result.content?.find(content => content.type === "text")?.text ?? t("tui.tools.todo.noTodos", "No todos"),
+			);
 			return new Text(`${header}\n  ${uiTheme.fg("dim", fallback)}`, 0, 0);
 		}
 
@@ -741,14 +761,26 @@ export const todoToolRenderer = {
 	},
 	describeCall(args: TodoRenderArgs): NativeToolView {
 		const ops = normalizeTodoArg(args).map(e => {
-			const parts = [forDisplay(e.op ?? "update")];
+			const parts = [forDisplay(e.op ?? t("tui.tools.todo.defaultOp", "update"))];
 			if (e.task) parts.push(forDisplay(e.task));
 			if (e.phase) parts.push(forDisplay(e.phase));
 			if (Array.isArray(e.items) && e.items.length)
-				parts.push(`${e.items.length} ${pluralize("item", e.items.length)}`);
+				parts.push(
+					t(
+						"tui.tools.todo.itemCount",
+						{ one: "{count} item", other: "{count} items" },
+						{ count: e.items.length },
+					),
+				);
 			return parts.join(" ");
 		});
-		return { tool: { title: "Todo", target: ops.length === 0 ? "update" : ops.join(", "), targetKind: "text" } };
+		return {
+			tool: {
+				title: "Todo",
+				target: ops.length === 0 ? t("tui.tools.todo.defaultOp", "update") : ops.join(", "),
+				targetKind: "text",
+			},
+		};
 	},
 
 	describeResult(result: ToolRenderResult<TodoToolDetails>, options: RenderResultOptions): NativeToolView | undefined {

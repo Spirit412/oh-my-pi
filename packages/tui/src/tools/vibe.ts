@@ -1,4 +1,5 @@
 import type { Component } from "../tui";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import { Text } from "../components/text";
 import { describeShimmer, shimmerEnabled, shimmerText } from "../theme/shimmer";
 import type { TspCardStatus, TspSpan, TspTone } from "@oh-my-pi/pi-wire";
@@ -157,6 +158,33 @@ interface VibeRenderArgs {
 	sessions?: string[];
 }
 
+/** Display label for a worker session state or settled turn status. */
+function vibeStateLabel(state: VibeSessionState | "completed" | "failed" | "cancelled"): string {
+	switch (state) {
+		case "starting":
+			return t("tui.tools.vibe.stateStarting", "starting");
+		case "running":
+			return t("tui.tools.vibe.stateRunning", "running");
+		case "idle":
+			return t("tui.tools.vibe.stateIdle", "idle");
+		case "dead":
+			return t("tui.tools.vibe.stateDead", "dead");
+		case "completed":
+			return t("tui.tools.vibe.stateCompleted", "completed");
+		case "failed":
+			return t("tui.tools.vibe.stateFailed", "failed");
+		case "cancelled":
+			return t("tui.tools.vibe.stateCancelled", "cancelled");
+	}
+}
+
+/** Spawn/send acknowledgement: `turn started`, with the job id when one exists. */
+function turnStartedLabel(jobId: string | undefined): string {
+	return jobId
+		? t("tui.tools.vibe.turnStartedJob", "turn started (job {job})", { job: jobId })
+		: t("tui.tools.vibe.turnStarted", "turn started");
+}
+
 /** One-line, escape-stripped fragment for embedding in a frame row. */
 function frameText(text: string, max: number): string {
 	return oneLineLabel(replaceTabs(text), max);
@@ -220,7 +248,7 @@ function tvScreen(
 		live && options.spinnerFrame !== undefined && shimmerEnabled()
 			? shimmerText(screen.id, uiTheme)
 			: uiTheme.fg(live ? "accent" : "toolOutput", screen.id);
-	const headParts = [icon, badge, idText, uiTheme.fg("dim", settledStatus ?? screen.state)];
+	const headParts = [icon, badge, idText, uiTheme.fg("dim", vibeStateLabel(settledStatus ?? screen.state))];
 	const turnsLabel = `${screen.turns}t${screen.queued > 0 ? `+${screen.queued}q` : ""}`;
 	headParts.push(uiTheme.fg("muted", turnsLabel));
 	if (screen.turnStartedAt !== undefined) {
@@ -260,7 +288,9 @@ function tvScreen(
 	const footer = settledStatus
 		? uiTheme.fg(
 				settledStatus === "completed" ? "success" : settledStatus === "failed" ? "error" : "warning",
-				`turn ${settledStatus} — result delivered`,
+				t("tui.tools.vibe.turnDelivered", "turn {status} — result delivered", {
+					status: vibeStateLabel(settledStatus),
+				}),
 			)
 		: undefined;
 	return miniFrame(uiTheme, headParts.join(" "), body, footer);
@@ -292,12 +322,14 @@ function describeCall(op: VibeOp, args: VibeRenderArgs | undefined): string {
 			return `send → ${args?.session ? frameText(args.session, 40) : "?"}`;
 		case "wait":
 			return args?.sessions?.length
-				? `wait on ${frameText(args.sessions.join(", "), 60)}`
-				: "wait on running sessions";
+				? t("tui.tools.vibe.waitOnSessions", "wait on {sessions}", {
+						sessions: frameText(args.sessions.join(", "), 60),
+					})
+				: t("tui.tools.vibe.waitOnRunning", "wait on running sessions");
 		case "kill":
 			return `kill ${args?.session ? frameText(args.session, 40) : "?"}`;
 		case "list":
-			return "sessions";
+			return t("tui.tools.vibe.sessions", "sessions");
 	}
 }
 
@@ -313,11 +345,13 @@ function vibeNativeLabel(op: VibeOp, args: VibeRenderArgs | undefined): string {
 		case "send":
 			return `send → ${args?.session ?? "?"}`;
 		case "wait":
-			return args?.sessions?.length ? `wait on ${args.sessions.join(", ")}` : "wait on running sessions";
+			return args?.sessions?.length
+				? t("tui.tools.vibe.waitOnSessions", "wait on {sessions}", { sessions: args.sessions.join(", ") })
+				: t("tui.tools.vibe.waitOnRunning", "wait on running sessions");
 		case "kill":
 			return `kill ${args?.session ?? "?"}`;
 		case "list":
-			return "sessions";
+			return t("tui.tools.vibe.sessions", "sessions");
 	}
 }
 
@@ -359,7 +393,7 @@ function describeVibeScreen(
 		live && shimmerEnabled()
 			? span(screen.id, "accent", { fx: "shimmer" })
 			: span(screen.id, live ? "accent" : "toolOutput"),
-		span(` ${settled ?? screen.state}`, "dim"),
+		span(` ${vibeStateLabel(settled ?? screen.state)}`, "dim"),
 		span(` ${screen.turns}t${screen.queued > 0 ? `+${screen.queued}q` : ""}`, "muted"),
 	];
 	if (screen.model) head.push(span(` ${plainText(screen.model)}`, "muted"));
@@ -395,7 +429,9 @@ function describeVibeScreen(
 		body.push(
 			text([
 				span(
-					`turn ${settled} — result delivered`,
+					t("tui.tools.vibe.turnDelivered", "turn {status} — result delivered", {
+						status: vibeStateLabel(settled),
+					}),
 					settled === "completed" ? "success" : settled === "failed" ? "error" : "warning",
 				),
 			]),
@@ -424,7 +460,11 @@ function describeVibeResult(
 ): NativeToolView {
 	const details = result.details;
 	const label = vibeNativeLabel(op, args);
-	if (result.isError) return { ...errorView("Vibe", resultText(result) || "vibe failed", label), inline: true };
+	if (result.isError)
+		return {
+			...errorView("Vibe", resultText(result) || t("tui.tools.vibe.failed", "vibe failed"), label),
+			inline: true,
+		};
 	if (!details) {
 		const fallback = resultText(result).trim();
 		return { head: toolHead("Vibe", label), inline: true, body: fallback ? [noteText(fallback)] : [] };
@@ -444,12 +484,12 @@ function describeVibeResult(
 				: [...toolHead("Vibe", "send →"), span(" "), span(plainText(args?.session ?? "?"), "accent")];
 		const ack: TspSpan =
 			op === "spawn"
-				? span(`turn started${details.spawned ? ` (job ${details.spawned.jobId})` : ""}`, "success")
+				? span(turnStartedLabel(details.spawned?.jobId), "success")
 				: details.send?.mode === "steered"
-					? span("steered into the running turn", "success")
+					? span(t("tui.tools.vibe.steered", "steered into the running turn"), "success")
 					: details.send?.mode === "queued"
-						? span("mid-turn — queued as the next turn", "warning")
-						: span(`turn started${details.send?.jobId ? ` (job ${details.send.jobId})` : ""}`, "success");
+						? span(t("tui.tools.vibe.queued", "mid-turn — queued as the next turn"), "warning")
+						: span(turnStartedLabel(details.send?.jobId), "success");
 		return {
 			head,
 			inline: true,
@@ -460,15 +500,23 @@ function describeVibeResult(
 	}
 
 	if (op === "kill") {
-		const note = details.killed?.cancelledTurn ? "in-flight turn cancelled" : undefined;
+		const note = details.killed?.cancelledTurn
+			? t("tui.tools.vibe.killedTurn", "in-flight turn cancelled")
+			: undefined;
 		return { head: toolHead("Vibe", `kill ${details.killed?.id ?? args?.session ?? "?"}`, note), inline: true };
 	}
 
 	const screens = details.screens;
 	const hiddenKilled = details.hiddenKilled?.length ?? 0;
-	const killedMeta = hiddenKilled > 0 ? span(` · ${hiddenKilled} killed hidden`, "dim") : undefined;
+	const killedMeta =
+		hiddenKilled > 0
+			? span(` · ${t("tui.tools.vibe.killedHidden", "{count} killed hidden", { count: hiddenKilled })}`, "dim")
+			: undefined;
 	if (screens.length === 0) {
-		const gist = hiddenKilled > 0 ? "no live sessions" : resultText(result).trim() || "no sessions";
+		const gist =
+			hiddenKilled > 0
+				? t("tui.tools.vibe.noLiveSessions", "no live sessions")
+				: resultText(result).trim() || t("tui.tools.vibe.noSessions", "no sessions");
 		const head = toolHead("Vibe", op, gist);
 		if (killedMeta) head.push(killedMeta);
 		return { head, tone: "warning", inline: true };
@@ -478,13 +526,14 @@ function describeVibeResult(
 	const title =
 		op === "wait"
 			? details.wait?.waiting === true
-				? "wait — watching the wall"
-				: "wait"
-			: `sessions (${screens.length})`;
+				? t("tui.tools.vibe.waitWallShort", "wait — watching the wall")
+				: t("tui.tools.vibe.waitShort", "wait")
+			: t("tui.tools.vibe.sessionsCountShort", "sessions ({count})", { count: screens.length });
 	const head: TspSpan[] = toolHead("Vibe", title);
-	if (running > 0) head.push(span(` · ${running} on air`, "accent"));
-	if (settledById.size > 0) head.push(span(` · ${settledById.size} settled`, "success"));
-	if (details.wait?.timedOut) head.push(span(" · timed out", "warning"));
+	if (running > 0) head.push(span(` · ${t("tui.tools.vibe.onAir", "{count} on air", { count: running })}`, "accent"));
+	if (settledById.size > 0)
+		head.push(span(` · ${t("tui.tools.vibe.settled", "{count} settled", { count: settledById.size })}`, "success"));
+	if (details.wait?.timedOut) head.push(span(` · ${t("tui.tools.vibe.timedOut", "timed out")}`, "warning"));
 	if (killedMeta) head.push(killedMeta);
 	const nowMs = Date.now();
 	return {
@@ -517,7 +566,12 @@ export function createVibeToolRenderer(op: VibeOp) {
 						uiTheme,
 						title,
 						composerRows(uiTheme, message, { cursor: cursorOn, expanded: options.expanded }),
-						uiTheme.fg("dim", op === "spawn" ? "booting CLI…" : "delivering…"),
+						uiTheme.fg(
+							"dim",
+							op === "spawn"
+								? t("tui.tools.vibe.bootingCli", "booting CLI…")
+								: t("tui.tools.vibe.delivering", "delivering…"),
+						),
 					);
 				});
 			}
@@ -551,15 +605,12 @@ export function createVibeToolRenderer(op: VibeOp) {
 						: `${uiTheme.fg("muted", "vibe send →")} ${uiTheme.fg("accent", frameText(args?.session ?? "?", 40))}`;
 				const ack =
 					op === "spawn"
-						? uiTheme.fg("success", `turn started${details.spawned ? ` (job ${details.spawned.jobId})` : ""}`)
+						? uiTheme.fg("success", turnStartedLabel(details.spawned?.jobId))
 						: details.send?.mode === "steered"
-							? uiTheme.fg("success", "steered into the running turn")
+							? uiTheme.fg("success", t("tui.tools.vibe.steered", "steered into the running turn"))
 							: details.send?.mode === "queued"
-								? uiTheme.fg("warning", "mid-turn — queued as the next turn")
-								: uiTheme.fg(
-										"success",
-										`turn started${details.send?.jobId ? ` (job ${details.send.jobId})` : ""}`,
-									);
+								? uiTheme.fg("warning", t("tui.tools.vibe.queued", "mid-turn — queued as the next turn"))
+								: uiTheme.fg("success", turnStartedLabel(details.send?.jobId));
 				const lines = miniFrame(
 					uiTheme,
 					target,
@@ -570,7 +621,9 @@ export function createVibeToolRenderer(op: VibeOp) {
 			}
 
 			if (op === "kill") {
-				const killedNote = details.killed?.cancelledTurn ? " (in-flight turn cancelled)" : "";
+				const killedNote = details.killed?.cancelledTurn
+					? t("tui.tools.vibe.killedTurnParen", " (in-flight turn cancelled)")
+					: "";
 				const header = renderStatusLine(
 					{
 						icon: "done",
@@ -585,10 +638,14 @@ export function createVibeToolRenderer(op: VibeOp) {
 			// (see `hiddenKilled`) so a long-running director's wall stays legible.
 			const screens = details.screens;
 			const hiddenKilled = details.hiddenKilled?.length ?? 0;
-			const killedMeta = hiddenKilled > 0 ? [uiTheme.fg("dim", `${hiddenKilled} killed hidden`)] : [];
+			const killedMeta =
+				hiddenKilled > 0
+					? [uiTheme.fg("dim", t("tui.tools.vibe.killedHidden", "{count} killed hidden", { count: hiddenKilled }))]
+					: [];
 			if (screens.length === 0) {
-				const fallback = result.content.find(part => part.type === "text")?.text ?? "no sessions";
-				const gist = hiddenKilled > 0 ? "no live sessions" : fallback;
+				const fallback =
+					result.content.find(part => part.type === "text")?.text ?? t("tui.tools.vibe.noSessions", "no sessions");
+				const gist = hiddenKilled > 0 ? t("tui.tools.vibe.noLiveSessions", "no live sessions") : fallback;
 				return new Text(
 					renderStatusLine(
 						{
@@ -609,16 +666,20 @@ export function createVibeToolRenderer(op: VibeOp) {
 			return linesComponent(() => {
 				const running = screens.filter(screen => screen.state === "running" || screen.state === "starting").length;
 				const meta: string[] = [];
-				if (running > 0) meta.push(uiTheme.fg("accent", `${running} on air`));
-				if (settledById.size > 0) meta.push(uiTheme.fg("success", `${settledById.size} settled`));
-				if (details.wait?.timedOut) meta.push(uiTheme.fg("warning", "timed out"));
+				if (running > 0)
+					meta.push(uiTheme.fg("accent", t("tui.tools.vibe.onAir", "{count} on air", { count: running })));
+				if (settledById.size > 0)
+					meta.push(
+						uiTheme.fg("success", t("tui.tools.vibe.settled", "{count} settled", { count: settledById.size })),
+					);
+				if (details.wait?.timedOut) meta.push(uiTheme.fg("warning", t("tui.tools.vibe.timedOut", "timed out")));
 				meta.push(...killedMeta);
 				const title =
 					op === "wait"
 						? waiting
-							? "vibe wait — watching the wall"
-							: "vibe wait"
-						: `vibe sessions (${screens.length})`;
+							? t("tui.tools.vibe.waitWatchingWall", "vibe wait — watching the wall")
+							: t("tui.tools.vibe.waitTitle", "vibe wait")
+						: t("tui.tools.vibe.sessionsCount", "vibe sessions ({count})", { count: screens.length });
 				const header = renderStatusLine(
 					{
 						icon: details.wait?.timedOut ? "warning" : running > 0 ? "info" : "done",
@@ -654,7 +715,16 @@ export function createVibeToolRenderer(op: VibeOp) {
 					inline: true,
 					body: compact([
 						vibeComposer(message),
-						node("spinner", { label: [span(op === "spawn" ? "booting CLI…" : "delivering…", "dim")] }),
+						node("spinner", {
+							label: [
+								span(
+									op === "spawn"
+										? t("tui.tools.vibe.bootingCli", "booting CLI…")
+										: t("tui.tools.vibe.delivering", "delivering…"),
+									"dim",
+								),
+							],
+						}),
 					]),
 					preview: { lines: 3 },
 				};

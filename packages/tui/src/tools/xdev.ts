@@ -3,6 +3,7 @@ import { parseStreamingJson } from "@oh-my-pi/pi-utils";
 import { type Component, Container, Text } from "../index";
 import type { Theme } from "../theme/theme";
 import { replaceTabs } from "../render/render-utils";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import type { RenderResultOptions, ToolActivitySummary, ToolRenderer } from "./renderer";
 import { describeDefaultToolExecution, renderDefaultToolExecution } from "./default-renderer";
 import type { NativeToolView } from "./renderer";
@@ -128,7 +129,7 @@ function renderQueuedXdevCall(
 ): Component {
 	return renderDefaultToolExecution(
 		{
-			label: `queued ${label}`,
+			label: t("tui.tools.xdev.queued", "queued {label}", { label }),
 			args: displayDeviceArgs(args),
 			options: { ...options, isPartial: true, spinnerFrame: undefined },
 		},
@@ -186,7 +187,7 @@ export function describeXdevCall(
 	const args = decodeInnerArgs(content);
 	if (!options.executionStarted) {
 		return describeDefaultToolExecution({
-			label: `queued ${displayDeviceLabel(name, mounted)}`,
+			label: t("tui.tools.xdev.queued", "queued {label}", { label: displayDeviceLabel(name, mounted) }),
 			args: displayDeviceArgs(args),
 			options: { ...options, isPartial: true, spinnerFrame: undefined },
 		});

@@ -10,6 +10,7 @@ import {
 	visibleWidth,
 } from "../index";
 import { theme } from "../theme/theme";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import {
 	matchesAppInterrupt,
 	matchesSelectDown,
@@ -143,7 +144,10 @@ class HistoryResultsList implements Component {
 		const items = this.#menu.visibleItems;
 
 		if (items.length === 0) {
-			const message = this.#tokens.length > 0 ? "No matching history" : "No history yet";
+			const message =
+				this.#tokens.length > 0
+					? t("tui.overlays.historySearch.noMatches", "No matching history")
+					: t("tui.overlays.historySearch.empty", "No history yet");
 			lines.push(theme.fg("muted", `  ${theme.status.info} ${message}`));
 			return lines;
 		}
@@ -209,7 +213,7 @@ export class HistorySearchComponent extends OverlayPanel {
 	#onRequestRender?: () => void;
 
 	constructor(historyStorage: HistorySource, onSelect: (prompt: string) => void, onCancel: () => void) {
-		super("History", "omp.overlay.history");
+		super(t("tui.overlays.historySearch.title", "History"), "omp.overlay.history");
 		this.#historyStorage = historyStorage;
 		this.#onSelect = prompt => {
 			this.#cancelPendingSearch();
@@ -239,8 +243,14 @@ export class HistorySearchComponent extends OverlayPanel {
 		this.#resultsList = new HistoryResultsList(this.#menu);
 
 		const dot = theme.fg("dim", theme.sep.dot);
-		const navigate = theme.fg("dim", editorKeys("tui.select.up", "tui.select.down")) + theme.fg("muted", " navigate");
-		const hint = [navigate, rawKeyHint("enter", "select"), keyHint("tui.select.cancel", "cancel")].join(dot);
+		const navigate =
+			theme.fg("dim", editorKeys("tui.select.up", "tui.select.down")) +
+			theme.fg("muted", ` ${t("tui.overlays.historySearch.navigate", "navigate")}`);
+		const hint = [
+			navigate,
+			rawKeyHint("enter", t("tui.overlays.historySearch.select", "select")),
+			keyHint("tui.select.cancel", t("tui.overlays.historySearch.cancel", "cancel")),
+		].join(dot);
 
 		this.addChild(new Spacer(1));
 		this.addChild(this.#searchInput);
@@ -369,7 +379,9 @@ export class HistorySearchComponent extends OverlayPanel {
 			{
 				selected: selected ? nativeEntryKey(selected) : null,
 				filter: query || undefined,
-				empty: query ? "No matching history" : "No history yet",
+				empty: query
+					? t("tui.overlays.historySearch.noMatches", "No matching history")
+					: t("tui.overlays.historySearch.empty", "No history yet"),
 				max: { lines: MAX_VISIBLE },
 				virtual: true,
 			},
@@ -377,9 +389,9 @@ export class HistorySearchComponent extends OverlayPanel {
 			"list",
 		);
 		this.#nativeHints ??= hintsRow([
-			actionHint(["tui.select.up", "tui.select.down"], "navigate"),
-			{ keys: ENTER_KEYS, label: "select" },
-			actionHint("tui.select.cancel", "cancel"),
+			actionHint(["tui.select.up", "tui.select.down"], t("tui.overlays.historySearch.navigate", "navigate")),
+			{ keys: ENTER_KEYS, label: t("tui.overlays.historySearch.select", "select") },
+			actionHint("tui.select.cancel", t("tui.overlays.historySearch.cancel", "cancel")),
 		]);
 		const root = overlayCard(this.nativeRole, this.title, [this.#searchInput, list, this.#nativeHints]);
 		this.#nativeMemo = { picker: false, items, selected, query, cursor, node: root };
@@ -400,19 +412,24 @@ export class HistorySearchComponent extends OverlayPanel {
 		return picker({
 			title: this.title,
 			icon: "history",
-			noun: "prompts",
+			noun: t("tui.overlays.historySearch.noun", "prompts"),
 			size: "md",
 			layout: "rows",
 			preview: "none",
 			...pickerQuery(this.#searchInput),
-			placeholder: "Search prompts…",
+			placeholder: t("tui.overlays.historySearch.placeholder", "Search prompts…"),
 			columns: [{ id: "when", format: "time" }],
 			items: rows.rows,
 			selected: selected ? nativeEntryKey(selected) : null,
-			empty: "No history yet",
+			empty: t("tui.overlays.historySearch.empty", "No history yet"),
 			actions: [
-				pickerAction("insert", "Insert", "enter", { primary: true }),
-				pickerAction("close", "Close", boundKeys("app.interrupt", ["escape"])[0] ?? "escape", { end: true }),
+				pickerAction("insert", t("tui.overlays.historySearch.insert", "Insert"), "enter", { primary: true }),
+				pickerAction(
+					"close",
+					t("tui.overlays.historySearch.close", "Close"),
+					boundKeys("app.interrupt", ["escape"])[0] ?? "escape",
+					{ end: true },
+				),
 			],
 		});
 	}

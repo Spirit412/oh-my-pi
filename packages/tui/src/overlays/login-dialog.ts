@@ -12,6 +12,7 @@ import { col, keyed, node, span, text } from "../native/describe";
 import type { NativeChild, NativeNode, NativeUiEvent } from "../native/node";
 import { actionBar, actionButton } from "../native/overlay";
 import { plainText } from "../native/spans";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 /** `Enter code: ABCD-1234` style device-flow instructions: the lead-in and the code. */
 const DEVICE_CODE_INSTRUCTIONS = /^(.*\bcode:?\s+)([A-Za-z0-9][A-Za-z0-9-]{3,})\s*$/s;
@@ -23,10 +24,14 @@ const PRESS_KEY_SUFFIX = /,?\s*then press\s+\S+\s*:?\s*$/i;
 const PROGRESS_PROBLEM = /\b(?:fail(?:ed|ure)?|error|unavailable|in use|could ?n[o']t|unable)\b/i;
 
 /** Shown on the field when the flow asks for the manual code again: the last paste had no usable code. */
-const RETRY_MESSAGE = "Couldn't read a code from that. Paste the authorization code or the full redirect URL.";
+const retryMessage = (): string =>
+	t(
+		"tui.overlays.login.retryMessage",
+		"Couldn't read a code from that. Paste the authorization code or the full redirect URL.",
+	);
 
 /** Shown while the browser half of the flow runs and the provider reports nothing. */
-const BROWSER_WAIT = "Waiting for you to finish in the browser…";
+const browserWait = (): string => t("tui.overlays.login.browserWait", "Waiting for you to finish in the browser…");
 
 /** The sign-in link from `showAuth`: the provider's instructions, or the device code split out of them. */
 interface LoginAuth {
@@ -87,7 +92,7 @@ export class LoginDialogComponent extends OverlayPanel {
 	) {
 		const providerInfo = getOAuthProviders().find(p => p.id === providerId);
 		const providerName = providerInfo?.name || providerId;
-		super(`Login to ${providerName}`, "omp.overlay.login");
+		super(t("tui.overlays.login.title", "Login to {provider}", { provider: providerName }), "omp.overlay.login");
 		this.#providerName = providerName;
 		this.#tui = tui;
 		this.#onComplete = onComplete;
@@ -181,13 +186,24 @@ export class LoginDialogComponent extends OverlayPanel {
 			),
 		);
 
-		const clickHint = `${formatKeyHint(keyHintPlatform() === "darwin" ? "super" : "ctrl")}+click to open`;
+		const clickHint = t("tui.overlays.login.clickToOpen", "{key}+click to open", {
+			key: formatKeyHint(keyHintPlatform() === "darwin" ? "super" : "ctrl"),
+		});
 		const hyperlink = `\x1b]8;;${url}\x07${clickHint}\x1b]8;;\x07`;
 		this.#contentContainer.addChild(new Text(theme.fg("dim", hyperlink), 0, 0));
 
 		if (launchUrl && launchUrl !== url) {
 			this.#contentContainer.addChild(
-				new Text(theme.fg("dim", `Local shortcut (this machine only): ${launchUrl}`), 0, 0),
+				new Text(
+					theme.fg(
+						"dim",
+						t("tui.overlays.login.localShortcut", "Local shortcut (this machine only): {url}", {
+							url: launchUrl,
+						}),
+					),
+					0,
+					0,
+				),
 			);
 		}
 
@@ -224,7 +240,7 @@ export class LoginDialogComponent extends OverlayPanel {
 		const nativeMounted = this.#nativeSteps.find(step => step.kind === "input" && step.field === previousInput);
 		if (mounted !== -1) {
 			// The flow asks again only when the last paste carried no usable code.
-			this.#input.setError(RETRY_MESSAGE);
+			this.#input.setError(retryMessage());
 			this.#contentContainer.children.splice(mounted, 1, this.#input);
 			if (nativeMounted?.kind === "input") nativeMounted.field = this.#input;
 		} else {
@@ -233,7 +249,16 @@ export class LoginDialogComponent extends OverlayPanel {
 			this.#contentContainer.addChild(new Text(theme.fg("dim", prompt), 0, 0));
 			this.#contentContainer.addChild(this.#input);
 			this.#contentContainer.addChild(
-				new Text(theme.fg("dim", `(${editorKey("tui.select.cancel")} to cancel)`), 0, 0),
+				new Text(
+					theme.fg(
+						"dim",
+						t("tui.overlays.login.cancelHint", "({cancel} to cancel)", {
+							cancel: editorKey("tui.select.cancel"),
+						}),
+					),
+					0,
+					0,
+				),
 			);
 		}
 		this.#nativeRoot = undefined;
@@ -278,14 +303,28 @@ export class LoginDialogComponent extends OverlayPanel {
 		this.#contentContainer.addChild(new Spacer(1));
 		this.#contentContainer.addChild(new Text(theme.fg("text", prompt.message), 0, 0));
 		if (prompt.placeholder) {
-			this.#contentContainer.addChild(new Text(theme.fg("dim", `e.g., ${prompt.placeholder}`), 0, 0));
+			this.#contentContainer.addChild(
+				new Text(
+					theme.fg(
+						"dim",
+						t("tui.overlays.login.placeholderExample", "e.g., {placeholder}", {
+							placeholder: prompt.placeholder,
+						}),
+					),
+					0,
+					0,
+				),
+			);
 		}
 		this.#contentContainer.addChild(this.#input);
 		this.#contentContainer.addChild(
 			new Text(
 				theme.fg(
 					"dim",
-					`(${editorKey("tui.select.cancel")} to cancel, ${editorKey("tui.input.submit")} to submit)`,
+					t("tui.overlays.login.cancelSubmitHint", "({cancel} to cancel, {submit} to submit)", {
+						cancel: editorKey("tui.select.cancel"),
+						submit: editorKey("tui.input.submit"),
+					}),
 				),
 				0,
 				0,
@@ -317,7 +356,16 @@ export class LoginDialogComponent extends OverlayPanel {
 	showWaiting(message: string): void {
 		this.#contentContainer.addChild(new Spacer(1));
 		this.#contentContainer.addChild(new Text(theme.fg("dim", message), 0, 0));
-		this.#contentContainer.addChild(new Text(theme.fg("dim", `(${editorKey("tui.select.cancel")} to cancel)`), 0, 0));
+		this.#contentContainer.addChild(
+			new Text(
+				theme.fg(
+					"dim",
+					t("tui.overlays.login.cancelHint", "({cancel} to cancel)", { cancel: editorKey("tui.select.cancel") }),
+				),
+				0,
+				0,
+			),
+		);
 		this.#nativeSteps.push({ kind: "progress", message: plainText(message) });
 		this.#nativeRoot = undefined;
 		this.#tui.requestRender();
@@ -356,12 +404,18 @@ export class LoginDialogComponent extends OverlayPanel {
 			if (auth.launchUrl) {
 				body.push(
 					keyed(
-						text([span("On this machine  ", "dim"), span(auth.launchUrl, "mono", { href: auth.launchUrl })], {
-							role: "omp.login.shortcut",
-							truncate: "middle",
-							lines: 1,
-							title: auth.launchUrl,
-						}),
+						text(
+							[
+								span(t("tui.overlays.login.onThisMachine", "On this machine  "), "dim"),
+								span(auth.launchUrl, "mono", { href: auth.launchUrl }),
+							],
+							{
+								role: "omp.login.shortcut",
+								truncate: "middle",
+								lines: 1,
+								title: auth.launchUrl,
+							},
+						),
 						"shortcut",
 					),
 				);
@@ -404,16 +458,20 @@ export class LoginDialogComponent extends OverlayPanel {
 			}
 		}
 		// The provider reports nothing while the browser half runs (GitHub's device poll): say so.
-		if (auth && live === -1 && !field) status.push(this.#describeLive(BROWSER_WAIT, "browser"));
+		if (auth && live === -1 && !field) status.push(this.#describeLive(browserWait(), "browser"));
 		if (status.length > 0) body.push(node("col", { role: "omp.login.status", gap: "xs" }, status, "status"));
 
 		const cancelKey = getKeybindings().getKeys("tui.select.cancel")[0];
-		const cancel = actionButton("Cancel", "cancel", cancelKey ? { keys: cancelKey } : {});
+		const cancel = actionButton(
+			t("tui.overlays.login.cancel", "Cancel"),
+			"cancel",
+			cancelKey ? { keys: cancelKey } : {},
+		);
 		const open = auth ? this.#describeOpen(auth.url, !field) : null;
 		let buttons: (NativeNode | null)[];
 		if (field) {
 			const submitKey = getKeybindings().getKeys("tui.input.submit")[0];
-			const submit = actionButton("Continue", "submit", {
+			const submit = actionButton(t("tui.overlays.login.continue", "Continue"), "submit", {
 				tone: "accent",
 				...(submitKey ? { keys: submitKey } : {}),
 			});
@@ -425,7 +483,7 @@ export class LoginDialogComponent extends OverlayPanel {
 			"overlay",
 			{
 				role: this.nativeRole,
-				head: `Sign in to ${this.#providerName}`,
+				head: t("tui.overlays.login.sheetTitle", "Sign in to {provider}", { provider: this.#providerName }),
 				anchor: "center",
 				size: "md",
 				modal: true,
@@ -439,16 +497,26 @@ export class LoginDialogComponent extends OverlayPanel {
 
 	/** What to do, in one sentence: enter the code, follow the provider's instructions, or finish in the browser. */
 	#lead(auth: LoginAuth): string {
-		if (auth.device) return "Enter this code on the sign-in page to connect your account.";
+		if (auth.device)
+			return t("tui.overlays.login.deviceLead", "Enter this code on the sign-in page to connect your account.");
 		if (auth.instructions) return sheetText(auth.instructions);
-		return "Continue in your browser. If it didn't open, open or copy the link below.";
+		return t(
+			"tui.overlays.login.browserLead",
+			"Continue in your browser. If it didn't open, open or copy the link below.",
+		);
 	}
 
 	/** The device code, large in a well; a click copies it. */
 	#describeCode(code: string): NativeNode {
 		return node(
 			"row",
-			{ role: "omp.login.code", align: "center", actions: { click: "copy" }, href: code, title: "Copy code" },
+			{
+				role: "omp.login.code",
+				align: "center",
+				actions: { click: "copy" },
+				href: code,
+				title: t("tui.overlays.login.copyCode", "Copy code"),
+			},
 			[keyed(text([span(code, "mono")]), "value"), node("icon", { name: "copy" }, undefined, "icon")],
 			"code",
 		);
@@ -475,9 +543,9 @@ export class LoginDialogComponent extends OverlayPanel {
 						align: "center",
 						actions: { click: "copy" },
 						href: url,
-						title: "Copy the sign-in link",
+						title: t("tui.overlays.login.copyLinkTitle", "Copy the sign-in link"),
 					},
-					[text("Copy")],
+					[text(t("tui.overlays.login.copy", "Copy"))],
 					"copyLink",
 				),
 			],
@@ -495,10 +563,13 @@ export class LoginDialogComponent extends OverlayPanel {
 				align: "center",
 				actions: { click: "open" },
 				href: url,
-				title: `Open ${urlPlace(url)} in your browser`,
+				title: t("tui.overlays.login.openTitle", "Open {url} in your browser", { url: urlPlace(url) }),
 				...(primary ? { tone: "accent" as const } : {}),
 			},
-			[text("Open sign-in page"), node("icon", { name: "open" }, undefined, "icon")],
+			[
+				text(t("tui.overlays.login.openSignIn", "Open sign-in page")),
+				node("icon", { name: "open" }, undefined, "icon"),
+			],
 			"openLink",
 		);
 	}

@@ -1,5 +1,6 @@
 import { THINKING_EFFORTS } from "@oh-my-pi/pi-catalog/effort";
 import { AUTO_THINKING, type ConfiguredThinkingLevel, getConfiguredThinkingLevelMetadata } from "../thinking";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import { type SelectItem, SelectList, type SgrMouseEvent } from "../index";
 import { getSelectListTheme } from "../theme/theme";
 import { OverlayPanel } from "../chrome/overlay-box";
@@ -20,7 +21,7 @@ export class ThinkingSelectorComponent extends OverlayPanel {
 		onSelect: (level: ConfiguredThinkingLevel) => void,
 		onCancel: () => void,
 	) {
-		super("Thinking Level", "omp.overlay.thinking");
+		super(t("tui.overlays.thinking.title", "Thinking Level"), "omp.overlay.thinking");
 
 		const thinkingLevels: SelectItem[] = availableLevels.map(getConfiguredThinkingLevelMetadata);
 
@@ -43,9 +44,9 @@ export class ThinkingSelectorComponent extends OverlayPanel {
 
 		this.addChild(this.#selectList);
 		this.#sheet = new SelectListSheet(this.#selectList, {
-			title: "Thinking level",
+			title: t("tui.overlays.thinking.pickerTitle", "Thinking level"),
 			icon: "brain",
-			noun: "levels",
+			noun: t("tui.overlays.thinking.noun", "levels"),
 			current: currentLevel ? [currentLevel] : [],
 			// How hard each level thinks, as a meter from off (empty) to the deepest effort (full); auto has none.
 			columns: [{ id: "depth", format: "bar" }],

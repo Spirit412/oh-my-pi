@@ -21,6 +21,7 @@ import { plainLine } from "../native/spans";
 import { toneColor } from "../native/tone";
 import type { Theme } from "../theme/theme";
 import { Ellipsis, truncateToWidth, visibleWidth } from "../utils";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 /** Where a widget's view stands. */
 export type JobWidgetState =
@@ -312,10 +313,22 @@ export function describeJobWidgetsHovercard(entries: readonly JobWidgetEntry[]):
 	const rest = entries.length - shown.length;
 	if (rest > 0) {
 		children.push(
-			text([span(`+${rest} more ${rest === 1 ? "job" : "jobs"} · /jobs`, "dim")], {
-				role: "omp.jobs.hovercard.more",
-				wrap: "none",
-			}),
+			text(
+				[
+					span(
+						t(
+							"tui.tools.jobWidget.moreJobs",
+							{ one: "+{count} more job · /jobs", other: "+{count} more jobs · /jobs" },
+							{ count: rest },
+						),
+						"dim",
+					),
+				],
+				{
+					role: "omp.jobs.hovercard.more",
+					wrap: "none",
+				},
+			),
 		);
 	}
 	return propNode(col(children, { role: "omp.jobs.hovercard", gap: "md" }));
@@ -800,7 +813,7 @@ function labelled(label: string, content: NativeNode, role: string): NativeNode 
 }
 
 function waiting(): NativeNode {
-	return text([span("waiting for data", "dim")], { wrap: "none" });
+	return text([span(t("tui.tools.jobWidget.waitingForData", "waiting for data"), "dim")], { wrap: "none" });
 }
 
 /** `p50 41 ms ▼ 12% · errors 0`: dim labels, values in their tone, toned trends. */
@@ -930,7 +943,9 @@ function renderBlock(block: JobWidgetBlock, width: number, labelWidth: number, t
 			return [renderSpark(block, width, labelWidth, theme)];
 		case "bars": {
 			const lines = [`${INDENT}${theme.fg("dim", plainLine(block.label))}`];
-			if (block.items.length === 0) lines.push(`${INDENT}${theme.fg("dim", "waiting for data")}`);
+			if (block.items.length === 0) {
+				lines.push(`${INDENT}${theme.fg("dim", t("tui.tools.jobWidget.waitingForData", "waiting for data"))}`);
+			}
 			const texts = block.items.map(item => plainLine(item.text));
 			const textWidth = Math.max(0, ...texts.map(value => visibleWidth(value)));
 			for (const [index, item] of block.items.entries()) {
@@ -979,7 +994,9 @@ function renderBlock(block: JobWidgetBlock, width: number, labelWidth: number, t
 /** Sparkline, latest value, then `┄ target` labels while the series keeps enough cells. */
 function renderSpark(block: JobWidgetSparkBlock, width: number, labelWidth: number, theme: Theme): string {
 	const lead = ansiLead(block.label, labelWidth, theme);
-	if (block.values.length === 0) return `${lead}${theme.fg("dim", "waiting for data")}`;
+	if (block.values.length === 0) {
+		return `${lead}${theme.fg("dim", t("tui.tools.jobWidget.waitingForData", "waiting for data"))}`;
+	}
 	const last = theme.bold(plainLine(block.last));
 	const marks = (block.marks ?? []).map(
 		mark => `${theme.fg(toneColor(mark.tone ?? "muted"), "┄")} ${theme.fg("dim", plainLine(mark.label))}`,
@@ -1019,7 +1036,9 @@ function ansiBar(value: number, room: number, tone: TspTone | undefined, theme: 
  */
 function renderGrid(block: JobWidgetGridBlock, width: number, labelWidth: number, theme: Theme): string[] {
 	const lead = ansiLead(block.label, labelWidth, theme);
-	if (block.items.length === 0) return [`${lead}${theme.fg("dim", "waiting for data")}`];
+	if (block.items.length === 0) {
+		return [`${lead}${theme.fg("dim", t("tui.tools.jobWidget.waitingForData", "waiting for data"))}`];
+	}
 	const leadWidth = visibleWidth(lead);
 	const room = width - leadWidth;
 	// Pending, muted and neutral cells are still in progress (a hollow dot); every other tone is a settled state.

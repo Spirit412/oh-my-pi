@@ -7,6 +7,7 @@
 - Approval dialog labels, tooltips, and footer hints now resolve through `@oh-my-pi/pi-utils/i18n`. English output is unchanged when no catalog is active; Russian catalogs can override the labels.
 - Settings panel tab labels, tab leads, and section headings now resolve through `@oh-my-pi/pi-utils/i18n`; raw group names stay the ordering ids.
 - Status-line segment labels (goal, plan, loop, collab, session, recording, reset credits), context-usage and context-view category labels, and transcript notice/error fallbacks now resolve through `@oh-my-pi/pi-utils/i18n`. English output is unchanged when no catalog is active.
+- Tool renderers, interactive overlays, chat rows, the prompt composer and welcome tips, the setup wizard, app panes, and shared components now resolve operator-facing copy through `@oh-my-pi/pi-utils/i18n`, including plural messages. English output is unchanged when no catalog is active.
 
 ## [18.14.1] - 2026-10-31
 

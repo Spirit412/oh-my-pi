@@ -13,6 +13,7 @@ import { plainText } from "../native/spans";
 import type { FileDiagnosticsResult } from "./lsp";
 import { formatArtifactErrorNotice, formatTruncationMetaNotice, type OutputMeta } from "./output-meta";
 import type { NativeToolHead, NativeToolView, ToolRenderResult } from "./renderer";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 /** A path for native heads: relative to the working directory when inside it, else `~`-shortened. */
 export function displayPath(filePath: string): string {
@@ -101,7 +102,7 @@ const ERROR_GIST_CHARS = 120;
  * and the full message as the body only when the head had to cut it short.
  */
 export function inlineErrorView(head: NativeToolHead, message: string): NativeToolView {
-	const full = plainText(message).trim() || "failed";
+	const full = plainText(message).trim() || t("tui.tools.nativeView.failed", "failed");
 	const first = full.split("\n", 1)[0]!.trim();
 	const gist = first.length > ERROR_GIST_CHARS ? `${first.slice(0, ERROR_GIST_CHARS - 1)}…` : first;
 	return {
@@ -149,7 +150,9 @@ export function errorView(title: string, message: string, ...meta: readonly (str
 	return {
 		head: toolHead(title, ...meta),
 		tone: "error",
-		body: [errorText(plainText(message).trim() || `${title} failed`)],
+		body: [
+			errorText(plainText(message).trim() || t("tui.tools.nativeView.titleFailed", "{title} failed", { title })),
+		],
 	};
 }
 
@@ -199,13 +202,13 @@ export const RUN_INPUT_PREVIEW_LINES = 6;
  */
 export type RunState = "running" | "background" | "done" | "failed" | "cancelled" | "timed-out";
 
-const RUN_STATE: Record<RunState, { readonly word: string; readonly tone: TspTone }> = {
-	running: { word: "Running", tone: "pending" },
-	background: { word: "In background", tone: "pending" },
-	done: { word: "Done", tone: "success" },
-	failed: { word: "Failed", tone: "error" },
-	cancelled: { word: "Cancelled", tone: "muted" },
-	"timed-out": { word: "Timed out", tone: "warning" },
+const RUN_STATE: Record<RunState, { readonly word: () => string; readonly tone: TspTone }> = {
+	running: { word: () => t("tui.tools.run.state.running", "Running"), tone: "pending" },
+	background: { word: () => t("tui.tools.run.state.background", "In background"), tone: "pending" },
+	done: { word: () => t("tui.tools.run.state.done", "Done"), tone: "success" },
+	failed: { word: () => t("tui.tools.run.state.failed", "Failed"), tone: "error" },
+	cancelled: { word: () => t("tui.tools.run.state.cancelled", "Cancelled"), tone: "muted" },
+	"timed-out": { word: () => t("tui.tools.run.state.timedOut", "Timed out"), tone: "warning" },
 };
 
 /** Inputs of {@link runFoot}. */
@@ -227,10 +230,13 @@ export interface RunFootInput {
  * quiet facts. Glyphs are the terminal's styling, never text.
  */
 export function runFoot(input: RunFootInput): NativeNode {
-	const failedWithCode = input.state === "failed" && input.exitCode !== undefined && input.exitCode !== 0;
-	const state = failedWithCode
-		? { word: `exit ${input.exitCode}`, tone: RUN_STATE.failed.tone }
-		: RUN_STATE[input.state];
+	const state =
+		input.state === "failed" && input.exitCode !== undefined && input.exitCode !== 0
+			? {
+					word: t("tui.tools.run.state.exit", "exit {code}", { code: input.exitCode }),
+					tone: RUN_STATE.failed.tone,
+				}
+			: { word: RUN_STATE[input.state].word(), tone: RUN_STATE[input.state].tone };
 	const facts = (input.facts ?? []).map(fact => plainText(fact).trim()).filter(fact => fact.length > 0);
 	const notices: string[] = [];
 	if (input.meta?.truncation) notices.push(formatTruncationMetaNotice(input.meta.truncation, input.meta.source));
@@ -363,12 +369,17 @@ export function diagnosticsSection(
 	const shown = rows.slice(0, DIAGNOSTIC_ROWS);
 	const hidden = rows.length - shown.length;
 	if (hidden > 0) {
-		shown.push(text([span(`+${hidden} more`, "muted")], { role: "omp.tool.stats", key: "more" }));
+		shown.push(
+			text([span(t("tui.tools.diagnostics.more", "+{count} more", { count: hidden }), "muted")], {
+				role: "omp.tool.stats",
+				key: "more",
+			}),
+		);
 	}
 	return node(
 		"section",
 		{
-			head: [span("Diagnostics")],
+			head: [span(t("tui.tools.diagnostics.head", "Diagnostics"))],
 			tone: diagnostics.errored ? "error" : "warning",
 			role: "omp.tool.diagnostics",
 		},
@@ -389,5 +400,8 @@ export function diagnosticsBadge(
 		errored ||= file.errored;
 	}
 	if (count === 0) return undefined;
-	return { text: count === 1 ? "1 diagnostic" : `${count} diagnostics`, tone: errored ? "error" : "warning" };
+	return {
+		text: t("tui.tools.diagnostics.count", { one: "{count} diagnostic", other: "{count} diagnostics" }, { count }),
+		tone: errored ? "error" : "warning",
+	};
 }

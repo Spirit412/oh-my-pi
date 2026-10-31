@@ -20,6 +20,7 @@ import { matchesKey } from "../keys";
 import type { SgrMouseEvent } from "../mouse";
 import { replaceTabs, truncateToWidth, visibleWidth } from "../utils";
 import { formatNumber, sanitizeText } from "@oh-my-pi/pi-utils";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import {
 	AUTO_THINKING,
 	type ConfiguredThinkingLevel,
@@ -774,18 +775,29 @@ function withCreditBadge(model: Model, price: string): string {
 	return cost.input !== 0 || cost.output !== 0 ? `${price} ${badge}` : badge;
 }
 
-const PRICING_STATUS_LABELS: Record<Exclude<ModelPricingStatus, "fixed">, { short: string; detail: string }> = {
-	free: { short: "free", detail: "free" },
-	included: { short: "included", detail: "included" },
-	variable: { short: "varies", detail: "price varies" },
-	unknown: { short: "unknown", detail: "pricing unknown" },
-};
+/** Localized word for a declared non-rate pricing state; `detail` picks the longer phrasing. */
+function pricingLabel(status: Exclude<ModelPricingStatus, "fixed">, detail: boolean): string {
+	switch (status) {
+		case "free":
+			return t("tui.overlays.modelBrowser.free", "free");
+		case "included":
+			return t("tui.overlays.modelBrowser.pricingIncluded", "included");
+		case "variable":
+			return detail
+				? t("tui.overlays.modelBrowser.pricingVariesDetail", "price varies")
+				: t("tui.overlays.modelBrowser.pricingVaries", "varies");
+		case "unknown":
+			return detail
+				? t("tui.overlays.modelBrowser.pricingUnknownDetail", "pricing unknown")
+				: t("tui.overlays.modelBrowser.pricingUnknown", "unknown");
+	}
+}
 
 /** `$in/out` per-million cost pair with any credit badge; `free` when nothing is charged; a declared pricing state otherwise. */
 function formatCostPair(model: Model): string {
 	const declared = declaredPricingStatus(model);
-	if (declared !== undefined) return PRICING_STATUS_LABELS[declared].short;
-	if (isFreeModel(model)) return "free";
+	if (declared !== undefined) return pricingLabel(declared, false);
+	if (isFreeModel(model)) return t("tui.overlays.modelBrowser.free", "free");
 	const cost = getEffectiveTokenCost(model.cost);
 	return withCreditBadge(model, `$${formatCostLeg(cost.input)}/${formatCostLeg(cost.output)}`);
 }
@@ -793,22 +805,38 @@ function formatCostPair(model: Model): string {
 /** Detail-pane price fact: `$3/15 per M`, or the declared pricing state in words. */
 function formatCostDetail(model: Model): string {
 	const declared = declaredPricingStatus(model);
-	return declared !== undefined ? PRICING_STATUS_LABELS[declared].detail : `${formatCostPair(model)} per M`;
+	return declared !== undefined
+		? pricingLabel(declared, true)
+		: t("tui.overlays.modelBrowser.pricePerMillion", "{price} per M", { price: formatCostPair(model) });
 }
 
 /** Fact columns of a model picker (Stencil `NATIVE_REDESIGN.md` §4.7); the lowest priority hides first. */
 export const MODEL_PICKER_COLUMNS: readonly TspPickerColumn[] = [
-	{ id: "int", head: "Int", format: "num", priority: 1 },
+	{
+		id: "int",
+		get head(): string {
+			return t("tui.overlays.modelBrowser.columnInt", "Int");
+		},
+		format: "num",
+		priority: 1,
+	},
 	{ id: "speed", head: "t/s", format: "num", priority: 2 },
-	{ id: "ctx", head: "Ctx", format: "num", priority: 4 },
+	{
+		id: "ctx",
+		get head(): string {
+			return t("tui.overlays.modelBrowser.columnCtx", "Ctx");
+		},
+		format: "num",
+		priority: 4,
+	},
 	{ id: "price", head: "$/M", format: "price", priority: 3 },
 ];
 
 /** `$3·15` price fact of a picker row; `free` at zero cost; a declared pricing state otherwise. */
 function pickerPrice(model: Model): string {
 	const declared = declaredPricingStatus(model);
-	if (declared !== undefined) return PRICING_STATUS_LABELS[declared].short;
-	if (isFreeModel(model)) return "free";
+	if (declared !== undefined) return pricingLabel(declared, false);
+	if (isFreeModel(model)) return t("tui.overlays.modelBrowser.free", "free");
 	const cost = getEffectiveTokenCost(model.cost);
 	return withCreditBadge(model, `$${formatCostLeg(cost.input)}·${formatCostLeg(cost.output)}`);
 }
@@ -816,10 +844,15 @@ function pickerPrice(model: Model): string {
 /** `$2 in · $10 out · $0.2 cache` for a model preview. */
 function previewPrice(model: Model): string {
 	const declared = declaredPricingStatus(model);
-	if (declared !== undefined) return PRICING_STATUS_LABELS[declared].detail;
+	if (declared !== undefined) return pricingLabel(declared, true);
 	const cost = getEffectiveTokenCost(model.cost);
-	const parts = [`$${formatCostLeg(cost.input)} in`, `$${formatCostLeg(cost.output)} out`];
-	if (cost.cacheRead > 0) parts.push(`$${formatCostLeg(cost.cacheRead)} cache`);
+	const parts = [
+		`$${formatCostLeg(cost.input)} ${t("tui.overlays.modelBrowser.priceIn", "in")}`,
+		`$${formatCostLeg(cost.output)} ${t("tui.overlays.modelBrowser.priceOut", "out")}`,
+	];
+	if (cost.cacheRead > 0) {
+		parts.push(`$${formatCostLeg(cost.cacheRead)} ${t("tui.overlays.modelBrowser.priceCache", "cache")}`);
+	}
 	return withCreditBadge(model, parts.join(" · "));
 }
 
@@ -1610,14 +1643,14 @@ export class ModelBrowser implements Component {
 		const facts: string[] = [model.name];
 		// Upstream badges sit next to the name; the provider blurb goes last so
 		// width truncation eats prose before context, cost, or perf facts.
-		if (model.isNew) facts.push("new");
-		if (model.isBeta) facts.push("beta");
-		if (model.isRecommended) facts.push("recommended");
+		if (model.isNew) facts.push(t("tui.overlays.modelBrowser.newBadge", "new"));
+		if (model.isBeta) facts.push(t("tui.overlays.modelBrowser.betaBadge", "beta"));
+		if (model.isRecommended) facts.push(t("tui.overlays.modelBrowser.recommendedBadge", "recommended"));
 		if (model.contextWindow) facts.push(`${formatNumber(model.contextWindow).toLowerCase()} ctx`);
 		if (model.maxTokens) facts.push(`${formatNumber(model.maxTokens).toLowerCase()} out`);
 		facts.push(formatCostDetail(model));
-		if (model.reasoning) facts.push("reasoning");
-		if (model.input.includes("image")) facts.push("vision");
+		if (model.reasoning) facts.push(t("tui.overlays.modelBrowser.reasoningBadge", "reasoning"));
+		if (model.input.includes("image")) facts.push(t("tui.overlays.modelBrowser.visionBadge", "vision"));
 		const intelligence = formatIntelligence(model);
 		if (intelligence) facts.push(intelligence);
 		const measured = this.#perfFor(selected);
@@ -1634,13 +1667,22 @@ export class ModelBrowser implements Component {
 		const line1 = truncateToWidth(theme.fg("muted", `  ${facts.join(" · ")}`), width);
 
 		if (this.isOverContext(selected)) {
-			const warning = `  ${theme.status.disabled} context ${formatNumber(this.#currentContextTokens).toLowerCase()} exceeds ${formatNumber(model.contextWindow ?? 0).toLowerCase()} limit · compacts with current model, then switches`;
+			const warning = `  ${theme.status.disabled} ${t(
+				"tui.overlays.modelBrowser.contextExceedsWarning",
+				"context {current} exceeds {max} limit · compacts with current model, then switches",
+				{
+					current: formatNumber(this.#currentContextTokens).toLowerCase(),
+					max: formatNumber(model.contextWindow ?? 0).toLowerCase(),
+				},
+			)}`;
 			return [line1, truncateToWidth(theme.fg("warning", warning), width)];
 		}
 
 		const chips: string[] = [];
 		if (selected.selector === this.#currentSelector) {
-			chips.push(theme.fg("success", `${theme.status.enabled} current`));
+			chips.push(
+				theme.fg("success", `${theme.status.enabled} ${t("tui.overlays.modelBrowser.currentBadge", "current")}`),
+			);
 		}
 		const seen = new Set<string>();
 		const pushRole = (role: string) => {
@@ -1676,7 +1718,10 @@ export class ModelBrowser implements Component {
 
 		if (total === 0) {
 			const message =
-				this.#emptyText?.() ?? (this.query.trim() ? "  No matching models" : "  No models available in this scope");
+				this.#emptyText?.() ??
+				(this.query.trim()
+					? t("tui.overlays.modelBrowser.noMatchingModelsIndented", "  No matching models")
+					: t("tui.overlays.modelBrowser.noModelsInScopeIndented", "  No models available in this scope"));
 			lines.push(truncateToWidth(theme.fg("muted", message), width));
 			for (let i = 1; i < this.#maxVisible; i++) lines.push("");
 		} else {
@@ -1806,7 +1851,9 @@ export class ModelBrowser implements Component {
 			items.length > 0
 				? ""
 				: plainText(this.#emptyText?.() ?? "").trim() ||
-					(filter ? "No matching models" : "No models available in this scope");
+					(filter
+						? t("tui.overlays.modelBrowser.noMatchingModels", "No matching models")
+						: t("tui.overlays.modelBrowser.noModelsInScope", "No models available in this scope"));
 		const prev = this.#nativeListNode;
 		if (
 			prev?.children === cached.children &&
@@ -1883,17 +1930,28 @@ export class ModelBrowser implements Component {
 		if (selected) {
 			const model = selected.model;
 			const head: NativeChild[] = [text([span(model.name, "strong")])];
-			if (model.isNew) head.push(node("badge", { text: "new", tone: "accent" }));
-			if (model.isBeta) head.push(node("badge", { text: "beta", tone: "warning" }));
-			if (model.isRecommended) head.push(node("badge", { text: "recommended", tone: "success" }));
+			if (model.isNew) {
+				head.push(node("badge", { text: t("tui.overlays.modelBrowser.newBadge", "new"), tone: "accent" }));
+			}
+			if (model.isBeta) {
+				head.push(node("badge", { text: t("tui.overlays.modelBrowser.betaBadge", "beta"), tone: "warning" }));
+			}
+			if (model.isRecommended) {
+				head.push(
+					node("badge", {
+						text: t("tui.overlays.modelBrowser.recommendedBadge", "recommended"),
+						tone: "success",
+					}),
+				);
+			}
 			children.push(row(head, { gap: "sm", align: "center", wrap: true }));
 
 			const facts: string[] = [];
 			if (model.contextWindow) facts.push(`${formatNumber(model.contextWindow).toLowerCase()} ctx`);
 			if (model.maxTokens) facts.push(`${formatNumber(model.maxTokens).toLowerCase()} out`);
 			facts.push(formatCostDetail(model));
-			if (model.reasoning) facts.push("reasoning");
-			if (model.input.includes("image")) facts.push("vision");
+			if (model.reasoning) facts.push(t("tui.overlays.modelBrowser.reasoningBadge", "reasoning"));
+			if (model.input.includes("image")) facts.push(t("tui.overlays.modelBrowser.visionBadge", "vision"));
 			const intelligence = formatIntelligence(model);
 			if (intelligence) facts.push(intelligence);
 			const measured = this.#perfFor(selected);
@@ -1908,12 +1966,21 @@ export class ModelBrowser implements Component {
 			if (description) children.push(text([span(description, "dim")], { wrap: "word", lines: 2 }));
 
 			if (this.isOverContext(selected)) {
-				const warning = `${theme.status.disabled} context ${formatNumber(this.#currentContextTokens).toLowerCase()} exceeds ${formatNumber(model.contextWindow ?? 0).toLowerCase()} limit · compacts with current model, then switches`;
+				const warning = `${theme.status.disabled} ${t(
+					"tui.overlays.modelBrowser.contextExceedsWarning",
+					"context {current} exceeds {max} limit · compacts with current model, then switches",
+					{
+						current: formatNumber(this.#currentContextTokens).toLowerCase(),
+						max: formatNumber(model.contextWindow ?? 0).toLowerCase(),
+					},
+				)}`;
 				children.push(text([span(warning, "warning")], { wrap: "word" }));
 			} else {
 				const chips: TspSpan[] = [];
 				if (selected.selector === this.#currentSelector) {
-					chips.push(span(`${theme.status.enabled} current`, "success"));
+					chips.push(
+						span(`${theme.status.enabled} ${t("tui.overlays.modelBrowser.currentBadge", "current")}`, "success"),
+					);
 				}
 				const seen = new Set<string>();
 				const pushRole = (role: string) => {
@@ -2042,12 +2109,16 @@ export class ModelBrowser implements Component {
 			badges.push({
 				text: `ctx>${formatNumber(model.contextWindow ?? 0).toLowerCase()}`,
 				tone: "warning",
-				title: `Context ${formatNumber(this.#currentContextTokens).toLowerCase()} exceeds this model's limit; picking it compacts first`,
+				title: t(
+					"tui.overlays.modelBrowser.contextExceedsTitle",
+					"Context {current} exceeds this model's limit; picking it compacts first",
+					{ current: formatNumber(this.#currentContextTokens).toLowerCase() },
+				),
 			});
 		}
-		if (model.isNew) badges.push({ text: "new", tone: "accent" });
-		if (model.isBeta) badges.push({ text: "beta", tone: "warning" });
-		if (isFreeModel(model)) badges.push({ text: "free", tone: "success" });
+		if (model.isNew) badges.push({ text: t("tui.overlays.modelBrowser.newBadge", "new"), tone: "accent" });
+		if (model.isBeta) badges.push({ text: t("tui.overlays.modelBrowser.betaBadge", "beta"), tone: "warning" });
+		if (isFreeModel(model)) badges.push({ text: t("tui.overlays.modelBrowser.free", "free"), tone: "success" });
 		const chips = heldRoles.map(({ role, assignment }) => {
 			const info = this.#settings.getRoleInfo(role);
 			const dot = thinkingDotToken(assignment.thinkingLevel);
@@ -2069,7 +2140,13 @@ export class ModelBrowser implements Component {
 			facts,
 			...(badges.length > 0 ? { badges: badges.slice(0, 3) } : {}),
 			...(chips.length > 0 ? { chips } : {}),
-			...(int !== undefined ? { title: `Intelligence ${Math.round(int)}` } : {}),
+			...(int !== undefined
+				? {
+						title: t("tui.overlays.modelBrowser.intelligenceTitle", "Intelligence {score}", {
+							score: Math.round(int),
+						}),
+					}
+				: {}),
 		};
 		// Discovery re-mints Model objects for unchanged models; an equal row keeps its identity.
 		const kept = cached && Bun.deepEquals(cached.value, value) ? cached.value : value;
@@ -2123,7 +2200,11 @@ export class ModelBrowser implements Component {
 			pushRows(visible);
 		} else {
 			if (recent.length > 0) {
-				order.push({ group: "recent", label: "Recent", count: recent.length });
+				order.push({
+					group: "recent",
+					label: t("tui.overlays.modelBrowser.recent", "Recent"),
+					count: recent.length,
+				});
 				pushRows(recent);
 			}
 			if (grouping.providers) this.#pushProviderGroups(order, rest, pushRows);
@@ -2204,7 +2285,14 @@ export class ModelBrowser implements Component {
 			? text(
 					[
 						span(
-							`Context ${formatNumber(this.#currentContextTokens).toLowerCase()} exceeds the ${formatNumber(ctx).toLowerCase()} limit · compacts with the current model, then switches`,
+							t(
+								"tui.overlays.modelBrowser.contextExceedsPreview",
+								"Context {current} exceeds the {max} limit · compacts with the current model, then switches",
+								{
+									current: formatNumber(this.#currentContextTokens).toLowerCase(),
+									max: formatNumber(ctx).toLowerCase(),
+								},
+							),
 							"warning",
 						),
 					],
@@ -2222,8 +2310,12 @@ export class ModelBrowser implements Component {
 				text: (info.tag ?? info.name ?? role).toLowerCase(),
 				...(assignment ? { tone: assignment.autoSelected ? "muted" : "accent" } : {}),
 				title: assignment
-					? `${info.name}${assignment.autoSelected ? " (auto-selected)" : ""}${level ? ` · thinking ${level}` : ""}`
-					: `${info.name}: not assigned`,
+					? `${info.name}${
+							assignment.autoSelected
+								? t("tui.overlays.modelBrowser.autoSelectedSuffix", " (auto-selected)")
+								: ""
+						}${level ? t("tui.overlays.modelBrowser.thinkingSuffix", " · thinking {level}", { level }) : ""}`
+					: `${info.name}: ${t("tui.overlays.modelBrowser.notAssigned", "not assigned")}`,
 			});
 		};
 
@@ -2231,11 +2323,21 @@ export class ModelBrowser implements Component {
 			const facts: { k: TspText; v: TspText }[] = [];
 			if (ctx > 0) facts.push({ k: "ctx", v: formatNumber(ctx).toLowerCase() });
 			if (out > 0) facts.push({ k: "out", v: formatNumber(out).toLowerCase() });
-			facts.push({ k: "price", v: isFreeModel(model) ? "free" : formatCostDetail(model) });
-			facts.push({ k: "reasoning", v: model.reasoning ? "yes" : "no" });
+			facts.push({
+				k: "price",
+				v: isFreeModel(model) ? t("tui.overlays.modelBrowser.free", "free") : formatCostDetail(model),
+			});
+			facts.push({
+				k: "reasoning",
+				v: model.reasoning ? t("tui.overlays.modelBrowser.yes", "yes") : t("tui.overlays.modelBrowser.no", "no"),
+			});
 			const children: NativeChild[] = [node("kv", { items: facts, layout: "inline" })];
 			const chips: NativeChild[] = [];
-			if (item.selector === current) chips.push(node("badge", { text: "current", tone: "success" }));
+			if (item.selector === current) {
+				chips.push(
+					node("badge", { text: t("tui.overlays.modelBrowser.currentBadge", "current"), tone: "success" }),
+				);
+			}
 			for (const { role, assignment } of held) chips.push(roleBadge(role, assignment));
 			if (chips.length > 0) children.push(row(chips, { gap: "xs", wrap: true }));
 			if (warning) children.push(warning);
@@ -2244,15 +2346,35 @@ export class ModelBrowser implements Component {
 
 		const children: NativeChild[] = [
 			text(model.name, { role: "omp.picker.title" }),
-			text([span(selector, "mono")], { actions: { click: "copy" }, title: "Copy model id", truncate: "middle" }),
+			text([span(selector, "mono")], {
+				actions: { click: "copy" },
+				title: t("tui.overlays.modelBrowser.copyModelId", "Copy model id"),
+				truncate: "middle",
+			}),
 		];
 		const badges: NativeChild[] = [];
-		if (item.selector === current) badges.push(node("badge", { text: "current", tone: "success" }));
-		if (model.isNew) badges.push(node("badge", { text: "new", tone: "accent" }));
-		if (model.isBeta) badges.push(node("badge", { text: "beta", tone: "warning" }));
-		if (model.isRecommended) badges.push(node("badge", { text: "recommended", tone: "success" }));
-		if (model.reasoning) badges.push(node("badge", { text: "reasoning" }));
-		if (model.input.includes("image")) badges.push(node("badge", { text: "vision" }));
+		if (item.selector === current) {
+			badges.push(node("badge", { text: t("tui.overlays.modelBrowser.currentBadge", "current"), tone: "success" }));
+		}
+		if (model.isNew) {
+			badges.push(node("badge", { text: t("tui.overlays.modelBrowser.newBadge", "new"), tone: "accent" }));
+		}
+		if (model.isBeta) {
+			badges.push(node("badge", { text: t("tui.overlays.modelBrowser.betaBadge", "beta"), tone: "warning" }));
+		}
+		if (model.isRecommended) {
+			badges.push(
+				node("badge", {
+					text: t("tui.overlays.modelBrowser.recommendedBadge", "recommended"),
+					tone: "success",
+				}),
+			);
+		}
+		if (model.reasoning)
+			badges.push(node("badge", { text: t("tui.overlays.modelBrowser.reasoningBadge", "reasoning") }));
+		if (model.input.includes("image")) {
+			badges.push(node("badge", { text: t("tui.overlays.modelBrowser.visionBadge", "vision") }));
+		}
 		if (badges.length > 0) children.push(row(badges, { gap: "xs", wrap: true }));
 
 		const speed: string[] = [];
@@ -2261,32 +2383,54 @@ export class ModelBrowser implements Component {
 				`${formatTps(measured.perf.tps).replace("t/s", " t/s")}${measured.tier ? ` ${measured.tier}` : ""}`,
 			);
 			if (measured.perf.ttftMs !== null) speed.push(`${formatTtft(measured.perf.ttftMs).replace("s", " s")} TTFT`);
-			speed.push(`${measured.perf.samples} ${measured.perf.samples === 1 ? "sample" : "samples"}`);
+			speed.push(
+				t(
+					"tui.overlays.modelBrowser.sampleCount",
+					{ one: "{count} sample", other: "{count} samples" },
+					{ count: measured.perf.samples },
+				),
+			);
 		} else if (model.tps != null && Number.isFinite(model.tps) && model.tps > 0) {
-			speed.push(`~${formatTps(model.tps).replace("t/s", " t/s")} (catalog)`);
+			speed.push(
+				`~${formatTps(model.tps).replace("t/s", " t/s")} (${t("tui.overlays.modelBrowser.catalog", "catalog")})`,
+			);
 		}
 		const facts: { k: TspText; v: TspText }[] = [];
 		const fact = (k: string, v: string | undefined) => {
 			if (v) facts.push({ k: [span(k, "muted")], v: [span(v, "mono")] });
 		};
-		fact("Context", ctx > 0 ? ctx.toLocaleString("en-US") : undefined);
+		fact(t("tui.overlays.modelBrowser.contextLabel", "Context"), ctx > 0 ? ctx.toLocaleString("en-US") : undefined);
 		const compaction = this.#settings.compactionPointFor?.(model);
 		if (compaction) {
 			const value =
 				compaction.tokens === undefined
-					? "off"
+					? t("tui.overlays.modelBrowser.off", "off")
 					: `${compaction.tokens.toLocaleString("en-US")}${compaction.basis !== undefined ? ` · ${compaction.basis}` : ""}`;
 			facts.push({
-				k: [span("Compacts at", "muted")],
+				k: [span(t("tui.overlays.modelBrowser.compactsAtLabel", "Compacts at"), "muted")],
 				v: [span(value, "mono"), span(` · ${compaction.source}`, "dim")],
 			});
 		}
-		fact("Max output", out > 0 ? out.toLocaleString("en-US") : undefined);
-		fact("Price", isFreeModel(model) ? "free" : `${previewPrice(model)} per M`);
-		fact("Speed", speed.length > 0 ? speed.join(" · ") : undefined);
-		fact("Intelligence", model.int != null && Number.isFinite(model.int) ? String(Math.round(model.int)) : undefined);
-		fact("Input", model.input.join(" · "));
-		fact("Reasoning", model.reasoning ? "yes" : "no");
+		fact(
+			t("tui.overlays.modelBrowser.maxOutputLabel", "Max output"),
+			out > 0 ? out.toLocaleString("en-US") : undefined,
+		);
+		fact(
+			t("tui.overlays.modelBrowser.priceLabel", "Price"),
+			isFreeModel(model)
+				? t("tui.overlays.modelBrowser.free", "free")
+				: t("tui.overlays.modelBrowser.pricePerMillion", "{price} per M", { price: previewPrice(model) }),
+		);
+		fact(t("tui.overlays.modelBrowser.speedLabel", "Speed"), speed.length > 0 ? speed.join(" · ") : undefined);
+		fact(
+			t("tui.overlays.modelBrowser.intelligenceLabel", "Intelligence"),
+			model.int != null && Number.isFinite(model.int) ? String(Math.round(model.int)) : undefined,
+		);
+		fact(t("tui.overlays.modelBrowser.inputLabel", "Input"), model.input.join(" · "));
+		fact(
+			t("tui.overlays.modelBrowser.reasoningLabel", "Reasoning"),
+			model.reasoning ? t("tui.overlays.modelBrowser.yes", "yes") : t("tui.overlays.modelBrowser.no", "no"),
+		);
 		children.push(node("kv", { items: facts }));
 		if (warning) children.push(warning);
 
@@ -2298,7 +2442,11 @@ export class ModelBrowser implements Component {
 			roleBadges.push(roleBadge(role, heldBy.get(role)));
 		}
 		if (roleBadges.length > 0) {
-			children.push(node("section", { head: "Roles" }, [row(roleBadges, { gap: "xs", wrap: true })]));
+			children.push(
+				node("section", { head: t("tui.overlays.modelBrowser.rolesHead", "Roles") }, [
+					row(roleBadges, { gap: "xs", wrap: true }),
+				]),
+			);
 		}
 		const description = model.description ? sanitizeText(model.description).trim() : "";
 		if (description) children.push(md(description));

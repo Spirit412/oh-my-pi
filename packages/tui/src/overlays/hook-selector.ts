@@ -39,6 +39,7 @@ import { actionHint, hintsRow, overlayCard } from "../native/overlay";
 import { plainText } from "../native/spans";
 import { CLOSE_ACTION, dockedPicker, PICKER_KEY, pickerAction, pickerEvent, pickerQuery } from "../native/picker";
 import type { TspPickerItem } from "@oh-my-pi/pi-wire";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 /** One segment of a {@link HookSelectorSlider} — a label and an optional
  *  detail line (e.g. the resolved model name) shown beneath the track while
@@ -296,7 +297,8 @@ export class HookSelectorComponent extends OverlayPanel {
 			this.#countdown = new CountdownTimer(
 				opts.timeout,
 				opts.tui,
-				s => (this.title = `${this.#baseTitle} (${s}s)`),
+				s =>
+					(this.title = `${this.#baseTitle} ${t("tui.overlays.hookSelector.countdownSuffix", "({seconds}s)", { seconds: s })}`),
 				() => {
 					opts?.onTimeout?.();
 					// Auto-select current option on timeout (typically the first/recommended option)
@@ -320,7 +322,11 @@ export class HookSelectorComponent extends OverlayPanel {
 		this.addChild(new Spacer(1));
 		const controlsHint =
 			opts?.helpText ??
-			`${editorKeys("tui.select.up", "tui.select.down")} navigate  ${formatKeyHint("enter")} select  ${editorKey("tui.select.cancel")} cancel`;
+			t("tui.overlays.hookSelector.controlsHint", "{nav} navigate  {select} select  {cancel} cancel", {
+				nav: editorKeys("tui.select.up", "tui.select.down"),
+				select: formatKeyHint("enter"),
+				cancel: editorKey("tui.select.cancel"),
+			});
 		this.addChild(new Text(theme.fg("dim", controlsHint), 0, 0));
 		this.addChild(new Spacer(1));
 
@@ -522,7 +528,10 @@ export class HookSelectorComponent extends OverlayPanel {
 		}
 
 		if (total === 0) {
-			rows.push({ text: theme.fg("dim", "  No matching options"), highlight: false });
+			rows.push({
+				text: theme.fg("dim", `  ${t("tui.overlays.hookSelector.noMatchingOptions", "No matching options")}`),
+				highlight: false,
+			});
 		}
 
 		if (startIndex > 0 || endIndex < total || this.#shouldRenderSearchStatus(renderWidth, mdTheme)) {
@@ -586,11 +595,19 @@ export class HookSelectorComponent extends OverlayPanel {
 		const selectedCount = total === 0 ? 0 : this.#menu.selectedIndex + 1;
 		const count =
 			this.#menu.query.trim() && total !== this.#options.length
-				? `${selectedCount}/${total} of ${this.#options.length}`
+				? t("tui.overlays.hookSelector.countOfTotal", "{selected}/{total} of {all}", {
+						selected: selectedCount,
+						total,
+						all: this.#options.length,
+					})
 				: `${selectedCount}/${total}`;
-		if (!this.#menu.query.trim()) return theme.fg("dim", `  (${count})  Type to search`);
+		if (!this.#menu.query.trim())
+			return theme.fg(
+				"dim",
+				`  ${t("tui.overlays.hookSelector.typeToSearch", "({count})  Type to search", { count })}`,
+			);
 		const field = this.#search.render(visibleWidth(this.#search.getValue()) + 1)[0] ?? "";
-		return `${theme.fg("dim", `  (${count})  Search: `)}${field}`;
+		return `${theme.fg("dim", `  ${t("tui.overlays.hookSelector.search", "({count})  Search: ", { count })}`)}${field}`;
 	}
 
 	/** Applies the search field's value to the filter. */
@@ -714,7 +731,7 @@ export class HookSelectorComponent extends OverlayPanel {
 		const result = dockedPicker({
 			title: fixed.title,
 			...(this.#detailLines.length > 0 ? { subtitle: plainText(this.#detailLines.join("\n")) } : {}),
-			noun: "options",
+			noun: t("tui.overlays.hookSelector.nounOptions", "options"),
 			size: "md",
 			layout: "rows",
 			preview: "none",
@@ -724,8 +741,11 @@ export class HookSelectorComponent extends OverlayPanel {
 			selected: selected ?? null,
 			...(checkbox ? { current: [...this.#checkedIndices].map(String) } : {}),
 			total: this.#options.length,
-			empty: "No matching options",
-			actions: [pickerAction("confirm", "Select", "enter", { primary: true }), CLOSE_ACTION],
+			empty: t("tui.overlays.hookSelector.noMatchingOptions", "No matching options"),
+			actions: [
+				pickerAction("confirm", t("tui.overlays.hookSelector.select", "Select"), "enter", { primary: true }),
+				CLOSE_ACTION,
+			],
 		});
 		this.#pickerMemo = { items, selected, query, cursor, node: result };
 		return result;
@@ -778,7 +798,7 @@ export class HookSelectorComponent extends OverlayPanel {
 				{
 					selected: selectedItem && !this.#menu.isDisabled(selectedItem) ? (selected ?? null) : null,
 					filter: query.trim() || undefined,
-					empty: "No matching options",
+					empty: t("tui.overlays.hookSelector.noMatchingOptions", "No matching options"),
 					max: { lines: this.#maxVisible },
 				},
 				rows,
@@ -787,7 +807,15 @@ export class HookSelectorComponent extends OverlayPanel {
 		);
 		if (query) {
 			children.push(
-				node("text", { spans: [span("Search: ", "dim"), span(query)], wrap: "none" }, undefined, "search"),
+				node(
+					"text",
+					{
+						spans: [span(t("tui.overlays.hookSelector.searchLabel", "Search: "), "dim"), span(query)],
+						wrap: "none",
+					},
+					undefined,
+					"search",
+				),
 			);
 		}
 		children.push(fixed.hints);
@@ -860,9 +888,9 @@ export class HookSelectorComponent extends OverlayPanel {
 			this.#helpText !== undefined
 				? node("text", { spans: [span(plainText(this.#helpText), "dim")], wrap: "word" }, undefined, "hints")
 				: hintsRow([
-						actionHint(["tui.select.up", "tui.select.down"], "navigate"),
-						{ keys: ENTER_KEYS, label: "select" },
-						actionHint("tui.select.cancel", "cancel"),
+						actionHint(["tui.select.up", "tui.select.down"], t("tui.overlays.hookSelector.navigate", "navigate")),
+						{ keys: ENTER_KEYS, label: t("tui.overlays.hookSelector.selectHint", "select") },
+						actionHint("tui.select.cancel", t("tui.overlays.hookSelector.cancel", "cancel")),
 					]);
 		this.#nativeStatic = { title: plainInline(this.#baseTitle, mdTheme), detail, hints };
 		return this.#nativeStatic;

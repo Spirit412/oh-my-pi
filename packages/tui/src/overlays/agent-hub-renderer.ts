@@ -14,6 +14,7 @@ import { sanitizeDisplaySingleLine } from "./extensions/display-text";
 import type { ObservableSession } from "./session-observer-registry";
 import { theme } from "../theme/theme";
 import type { AgentMetrics } from "./agent-hub-projection";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 export interface RosterRender {
 	lines: string[];
@@ -213,7 +214,9 @@ export function modelBadge(ref: AgentRecordLike, observed: ObservableSession | u
 	const badge = resolveModelBadge(ref, observed);
 	if (!badge) return undefined;
 	const text = formatModelBadge(badge.model, badge.level);
-	return badge.fallback ? `${theme.fg("warning", "fallback →")} ${text}` : text;
+	return badge.fallback
+		? `${theme.fg("warning", t("tui.overlays.agentHub.fallbackLabel", "fallback →"))} ${text}`
+		: text;
 }
 
 /** A picker chip for the model that produced a row's work: label plus thinking-level colour token. */
@@ -243,7 +246,7 @@ export function modelBadgeSpans(ref: AgentRecordLike, observed: ObservableSessio
 	const badge = resolveModelBadge(ref, observed);
 	if (!badge) return undefined;
 	const spans: TspSpan[] = [];
-	if (badge.fallback) spans.push(span("fallback → ", "warning"));
+	if (badge.fallback) spans.push(span(t("tui.overlays.agentHub.fallbackArrow", "fallback → "), "warning"));
 	spans.push(span(sanitizeDisplaySingleLine(badge.model), "muted"));
 	if (showsThinkingLevel(badge.level)) {
 		spans.push(span(` ${theme.thinking[badge.level] ?? badge.level}`, thinkingToken(badge.level)));
@@ -254,8 +257,12 @@ export function modelBadgeSpans(ref: AgentRecordLike, observed: ObservableSessio
 export function formatMetricDuration(metrics: AgentMetrics): string | undefined {
 	const durationMs = metricNumber(metrics.durationMs);
 	if (durationMs <= 0) return undefined;
-	const label = metrics.durationKind === "active" ? "active" : metrics.durationKind === "span" ? "span" : "duration";
-	return `${formatDuration(durationMs)} ${label}`;
+	const duration = formatDuration(durationMs);
+	return metrics.durationKind === "active"
+		? t("tui.overlays.agentHub.durationActive", "{duration} active", { duration })
+		: metrics.durationKind === "span"
+			? t("tui.overlays.agentHub.durationSpan", "{duration} span", { duration })
+			: t("tui.overlays.agentHub.durationUnknown", "{duration} duration", { duration });
 }
 
 export function formatCost(cost: number): string {
@@ -269,10 +276,10 @@ export function formatMetrics(metrics: AgentMetrics): string {
 	return formatMetricRow(
 		[
 			{ value: formatCost(metrics.cost) },
-			{ value: formatMetricDuration(metrics) ?? "time —" },
-			{ value: `${formatNumber(metrics.requests)} req` },
-			{ value: `${formatNumber(metrics.tools)} tools` },
-			{ value: `${formatNumber(metrics.tokens)} tok` },
+			{ value: formatMetricDuration(metrics) ?? t("tui.overlays.agentHub.timeMissing", "time —") },
+			{ value: t("tui.overlays.agentHub.reqCount", "{count} req", { count: formatNumber(metrics.requests) }) },
+			{ value: t("tui.overlays.agentHub.toolsCount", "{count} tools", { count: formatNumber(metrics.tools) }) },
+			{ value: t("tui.overlays.agentHub.tokCount", "{count} tok", { count: formatNumber(metrics.tokens) }) },
 		],
 		{ separator: theme.sep.dot },
 	);
@@ -282,10 +289,10 @@ export function formatMetrics(metrics: AgentMetrics): string {
 export function metricsText(metrics: AgentMetrics): string {
 	return [
 		formatCost(metrics.cost),
-		formatMetricDuration(metrics) ?? "time —",
-		`${formatNumber(metrics.requests)} req`,
-		`${formatNumber(metrics.tools)} tools`,
-		`${formatNumber(metrics.tokens)} tok`,
+		formatMetricDuration(metrics) ?? t("tui.overlays.agentHub.timeMissing", "time —"),
+		t("tui.overlays.agentHub.reqCount", "{count} req", { count: formatNumber(metrics.requests) }),
+		t("tui.overlays.agentHub.toolsCount", "{count} tools", { count: formatNumber(metrics.tools) }),
+		t("tui.overlays.agentHub.tokCount", "{count} tok", { count: formatNumber(metrics.tokens) }),
 	].join(theme.sep.dot);
 }
 
@@ -297,9 +304,9 @@ export function formatMetricColumns(metrics: AgentMetrics, age: string): string 
 		[
 			{ text: formatCost(metrics.cost) },
 			{ text: formatMetricDuration(metrics) ?? "—" },
-			{ text: `${formatNumber(metrics.requests)} req` },
-			{ text: `${formatNumber(metrics.tools)} tools` },
-			{ text: `${formatNumber(metrics.tokens)} tok` },
+			{ text: t("tui.overlays.agentHub.reqCount", "{count} req", { count: formatNumber(metrics.requests) }) },
+			{ text: t("tui.overlays.agentHub.toolsCount", "{count} tools", { count: formatNumber(metrics.tools) }) },
+			{ text: t("tui.overlays.agentHub.tokCount", "{count} tok", { count: formatNumber(metrics.tokens) }) },
 			{ text: age },
 		],
 		[
@@ -339,11 +346,14 @@ export function formatChildIds(children: readonly AgentRecordLike[], width: numb
 		const id = sanitizeLine(children[shown].id, max);
 		const candidate = text ? `${text}, ${id}` : id;
 		const remaining = children.length - shown - 1;
-		const suffix = remaining > 0 ? `, … +${remaining}` : "";
+		const suffix = remaining > 0 ? t("tui.overlays.agentHub.moreSuffix", ", … +{count}", { count: remaining }) : "";
 		if (visibleWidth(candidate + suffix) > max) {
 			const includesCurrent = text.length === 0;
 			const omitted = children.length - shown - Number(includesCurrent);
-			return truncateToWidth(`${includesCurrent ? id : text}${omitted > 0 ? `, … +${omitted}` : ""}`, max);
+			return truncateToWidth(
+				`${includesCurrent ? id : text}${omitted > 0 ? t("tui.overlays.agentHub.moreSuffix", ", … +{count}", { count: omitted }) : ""}`,
+				max,
+			);
 		}
 		text = candidate;
 		shown++;

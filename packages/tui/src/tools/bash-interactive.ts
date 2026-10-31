@@ -1,5 +1,6 @@
 import type * as XtermModule from "@oh-my-pi/pi-utils/vterm";
 import type { Terminal as XtermTerminalType } from "@oh-my-pi/pi-utils/vterm";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import type { TspSpan } from "@oh-my-pi/pi-wire";
 import type { Component } from "../tui";
 import { ansi, col, row, span, text } from "../native/describe";
@@ -93,7 +94,11 @@ export function normalizeInputForPty(data: string, applicationCursorKeysMode: bo
 /** Interactive terminal overlay driven by an external PTY controller. */
 export class BashInteractiveOverlayComponent implements Component {
 	/** Native sheet: a full-pane glass overlay titled Console. */
-	readonly nativeOverlay = { role: "omp.overlay.console", size: "full", head: "Console" } as const;
+	readonly nativeOverlay = {
+		role: "omp.overlay.console",
+		size: "full",
+		head: t("tui.tools.bashInteractive.console", "Console"),
+	} as const;
 	#terminal: XtermTerminalType;
 	#state: "running" | "complete" | "timed_out" | "killed" = "running";
 	#exitCode: number | undefined;
@@ -265,12 +270,13 @@ export class BashInteractiveOverlayComponent implements Component {
 	}
 
 	#stateSpan(): TspSpan {
-		if (this.#state === "running") return span("running", "warning");
-		if (this.#state === "timed_out") return span("timed out", "warning");
-		if (this.#state === "killed") return span("killed", "warning");
-		if (this.#exitCode === 0) return span("exit 0", "success");
-		if (this.#exitCode === undefined) return span("exited", "warning");
-		return span(`exit ${this.#exitCode}`, "error");
+		if (this.#state === "running") return span(t("tui.tools.bashInteractive.state.running", "running"), "warning");
+		if (this.#state === "timed_out")
+			return span(t("tui.tools.bashInteractive.state.timedOut", "timed out"), "warning");
+		if (this.#state === "killed") return span(t("tui.tools.bashInteractive.state.killed", "killed"), "warning");
+		if (this.#exitCode === 0) return span(t("tui.tools.bashInteractive.state.exit0", "exit 0"), "success");
+		if (this.#exitCode === undefined) return span(t("tui.tools.bashInteractive.state.exited", "exited"), "warning");
+		return span(t("tui.tools.bashInteractive.state.exitCode", "exit {code}", { code: this.#exitCode }), "error");
 	}
 
 	/**
@@ -297,21 +303,32 @@ export class BashInteractiveOverlayComponent implements Component {
 			const footer =
 				this.#state === "running"
 					? actionBar([
-							text([span("Input forwarded to PTY", "dim")]),
+							text([span(t("tui.tools.bashInteractive.inputForwarded", "Input forwarded to PTY"), "dim")]),
 							null,
-							actionButton("Force kill", KILL_ACTION, { keys: "escape", tone: "error" }),
+							actionButton(t("tui.tools.bashInteractive.forceKill", "Force kill"), KILL_ACTION, {
+								keys: "escape",
+								tone: "error",
+							}),
 						])
-					: actionBar([text([span("Session finished", "dim")])]);
+					: actionBar([text([span(t("tui.tools.bashInteractive.sessionFinished", "Session finished"), "dim")])]);
 			return col([head, ansi(screen.join("\n"), { cols }), footer], { gap: "sm" });
 		});
 	}
 	#stateText(): string {
-		if (this.#state === "running") return this.#uiTheme.fg("warning", "running");
-		if (this.#state === "timed_out") return this.#uiTheme.fg("warning", "timed out");
-		if (this.#state === "killed") return this.#uiTheme.fg("warning", "killed");
-		if (this.#exitCode === 0) return this.#uiTheme.fg("success", "exit 0");
-		if (this.#exitCode === undefined) return this.#uiTheme.fg("warning", "exited");
-		return this.#uiTheme.fg("error", `exit ${this.#exitCode}`);
+		if (this.#state === "running")
+			return this.#uiTheme.fg("warning", t("tui.tools.bashInteractive.state.running", "running"));
+		if (this.#state === "timed_out")
+			return this.#uiTheme.fg("warning", t("tui.tools.bashInteractive.state.timedOut", "timed out"));
+		if (this.#state === "killed")
+			return this.#uiTheme.fg("warning", t("tui.tools.bashInteractive.state.killed", "killed"));
+		if (this.#exitCode === 0)
+			return this.#uiTheme.fg("success", t("tui.tools.bashInteractive.state.exit0", "exit 0"));
+		if (this.#exitCode === undefined)
+			return this.#uiTheme.fg("warning", t("tui.tools.bashInteractive.state.exited", "exited"));
+		return this.#uiTheme.fg(
+			"error",
+			t("tui.tools.bashInteractive.state.exitCode", "exit {code}", { code: this.#exitCode }),
+		);
 	}
 
 	#readViewport(innerWidth: number, maxContentRows: number): string[] {
@@ -332,7 +349,7 @@ export class BashInteractiveOverlayComponent implements Component {
 				: this.#state === "complete" && this.#exitCode === 0
 					? this.#uiTheme.styledSymbol("tool.bash", "accent")
 					: formatStatusIcon("warning", this.#uiTheme);
-		const title = this.#uiTheme.fg("accent", "Console");
+		const title = this.#uiTheme.fg("accent", t("tui.tools.bashInteractive.console", "Console"));
 		const statusBadge = `${this.#uiTheme.fg("dim", this.#uiTheme.format.bracketLeft)}${this.#stateText()}${this.#uiTheme.fg("dim", this.#uiTheme.format.bracketRight)}`;
 		const prefix = `${statusIcon} ${title} `;
 		const suffix = ` ${statusBadge}`;
@@ -342,10 +359,13 @@ export class BashInteractiveOverlayComponent implements Component {
 		const footer =
 			this.#state === "running"
 				? truncateToWidth(
-						`${this.#uiTheme.fg("warning", formatKeyHint("escape"))} ${this.#uiTheme.fg("dim", "force-kill")} ${this.#uiTheme.fg("dim", "· input forwarded to PTY")}`,
+						`${this.#uiTheme.fg("warning", formatKeyHint("escape"))} ${this.#uiTheme.fg("dim", t("tui.tools.bashInteractive.forceKillHint", "force-kill"))} ${this.#uiTheme.fg("dim", t("tui.tools.bashInteractive.inputForwardedHint", "· input forwarded to PTY"))}`,
 						innerWidth,
 					)
-				: truncateToWidth(this.#uiTheme.fg("dim", "session finished"), innerWidth);
+				: truncateToWidth(
+						this.#uiTheme.fg("dim", t("tui.tools.bashInteractive.sessionFinishedHint", "session finished")),
+						innerWidth,
+					);
 		const visibleLines = this.#readViewport(innerWidth, maxContentRows);
 		const content = visibleLines.length > 0 ? visibleLines : [padding(innerWidth)];
 		const borderHorizontal = this.#uiTheme.fg("border", this.#uiTheme.boxRound.horizontal.repeat(innerWidth));

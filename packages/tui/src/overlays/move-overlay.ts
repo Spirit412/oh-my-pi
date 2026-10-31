@@ -17,6 +17,7 @@ import type { NativeNode, NativeUiEvent } from "../native/node";
 import { node, span } from "../native/describe";
 import { actionBar, actionButton, actionHint, overlayCard, statusHintsRow } from "../native/overlay";
 import { getKeybindings } from "../keybindings";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 export interface MoveOverlayResult {
 	directory: string;
@@ -63,7 +64,7 @@ export class MoveOverlay implements Component, Focusable {
 		this.#done = done;
 		this.#field = new TextFormField({
 			theme: formTheme,
-			prompt: theme.fg("dim", "Path: "),
+			prompt: theme.fg("dim", t("tui.overlays.move.pathPrompt", "Path: ")),
 			empty: "submit",
 			spaceBeforeControl: false,
 			spaceAfterControl: false,
@@ -144,14 +145,14 @@ export class MoveOverlay implements Component, Focusable {
 		}
 		const lines: string[] = [];
 
-		lines.push(topBorder(w, "Move to directory"));
+		lines.push(topBorder(w, t("tui.overlays.move.title", "Move to directory")));
 		for (const fieldLine of fieldLines) {
 			lines.push(row(fieldLine, w));
 		}
 		lines.push(row("", w));
 
 		if (this.#results.length === 0 && this.#field.getValue().length > 0) {
-			lines.push(row(theme.fg("dim", "No matching directories"), w));
+			lines.push(row(theme.fg("dim", t("tui.overlays.move.noMatches", "No matching directories")), w));
 		} else {
 			for (let i = 0; i < Math.min(this.#results.length, MAX_RESULTS); i++) {
 				const item = this.#results[i]!;
@@ -164,7 +165,11 @@ export class MoveOverlay implements Component, Focusable {
 
 		lines.push(row("", w));
 		const nav = editorKeys("tui.select.up", "tui.select.down");
-		const hint = `Type to filter · ${nav} navigate · ${formatKeyHint("tab")} accept · ${formatKeyHint("enter")} confirm · ${editorKey("tui.select.cancel")} cancel`;
+		const hint = t(
+			"tui.overlays.move.hint",
+			"Type to filter · {nav} navigate · {tab} accept · {enter} confirm · {cancel} cancel",
+			{ nav, tab: formatKeyHint("tab"), enter: formatKeyHint("enter"), cancel: editorKey("tui.select.cancel") },
+		);
 		lines.push(row(theme.fg("dim", hint), w));
 		lines.push(bottomBorder(w));
 		this.#renderMemo = { width: w, fieldLines, revision: this.#revision, lines };
@@ -181,24 +186,34 @@ export class MoveOverlay implements Component, Focusable {
 			"list",
 			{
 				selected: this.#results[this.#selectedIndex]?.value ?? null,
-				empty: this.#field.getValue().length > 0 ? [span("No matching directories", "dim")] : undefined,
+				empty:
+					this.#field.getValue().length > 0
+						? [span(t("tui.overlays.move.noMatches", "No matching directories"), "dim")]
+						: undefined,
 			},
 			items,
 			"results",
 		);
 		const hints = statusHintsRow(
-			[span("Type to filter", "dim")],
-			[actionHint(["tui.select.up", "tui.select.down"], "navigate")],
+			[span(t("tui.overlays.move.filter", "Type to filter"), "dim")],
+			[actionHint(["tui.select.up", "tui.select.down"], t("tui.overlays.move.navigate", "navigate"))],
 		);
 		// Accept, Confirm and Cancel run what Tab, Enter and Esc run.
 		const actions = actionBar([
-			actionButton("Accept", "accept", { keys: "tab" }),
+			actionButton(t("tui.overlays.move.accept", "Accept"), "accept", { keys: "tab" }),
 			null,
 			// The bound cancel key; Esc also cancels when it is unbound.
-			actionButton("Cancel", "cancel", { keys: getKeybindings().getKeys("tui.select.cancel")[0] ?? "escape" }),
-			actionButton("Confirm", "confirm", { keys: "enter", tone: "accent" }),
+			actionButton(t("tui.overlays.move.cancel", "Cancel"), "cancel", {
+				keys: getKeybindings().getKeys("tui.select.cancel")[0] ?? "escape",
+			}),
+			actionButton(t("tui.overlays.move.confirm", "Confirm"), "confirm", { keys: "enter", tone: "accent" }),
 		]);
-		const described = overlayCard("omp.dialog.move", "Move to directory", [this.#field, list, hints, actions]);
+		const described = overlayCard("omp.dialog.move", t("tui.overlays.move.title", "Move to directory"), [
+			this.#field,
+			list,
+			hints,
+			actions,
+		]);
 		this.#native = { revision: this.#revision, node: described };
 		return described;
 	}
@@ -231,7 +246,7 @@ export class MoveOverlay implements Component, Focusable {
 	}
 
 	invalidate(): void {
-		this.#field.input.prompt = theme.fg("dim", "Path: ");
+		this.#field.input.prompt = theme.fg("dim", t("tui.overlays.move.pathPrompt", "Path: "));
 		this.#field.invalidate();
 		this.#revision++;
 		this.#renderMemo = undefined;

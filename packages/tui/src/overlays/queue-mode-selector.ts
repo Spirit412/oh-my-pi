@@ -1,4 +1,5 @@
 import { type SelectItem, SelectList, type SgrMouseEvent } from "../index";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import { getSelectListTheme } from "../theme/theme";
 import { OverlayPanel } from "../chrome/overlay-box";
 import { routeSelectListMouseWithTopBorder } from "../chrome/select-list-mouse-routing";
@@ -17,15 +18,22 @@ export class QueueModeSelectorComponent extends OverlayPanel {
 		onSelect: (mode: "all" | "one-at-a-time") => void,
 		onCancel: () => void,
 	) {
-		super("Queue Mode", "omp.overlay.queue-mode");
+		super(t("tui.overlays.queueMode.title", "Queue Mode"), "omp.overlay.queue-mode");
 
 		const queueModes: SelectItem[] = [
 			{
 				value: "one-at-a-time",
 				label: "one-at-a-time",
-				description: "Process queued messages one by one (recommended)",
+				description: t(
+					"tui.overlays.queueMode.descriptionOneAtATime",
+					"Process queued messages one by one (recommended)",
+				),
 			},
-			{ value: "all", label: "all", description: "Process all queued messages at once" },
+			{
+				value: "all",
+				label: "all",
+				description: t("tui.overlays.queueMode.descriptionAll", "Process all queued messages at once"),
+			},
 		];
 
 		// Create selector
@@ -47,20 +55,26 @@ export class QueueModeSelectorComponent extends OverlayPanel {
 
 		this.addChild(this.#selectList);
 		this.#sheet = new SelectListSheet(this.#selectList, {
-			title: "Queue mode",
-			subtitle: "How messages you send while omp works are delivered",
+			title: t("tui.overlays.queueMode.sheetTitle", "Queue mode"),
+			subtitle: t("tui.overlays.queueMode.subtitle", "How messages you send while omp works are delivered"),
 			icon: "list",
-			noun: "modes",
+			noun: t("tui.overlays.queueMode.noun", "modes"),
 			current: [currentMode],
 			// The terminal list shows the setting's values; the sheet names them for people.
 			decorate: item =>
 				item.value === "one-at-a-time"
 					? {
-							label: "One at a time",
-							detail: "Each queued message gets its own turn",
-							badges: [{ text: "recommended" }],
+							label: t("tui.overlays.queueMode.oneAtATime", "One at a time"),
+							detail: t("tui.overlays.queueMode.oneAtATimeDetail", "Each queued message gets its own turn"),
+							badges: [{ text: t("tui.overlays.queueMode.recommended", "recommended") }],
 						}
-					: { label: "All at once", detail: "Queued messages are sent together in one turn" },
+					: {
+							label: t("tui.overlays.queueMode.allAtOnce", "All at once"),
+							detail: t(
+								"tui.overlays.queueMode.allAtOnceDetail",
+								"Queued messages are sent together in one turn",
+							),
+						},
 		});
 	}
 

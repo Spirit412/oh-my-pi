@@ -27,6 +27,7 @@ import { item, list, md, span, text } from "../native/describe";
 import { OwnerMemo } from "../native/memo";
 import { plainText } from "../native/spans";
 import { errorView, resultText, toolHead } from "./native-view";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 // Each stored memory renders as `<bullet> <content>`; the bullet glyph comes
 // from the active theme (`•` by default, a nerd-font dot under nerd themes).
@@ -79,7 +80,9 @@ function retainComponent(contents: string[], header: string, getExpanded: () => 
 		}
 		const remaining = contents.length - shown.length;
 		if (remaining > 0) {
-			lines.push(`  ${theme.fg("dim", `… ${remaining} more`)} ${formatExpandHint(theme, expanded, true)}`);
+			lines.push(
+				`  ${theme.fg("dim", t("tui.tools.memory.moreItems", { other: "… {count} more" }, { count: remaining }))} ${formatExpandHint(theme, expanded, true)}`,
+			);
 		}
 		return lines.map(line => truncateToWidth(line, width, Ellipsis.Omit));
 	});
@@ -119,7 +122,11 @@ export const retainToolRenderer = {
 		args?: RetainRenderArgs,
 	): Component {
 		if (result.isError) {
-			return new Text(formatErrorMessage(resultText(result).trim() || "Retain failed", theme), 0, 0);
+			return new Text(
+				formatErrorMessage(resultText(result).trim() || t("tui.tools.memory.retainFailed", "Retain failed"), theme),
+				0,
+				0,
+			);
 		}
 		const contents = retainContents(args);
 		// `summary` is the tool's own "N memories stored/queued." line; drop the
@@ -146,7 +153,10 @@ export const retainToolRenderer = {
 	): NativeToolView | undefined {
 		return retainResultMemo.get(result, [], () => {
 			if (result.isError)
-				return { ...errorView("Retain", resultText(result).trim() || "Retain failed"), inline: true };
+				return {
+					...errorView("Retain", resultText(result).trim() || t("tui.tools.memory.retainFailed", "Retain failed")),
+					inline: true,
+				};
 			return describeRetain(retainContents(args), resultText(result).trim().replace(/\.$/, ""));
 		});
 	},
@@ -166,12 +176,20 @@ export const recallToolRenderer = {
 		args?: QueryRenderArgs,
 	): Component {
 		if (result.isError) {
-			return new Text(formatErrorMessage(resultText(result).trim() || "Recall failed", theme), 0, 0);
+			return new Text(
+				formatErrorMessage(resultText(result).trim() || t("tui.tools.memory.recallFailed", "Recall failed"), theme),
+				0,
+				0,
+			);
 		}
 		const text = resultText(result).trim();
 		const match = text.match(/^Found (\d+) relevant/);
 		const found = match ? Number(match[1]) : 0;
-		const meta = [found > 0 ? `${found} found` : "no matches"];
+		const meta = [
+			found > 0
+				? t("tui.tools.memory.found", { other: "{count} found" }, { count: found })
+				: t("tui.tools.memory.noMatches", "no matches"),
+		];
 		const header =
 			found > 0
 				? queryHeader("Recall", args?.query, "success", theme, meta, theme.styledSymbol("tool.memory", "accent"))
@@ -209,9 +227,20 @@ export const recallToolRenderer = {
 		return recallResultMemo.get(result, [], () => {
 			const query = args?.query?.trim();
 			const output = resultText(result).trim();
-			if (result.isError) return { ...errorView("Recall", output || "Recall failed", query), inline: true };
+			if (result.isError) {
+				return {
+					...errorView("Recall", output || t("tui.tools.memory.recallFailed", "Recall failed"), query),
+					inline: true,
+				};
+			}
 			const found = Number(output.match(/^Found (\d+) relevant/)?.[1] ?? 0);
-			if (found === 0) return { head: toolHead("Recall", query, "no matches"), tone: "warning", inline: true };
+			if (found === 0) {
+				return {
+					head: toolHead("Recall", query, t("tui.tools.memory.noMatches", "no matches")),
+					tone: "warning",
+					inline: true,
+				};
+			}
 			// Collapsed keeps to the header; expanding reveals the recalled memories.
 			const memories = output
 				.replace(/^[^\n]*\n+/, "")
@@ -219,7 +248,7 @@ export const recallToolRenderer = {
 				.slice(0, PREVIEW_LIMITS.OUTPUT_EXPANDED)
 				.join("\n");
 			return {
-				head: toolHead("Recall", query, `${found} found`),
+				head: toolHead("Recall", query, t("tui.tools.memory.found", { other: "{count} found" }, { count: found })),
 				inline: true,
 				body: memories.trim() ? [text([span(plainText(memories), "muted")], { wrap: "word" })] : [],
 				preview: { lines: 0 },
@@ -242,7 +271,14 @@ export const reflectToolRenderer = {
 		args?: QueryRenderArgs,
 	): Component {
 		if (result.isError) {
-			return new Text(formatErrorMessage(resultText(result).trim() || "Reflect failed", theme), 0, 0);
+			return new Text(
+				formatErrorMessage(
+					resultText(result).trim() || t("tui.tools.memory.reflectFailed", "Reflect failed"),
+					theme,
+				),
+				0,
+				0,
+			);
 		}
 		const header = queryHeader(
 			"Reflect",
@@ -266,7 +302,7 @@ export const reflectToolRenderer = {
 				const remaining = answerLines.length - shown.length;
 				if (remaining > 0) {
 					lines.push(
-						`  ${theme.fg("dim", `… ${remaining} more lines`)} ${formatExpandHint(theme, expanded, true)}`,
+						`  ${theme.fg("dim", t("tui.tools.memory.moreLines", { other: "… {count} more lines" }, { count: remaining }))} ${formatExpandHint(theme, expanded, true)}`,
 					);
 				}
 				return lines.map(line => truncateToWidth(line, width, Ellipsis.Omit));
@@ -284,7 +320,12 @@ export const reflectToolRenderer = {
 		return reflectResultMemo.get(result, [], () => {
 			const query = args?.query?.trim();
 			const answer = resultText(result).trim();
-			if (result.isError) return { ...errorView("Reflect", answer || "Reflect failed", query), inline: true };
+			if (result.isError) {
+				return {
+					...errorView("Reflect", answer || t("tui.tools.memory.reflectFailed", "Reflect failed"), query),
+					inline: true,
+				};
+			}
 			const shown = answer.split("\n").slice(0, PREVIEW_LIMITS.OUTPUT_EXPANDED).join("\n").trim();
 			return {
 				head: toolHead("Reflect", query),

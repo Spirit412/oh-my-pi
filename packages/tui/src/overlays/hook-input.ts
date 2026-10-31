@@ -13,6 +13,7 @@ import { col, node, span } from "../native/describe";
 import type { DescribeContext, NativeChild, NativeNode, NativeUiEvent } from "../native/node";
 import { actionBar, actionButton } from "../native/overlay";
 import { plainText } from "../native/spans";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 /** Role prefix of the sheet's parts (`omp.hook-input.head`, `.title`, `.timer`, `.detail`, `.field`). */
 const PART = "omp.hook-input";
@@ -75,7 +76,8 @@ export class HookInputComponent extends OverlayPanel {
 			this.#countdown = new CountdownTimer(
 				opts.timeout,
 				opts.tui,
-				s => (this.title = `${this.#baseTitle} (${s}s)`),
+				s =>
+					(this.title = `${this.#baseTitle} ${t("tui.overlays.hookInput.countdownSuffix", "({seconds}s)", { seconds: s })}`),
 				() => {
 					opts.onTimeout?.();
 					this.#onCancelCallback();
@@ -98,7 +100,14 @@ export class HookInputComponent extends OverlayPanel {
 			isCancel: matchesAppInterrupt,
 		});
 		this.addChild(this.#form);
-		this.addChild(new KeyLegend(`${editorKey("tui.input.submit")} submit  ${interruptKey()} cancel`));
+		this.addChild(
+			new KeyLegend(
+				t("tui.overlays.hookInput.legend", "{submit} submit  {cancel} cancel", {
+					submit: editorKey("tui.input.submit"),
+					cancel: interruptKey(),
+				}),
+			),
+		);
 		this.addChild(new Spacer(1));
 	}
 
@@ -157,7 +166,10 @@ export class HookInputComponent extends OverlayPanel {
 			titleRow.push(
 				node(
 					"row",
-					{ role: `${PART}.timer`, title: "Cancels when the time runs out; typing restarts it" },
+					{
+						role: `${PART}.timer`,
+						title: t("tui.overlays.hookInput.timerTooltip", "Cancels when the time runs out; typing restarts it"),
+					},
 					[countdown],
 					"timer",
 				),
@@ -186,8 +198,11 @@ export class HookInputComponent extends OverlayPanel {
 		const cancelKey = boundKeys("app.interrupt", ["escape"])[0];
 		this.#nativeActions = actionBar([
 			null,
-			actionButton("Cancel", "cancel", cancelKey ? { keys: cancelKey } : {}),
-			actionButton("Submit", "submit", { tone: "accent", ...(submitKey ? { keys: submitKey } : {}) }),
+			actionButton(t("tui.overlays.hookInput.cancel", "Cancel"), "cancel", cancelKey ? { keys: cancelKey } : {}),
+			actionButton(t("tui.overlays.hookInput.submit", "Submit"), "submit", {
+				tone: "accent",
+				...(submitKey ? { keys: submitKey } : {}),
+			}),
 		]);
 		return this.#nativeActions;
 	}

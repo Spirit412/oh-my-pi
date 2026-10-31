@@ -7,6 +7,7 @@ import { boundKeys, interruptKey } from "../chrome/keybinding-hints";
 import type { NativeNode } from "../native/node";
 import { col, md, node, span, text } from "../native/describe";
 import { hintsRow, type NativeHint, statusHintsRow } from "../native/overlay";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 export type OmfgPanelState =
 	| "generating"
@@ -38,7 +39,7 @@ interface OmfgPanelComponentOptions {
 export class OmfgPanelComponent extends OverlayPanel {
 	#tui: TUI;
 	#state: OmfgPanelState = "generating";
-	#status = "Generating TTSR rule…";
+	#status = t("tui.overlays.omfgPanel.generating", "Generating TTSR rule…");
 	#preview = "";
 	#savedPath: string | undefined;
 	#errorMessage: string | undefined;
@@ -83,7 +84,7 @@ export class OmfgPanelComponent extends OverlayPanel {
 		if (this.#closed) return;
 		this.#state = "saved";
 		this.#savedPath = path;
-		this.#status = `Saved ${path}`;
+		this.#status = t("tui.overlays.omfgPanel.savedPath", "Saved {path}", { path });
 		this.#errorMessage = undefined;
 		this.#rebuild();
 	}
@@ -91,7 +92,7 @@ export class OmfgPanelComponent extends OverlayPanel {
 	markRejected(): void {
 		if (this.#closed) return;
 		this.#state = "rejected";
-		this.#status = "Rule was not saved.";
+		this.#status = t("tui.overlays.omfgPanel.ruleNotSaved", "Rule was not saved.");
 		this.#errorMessage = undefined;
 		this.#rebuild();
 	}
@@ -99,7 +100,7 @@ export class OmfgPanelComponent extends OverlayPanel {
 	markAborted(): void {
 		if (this.#closed) return;
 		this.#state = "aborted";
-		this.#status = "Cancelled.";
+		this.#status = t("tui.overlays.omfgPanel.cancelledStatus", "Cancelled.");
 		this.#errorMessage = undefined;
 		this.#rebuild();
 	}
@@ -107,7 +108,7 @@ export class OmfgPanelComponent extends OverlayPanel {
 	markError(message: string): void {
 		if (this.#closed) return;
 		this.#state = "error";
-		this.#status = "Could not create rule.";
+		this.#status = t("tui.overlays.omfgPanel.couldNotCreate", "Could not create rule.");
 		this.#errorMessage = message;
 		this.#rebuild();
 	}
@@ -148,36 +149,66 @@ export class OmfgPanelComponent extends OverlayPanel {
 
 	#describeBody(): NativeNode {
 		if (this.#state === "error") {
-			return text([span(replaceTabs(this.#errorMessage ?? "Unknown error"), "error")], { wrap: "word" });
+			return text(
+				[
+					span(
+						replaceTabs(this.#errorMessage ?? t("tui.overlays.omfgPanel.unknownError", "Unknown error")),
+						"error",
+					),
+				],
+				{
+					wrap: "word",
+				},
+			);
 		}
 		const preview = replaceTabs(this.#preview).trim();
 		if (preview) return md(preview, { stream: this.#state === "generating" });
-		return text([span(`${theme.status.pending} Waiting for candidate rule…`, "dim")]);
+		return text([
+			span(
+				`${theme.status.pending} ${t("tui.overlays.omfgPanel.waitingForRule", "Waiting for candidate rule…")}`,
+				"dim",
+			),
+		]);
 	}
 
 	#describeFooter(): NativeNode {
-		const esc: NativeHint = { keys: boundKeys("app.interrupt", ["escape"]).slice(0, 1), label: "dismiss" };
+		const esc: NativeHint = {
+			keys: boundKeys("app.interrupt", ["escape"]).slice(0, 1),
+			label: t("tui.overlays.omfgPanel.dismiss", "dismiss"),
+		};
 		switch (this.#state) {
 			case "generating":
 			case "validating":
 			case "confirming":
 			case "saving":
-				return hintsRow([{ ...esc, label: "cancel /omfg" }]);
+				return hintsRow([{ ...esc, label: t("tui.overlays.omfgPanel.cancelOmfg", "cancel /omfg") }]);
 			case "saved":
 				return statusHintsRow(
 					[
-						span(`${theme.status.success} Registered live`, "success"),
+						span(
+							`${theme.status.success} ${t("tui.overlays.omfgPanel.registeredLive", "Registered live")}`,
+							"success",
+						),
 						span(" · ", "muted"),
 						span(replaceTabs(this.#savedPath ?? "saved"), "path"),
 					],
 					[esc],
 				);
 			case "rejected":
-				return statusHintsRow([span(`${theme.status.warning} Not saved`, "warning")], [esc]);
+				return statusHintsRow(
+					[span(`${theme.status.warning} ${t("tui.overlays.omfgPanel.notSaved", "Not saved")}`, "warning")],
+					[esc],
+				);
 			case "aborted":
-				return statusHintsRow([span(`${theme.status.warning} Cancelled`, "warning")], [esc]);
+				return statusHintsRow(
+					[span(`${theme.status.warning} ${t("tui.overlays.omfgPanel.cancelled", "Cancelled")}`, "warning")],
+					[esc],
+				);
 			case "error":
-				return statusHintsRow([span(`${theme.status.error} Error`, "error")], [esc]);
+				return statusHintsRow(
+					[span(`${theme.status.error} ${t("tui.overlays.omfgPanel.error", "Error")}`, "error")],
+					[esc],
+				);
 		}
 	}
 
@@ -195,28 +226,64 @@ export class OmfgPanelComponent extends OverlayPanel {
 			case "validating":
 			case "confirming":
 			case "saving":
-				return theme.fg("muted", `${esc} cancel /omfg`);
+				return theme.fg("muted", t("tui.overlays.omfgPanel.cancelOmfgHint", "{key} cancel /omfg", { key: esc }));
 			case "saved":
 				return theme.fg(
 					"success",
-					`${theme.status.success} Registered live · ${replaceTabs(this.#savedPath ?? "saved")} · ${esc} dismiss`,
+					t("tui.overlays.omfgPanel.registeredLiveDismiss", "{glyph} Registered live · {path} · {key} dismiss", {
+						glyph: theme.status.success,
+						path: replaceTabs(this.#savedPath ?? "saved"),
+						key: esc,
+					}),
 				);
 			case "rejected":
-				return theme.fg("warning", `${theme.status.warning} Not saved · ${esc} dismiss`);
+				return theme.fg(
+					"warning",
+					t("tui.overlays.omfgPanel.notSavedDismiss", "{glyph} Not saved · {key} dismiss", {
+						glyph: theme.status.warning,
+						key: esc,
+					}),
+				);
 			case "aborted":
-				return theme.fg("warning", `${theme.status.warning} Cancelled · ${esc} dismiss`);
+				return theme.fg(
+					"warning",
+					t("tui.overlays.omfgPanel.cancelledDismiss", "{glyph} Cancelled · {key} dismiss", {
+						glyph: theme.status.warning,
+						key: esc,
+					}),
+				);
 			case "error":
-				return theme.fg("error", `${theme.status.error} Error · ${esc} dismiss`);
+				return theme.fg(
+					"error",
+					t("tui.overlays.omfgPanel.errorDismiss", "{glyph} Error · {key} dismiss", {
+						glyph: theme.status.error,
+						key: esc,
+					}),
+				);
 		}
 	}
 
 	#contentComponent(): Component {
 		if (this.#state === "error") {
-			return new Text(theme.fg("error", replaceTabs(this.#errorMessage ?? "Unknown error")), 0, 0);
+			return new Text(
+				theme.fg(
+					"error",
+					replaceTabs(this.#errorMessage ?? t("tui.overlays.omfgPanel.unknownError", "Unknown error")),
+				),
+				0,
+				0,
+			);
 		}
 		const text = replaceTabs(this.#preview).trim();
 		if (!text) {
-			return new Text(theme.fg("dim", `${theme.status.pending} Waiting for candidate rule…`), 0, 0);
+			return new Text(
+				theme.fg(
+					"dim",
+					`${theme.status.pending} ${t("tui.overlays.omfgPanel.waitingForRule", "Waiting for candidate rule…")}`,
+				),
+				0,
+				0,
+			);
 		}
 		return new Markdown(text, 0, 0, getMarkdownTheme());
 	}

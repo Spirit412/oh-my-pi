@@ -21,6 +21,7 @@ import type { IrcDeliveryReceipt } from "./irc";
 import type { DaemonSnapshot } from "./daemon";
 import { styleTerminalRow } from "./terminal-output";
 import { card, type CardToolResult as ToolResult, firstText, safe } from "./result-card";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 export interface ProcReadDetails {
 	jobs?: JobSnapshot[];
@@ -51,7 +52,11 @@ function preview(body: string, expanded: boolean, theme: Theme, tone: "dim" | "t
 		line =>
 			`  ${quote} ${theme.fg(tone, truncateToWidth(safe(line.trim()), TRUNCATE_LENGTHS.LINE, Ellipsis.Unicode))}`,
 	);
-	if (shown.hidden) lines.push(`  ${quote} ${theme.fg("dim", `… +${shown.hidden} more lines`)}`);
+	if (shown.hidden) {
+		lines.push(
+			`  ${quote} ${theme.fg("dim", t("tui.tools.proc.moreLines", { other: "… +{count} more lines" }, { count: shown.hidden }))}`,
+		);
+	}
 	return lines;
 }
 
@@ -75,11 +80,17 @@ export function renderAgentWrite(
 		const failed = receipts.length - delivered;
 		const error = result?.isError || (failed > 0 && delivered === 0);
 		const meta: string[] = [];
-		if (recipient === "all") meta.push("broadcast");
+		if (recipient === "all") meta.push(t("tui.tools.proc.broadcast", "broadcast"));
 		if (receipts.length === 1) meta.push(theme.fg(receiptColor(receipts[0]!.outcome), receipts[0]!.outcome));
 		else if (receipts.length > 1) {
-			if (delivered) meta.push(theme.fg("success", `${delivered} delivered`));
-			if (failed) meta.push(theme.fg("error", `${failed} failed`));
+			if (delivered) {
+				meta.push(
+					theme.fg("success", t("tui.tools.proc.delivered", { other: "{count} delivered" }, { count: delivered })),
+				);
+			}
+			if (failed) {
+				meta.push(theme.fg("error", t("tui.tools.proc.failed", { other: "{count} failed" }, { count: failed })));
+			}
 		}
 		const header = renderStatusLine(
 			result === undefined
@@ -90,10 +101,18 @@ export function renderAgentWrite(
 			theme,
 		);
 		if (result?.isError && receipts.length === 0)
-			return [header, formatErrorDetail(firstText(result) || "Message delivery failed.", theme)];
+			return [
+				header,
+				formatErrorDetail(
+					firstText(result) || t("tui.tools.proc.messageFailed", "Message delivery failed."),
+					theme,
+				),
+			];
 		const lines = [header, ...preview(body, expanded, theme)];
 		if (result && receipts.length === 0)
-			lines.push(theme.fg("muted", firstText(result) || "No live peers to broadcast to."));
+			lines.push(
+				theme.fg("muted", firstText(result) || t("tui.tools.proc.noPeers", "No live peers to broadcast to.")),
+			);
 		if (receipts.length > 1 || failed > 0) {
 			lines.push(
 				...renderTreeList(
@@ -122,11 +141,14 @@ function daemonMeta(daemon: DaemonSnapshot, theme: Theme): string[] {
 				: "warning";
 	const meta = [theme.fg(stateColor, daemon.state)];
 	if (daemon.pid !== undefined) meta.push(`pid ${daemon.pid}`);
+	const elapsed = formatDuration(Math.max(0, (daemon.exitedAt ?? Date.now()) - daemon.startedAt));
 	meta.push(
-		`${daemon.exitedAt === undefined ? "up" : "ran"} ${formatDuration(Math.max(0, (daemon.exitedAt ?? Date.now()) - daemon.startedAt))}`,
+		daemon.exitedAt === undefined
+			? t("tui.tools.proc.upFor", "up {duration}", { duration: elapsed })
+			: t("tui.tools.proc.ranFor", "ran {duration}", { duration: elapsed }),
 	);
-	if (daemon.detached) meta.push("detached");
-	else if (daemon.persist) meta.push("persistent");
+	if (daemon.detached) meta.push(t("tui.tools.proc.detached", "detached"));
+	else if (daemon.persist) meta.push(t("tui.tools.proc.persistent", "persistent"));
 	return meta;
 }
 
@@ -166,7 +188,15 @@ export function renderProcWrite(
 			},
 			theme,
 		);
-		if (result?.isError) return [header, formatErrorDetail(firstText(result) || "Process operation failed.", theme)];
+		if (result?.isError) {
+			return [
+				header,
+				formatErrorDetail(
+					firstText(result) || t("tui.tools.proc.processOperationFailed", "Process operation failed."),
+					theme,
+				),
+			];
+		}
 		const lines = [header];
 		if (content && action === "stdin") lines.push(...preview(content, expanded, theme));
 		if (details && "op" in details && details.op === "cancel") {
@@ -200,7 +230,7 @@ export function renderProcRead(
 	theme: Theme,
 ): Component {
 	return card((_width, expanded) => {
-		const title = id ? `Proc ${safe(id)}` : "Proc jobs & services";
+		const title = id ? `Proc ${safe(id)}` : t("tui.tools.proc.jobsAndServices", "Proc jobs & services");
 		const daemon = details?.daemon;
 		const header = renderStatusLine(
 			{
@@ -210,7 +240,15 @@ export function renderProcRead(
 			},
 			theme,
 		);
-		if (result?.isError) return [header, formatErrorDetail(firstText(result) || "Process read failed.", theme)];
+		if (result?.isError) {
+			return [
+				header,
+				formatErrorDetail(
+					firstText(result) || t("tui.tools.proc.processReadFailed", "Process read failed."),
+					theme,
+				),
+			];
+		}
 		if (!result) return [header];
 		if (details?.job)
 			return [
@@ -232,7 +270,14 @@ export function renderProcRead(
 					line =>
 						`  ${styleTerminalRow(truncateToWidth(safe(line), TRUNCATE_LENGTHS.LINE, Ellipsis.Unicode), theme.fg("toolOutput", ""))}`,
 				);
-			if (output.length > limit) visible.unshift(theme.fg("dim", `  … ${output.length - limit} earlier lines`));
+			if (output.length > limit) {
+				visible.unshift(
+					theme.fg(
+						"dim",
+						`  … ${t("tui.tools.proc.earlierLines", { other: "{count} earlier lines" }, { count: output.length - limit })}`,
+					),
+				);
+			}
 			return [header, ...visible];
 		}
 		if (id && !details?.jobs && !details?.daemons && !details?.agents) {
@@ -242,18 +287,32 @@ export function renderProcRead(
 		const services = details?.daemons ?? [];
 		const agents = details?.agents ?? [];
 		const meta = [
-			`${jobs.length} jobs`,
-			`${services.length} services`,
-			...(agents.length ? [`${agents.length} agents`] : []),
+			t("tui.tools.proc.jobCount", { one: "{count} job", other: "{count} jobs" }, { count: jobs.length }),
+			t(
+				"tui.tools.proc.serviceCount",
+				{ one: "{count} service", other: "{count} services" },
+				{
+					count: services.length,
+				},
+			),
+			...(agents.length
+				? [
+						t(
+							"tui.tools.proc.agentCount",
+							{ one: "{count} agent", other: "{count} agents" },
+							{ count: agents.length },
+						),
+					]
+				: []),
 		];
 		const listHeader = renderStatusLine({ icon: "info", title, meta }, theme);
 		const items = [
 			...jobs.map(job => ({ label: jobRow(job, theme) })),
 			...services.map(service => ({
-				label: `${formatBadge("service", "accent", theme)} ${theme.fg("toolOutput", safe(service.name))} ${formatBadge(service.state, service.state === "failed" ? "error" : service.state === "ready" || service.state === "running" ? "success" : "warning", theme)} ${daemonMeta(service, theme).slice(1).join(theme.sep.dot)}`,
+				label: `${formatBadge(t("tui.tools.proc.serviceLabel", "service"), "accent", theme)} ${theme.fg("toolOutput", safe(service.name))} ${formatBadge(service.state, service.state === "failed" ? "error" : service.state === "ready" || service.state === "running" ? "success" : "warning", theme)} ${daemonMeta(service, theme).slice(1).join(theme.sep.dot)}`,
 			})),
 			...agents.map(agent => ({
-				label: `${formatBadge("agent", agent.live ? "accent" : "warning", theme)} ${theme.fg("toolOutput", safe(agent.id))} ${theme.fg("dim", formatDuration(agent.ageMs))}`,
+				label: `${formatBadge(t("tui.tools.proc.agentLabel", "agent"), agent.live ? "accent" : "warning", theme)} ${theme.fg("toolOutput", safe(agent.id))} ${theme.fg("dim", formatDuration(agent.ageMs))}`,
 			})),
 		];
 		return [
@@ -268,7 +327,7 @@ export function renderProcRead(
 				},
 				theme,
 			),
-			...(items.length ? [] : [theme.fg("dim", "No background jobs or services.")]),
+			...(items.length ? [] : [theme.fg("dim", t("tui.tools.proc.empty", "No background jobs or services."))]),
 		];
 	}, options);
 }
@@ -280,11 +339,14 @@ export function renderProcRead(
 function daemonMetaText(daemon: DaemonSnapshot): string {
 	const meta: string[] = [daemon.state];
 	if (daemon.pid !== undefined) meta.push(`pid ${daemon.pid}`);
+	const elapsed = formatDuration(Math.max(0, (daemon.exitedAt ?? Date.now()) - daemon.startedAt));
 	meta.push(
-		`${daemon.exitedAt === undefined ? "up" : "ran"} ${formatDuration(Math.max(0, (daemon.exitedAt ?? Date.now()) - daemon.startedAt))}`,
+		daemon.exitedAt === undefined
+			? t("tui.tools.proc.upFor", "up {duration}", { duration: elapsed })
+			: t("tui.tools.proc.ranFor", "ran {duration}", { duration: elapsed }),
 	);
-	if (daemon.detached) meta.push("detached");
-	else if (daemon.persist) meta.push("persistent");
+	if (daemon.detached) meta.push(t("tui.tools.proc.detached", "detached"));
+	else if (daemon.persist) meta.push(t("tui.tools.proc.persistent", "persistent"));
 	return meta.join(" · ");
 }
 
@@ -336,20 +398,32 @@ export function describeAgentWrite(
 	const delivered = receipts.filter(receipt => receipt.outcome !== "failed").length;
 	const failed = receipts.length - delivered;
 	const meta: TspSpan[] = [];
-	if (recipient === "all") meta.push(span("broadcast", "muted"));
+	if (recipient === "all") meta.push(span(t("tui.tools.proc.broadcast", "broadcast"), "muted"));
 	if (receipts.length === 1) meta.push(span(receipts[0]!.outcome, RECEIPT_TONE[receipts[0]!.outcome]));
 	else if (receipts.length > 1) {
-		if (delivered) meta.push(span(`${delivered} delivered`, "success"));
-		if (failed) meta.push(span(`${failed} failed`, "error"));
+		if (delivered) {
+			meta.push(
+				span(t("tui.tools.proc.delivered", { other: "{count} delivered" }, { count: delivered }), "success"),
+			);
+		}
+		if (failed) {
+			meta.push(span(t("tui.tools.proc.failed", { other: "{count} failed" }, { count: failed }), "error"));
+		}
 	}
 	const head = toolHead("IRC", span(recipient, "accent"), ...meta);
 	const error = result?.isError === true || (failed > 0 && delivered === 0);
 	if (result?.isError && receipts.length === 0) {
-		return { head, tone: "error", body: [errorText(firstText(result) || "Message delivery failed.")] };
+		return {
+			head,
+			tone: "error",
+			body: [errorText(firstText(result) || t("tui.tools.proc.messageFailed", "Message delivery failed."))],
+		};
 	}
 	const children = compact<NativeChild>([
 		quotedPreview(body),
-		result !== undefined && receipts.length === 0 && noteText(firstText(result) || "No live peers to broadcast to."),
+		result !== undefined &&
+			receipts.length === 0 &&
+			noteText(firstText(result) || t("tui.tools.proc.noPeers", "No live peers to broadcast to.")),
 		(receipts.length > 1 || failed > 0) &&
 			node(
 				"list",
@@ -387,7 +461,13 @@ export function describeProcWrite(
 		daemon ? daemonMetaText(daemon) : action === "mode" && content ? safe(content) : undefined,
 	);
 	if (result?.isError) {
-		return { head, tone: "error", body: [errorText(firstText(result) || "Process operation failed.")] };
+		return {
+			head,
+			tone: "error",
+			body: [
+				errorText(firstText(result) || t("tui.tools.proc.processOperationFailed", "Process operation failed.")),
+			],
+		};
 	}
 	const body = compact<NativeChild>([content && action === "stdin" ? quotedPreview(content) : undefined]);
 	if (details && "op" in details && details.op === "cancel") {
@@ -424,10 +504,14 @@ export function describeProcRead(
 	details: ProcReadDetails | undefined,
 ): NativeToolView {
 	const daemon = details?.daemon;
-	const title = id ? "Proc" : "Proc jobs & services";
+	const title = id ? "Proc" : t("tui.tools.proc.jobsAndServices", "Proc jobs & services");
 	const head = toolHead(title, id ? span(safe(id), "accent") : undefined, daemon ? daemonMetaText(daemon) : undefined);
 	if (result?.isError) {
-		return { head, tone: "error", body: [errorText(firstText(result) || "Process read failed.")] };
+		return {
+			head,
+			tone: "error",
+			body: [errorText(firstText(result) || t("tui.tools.proc.processReadFailed", "Process read failed."))],
+		};
 	}
 	if (!result) return { head };
 	if (details?.job) {
@@ -456,7 +540,11 @@ export function describeProcRead(
 			node(
 				"item",
 				{
-					label: [span("service", "accent"), span(" "), span(safe(service.name), "toolOutput")],
+					label: [
+						span(t("tui.tools.proc.serviceLabel", "service"), "accent"),
+						span(" "),
+						span(safe(service.name), "toolOutput"),
+					],
 					detail: [span(daemonMetaText(service), "muted")],
 					tone:
 						service.state === "failed"
@@ -473,7 +561,11 @@ export function describeProcRead(
 			node(
 				"item",
 				{
-					label: [span("agent", agent.live ? "accent" : "warning"), span(" "), span(safe(agent.id), "toolOutput")],
+					label: [
+						span(t("tui.tools.proc.agentLabel", "agent"), agent.live ? "accent" : "warning"),
+						span(" "),
+						span(safe(agent.id), "toolOutput"),
+					],
 					value: [span(formatDuration(agent.ageMs), "muted")],
 				},
 				undefined,
@@ -481,10 +573,29 @@ export function describeProcRead(
 			),
 		),
 	];
-	const counts = [`${jobs.length} jobs`, `${services.length} services`];
-	if (agents.length) counts.push(`${agents.length} agents`);
+	const counts = [
+		t("tui.tools.proc.jobCount", { one: "{count} job", other: "{count} jobs" }, { count: jobs.length }),
+		t(
+			"tui.tools.proc.serviceCount",
+			{ one: "{count} service", other: "{count} services" },
+			{
+				count: services.length,
+			},
+		),
+	];
+	if (agents.length) {
+		counts.push(
+			t("tui.tools.proc.agentCount", { one: "{count} agent", other: "{count} agents" }, { count: agents.length }),
+		);
+	}
 	return {
 		head: toolHead(title, id ? span(safe(id), "accent") : undefined, counts.join(" · ")),
-		body: [node("list", { empty: "No background jobs or services.", role: "omp.tool.proc.table" }, items)],
+		body: [
+			node(
+				"list",
+				{ empty: t("tui.tools.proc.empty", "No background jobs or services."), role: "omp.tool.proc.table" },
+				items,
+			),
+		],
 	};
 }

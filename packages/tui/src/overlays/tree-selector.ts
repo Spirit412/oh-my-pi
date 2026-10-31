@@ -67,6 +67,7 @@ import { CLOSE_ACTION, type PickerEvent, picker, pickerAction, pickerEvent, pick
 import { plainText } from "../native/spans";
 import type { OutlineTarget } from "../chat/transcript-outline";
 import { collectBlocks, targetCopy, turnPreview } from "./copy-selector";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 /** Filter mode for tree display */
 type FilterMode = TreeFilterMode;
@@ -198,11 +199,36 @@ interface TreePickerView {
 }
 
 const FILTER_TABS: readonly { id: TreeFilterMode; label: string }[] = [
-	{ id: "default", label: "Default" },
-	{ id: "no-tools", label: "No tools" },
-	{ id: "user-only", label: "User only" },
-	{ id: "labeled-only", label: "Labeled" },
-	{ id: "all", label: "All" },
+	{
+		id: "default",
+		get label() {
+			return t("tui.overlays.treeSelector.filterDefault", "Default");
+		},
+	},
+	{
+		id: "no-tools",
+		get label() {
+			return t("tui.overlays.treeSelector.filterNoTools", "No tools");
+		},
+	},
+	{
+		id: "user-only",
+		get label() {
+			return t("tui.overlays.treeSelector.filterUserOnly", "User only");
+		},
+	},
+	{
+		id: "labeled-only",
+		get label() {
+			return t("tui.overlays.treeSelector.filterLabeled", "Labeled");
+		},
+	},
+	{
+		id: "all",
+		get label() {
+			return t("tui.overlays.treeSelector.filterAll", "All");
+		},
+	},
 ];
 
 class TreeList implements Component {
@@ -261,8 +287,8 @@ class TreeList implements Component {
 		initialSelectedId?: string,
 	) {
 		this.#filterMode = initialFilterMode;
-		this.searchInput.prompt = `${theme.fg("muted", "Search:")} `;
-		this.searchInput.placeholder = "Type to search";
+		this.searchInput.prompt = `${theme.fg("muted", t("tui.overlays.treeSelector.searchPrompt", "Search:"))} `;
+		this.searchInput.placeholder = t("tui.overlays.treeSelector.searchPlaceholder", "Type to search");
 		this.#multipleRoots = tree.length > 1;
 		this.#indexSession(tree);
 		this.#tree = new TreeView<TreeSelectorNode, string>({
@@ -838,22 +864,32 @@ class TreeList implements Component {
 	/** The empty-state explanation from {@link render}, as spans. */
 	#emptyText(): TspText {
 		const total = this.#tree.allRows.length;
-		if (total === 0) return [span("No entries found", "muted")];
+		if (total === 0) return [span(t("tui.overlays.treeSelector.noEntries", "No entries found"), "muted")];
 		const query = this.getSearchQuery();
 		if (query.length > 0) {
 			return [
-				span(`No entries match search "${query}". Press `, "muted"),
-				span("backspace", "key"),
-				span(" to clear the search", "muted"),
+				span(
+					t("tui.overlays.treeSelector.noSearchMatch", 'No entries match search "{query}". Press ', { query }),
+					"muted",
+				),
+				span(t("tui.overlays.treeSelector.backspace", "backspace"), "key"),
+				span(t("tui.overlays.treeSelector.clearSearch", " to clear the search"), "muted"),
 			];
 		}
 		const filterLabel = this.#getFilterLabel().trim() || "[default]";
 		return [
-			span(`${total} entries hidden by the current filter ${filterLabel}. Press `, "muted"),
+			span(
+				t(
+					"tui.overlays.treeSelector.entriesHidden",
+					"{total} entries hidden by the current filter {filter}. Press ",
+					{ total, filter: filterLabel },
+				),
+				"muted",
+			),
 			span("alt+a", "key"),
-			span(" to show all, ", "muted"),
+			span(t("tui.overlays.treeSelector.showAll", " to show all, "), "muted"),
 			span("alt+d", "key"),
-			span(" for default", "muted"),
+			span(t("tui.overlays.treeSelector.forDefault", " for default"), "muted"),
 		];
 	}
 
@@ -887,13 +923,13 @@ class TreeList implements Component {
 	#getFilterLabel(): string {
 		switch (this.#filterMode) {
 			case "no-tools":
-				return " [no-tools]";
+				return ` ${t("tui.overlays.treeSelector.filterTagNoTools", "[no-tools]")}`;
 			case "user-only":
-				return " [user]";
+				return ` ${t("tui.overlays.treeSelector.filterTagUser", "[user]")}`;
 			case "labeled-only":
-				return " [labeled]";
+				return ` ${t("tui.overlays.treeSelector.filterTagLabeled", "[labeled]")}`;
 			case "all":
-				return " [all]";
+				return ` ${t("tui.overlays.treeSelector.filterTagAll", "[all]")}`;
 			default:
 				return "";
 		}
@@ -912,19 +948,19 @@ class TreeList implements Component {
 			//    `model_change` + `thinking_level_change` (both hidden by the default filter)
 			//    read as "broken /tree" — see #1909.
 			if (totalCount === 0) {
-				lines.push(truncateToWidth(theme.fg("muted", "No entries found"), width));
+				lines.push(
+					truncateToWidth(theme.fg("muted", t("tui.overlays.treeSelector.noEntries", "No entries found")), width),
+				);
 				lines.push(truncateToWidth(theme.fg("muted", `(0/0)${this.#getFilterLabel()}`), width));
 			} else if (this.getSearchQuery().length > 0) {
-				lines.push(truncateToWidth(theme.fg("muted", `No entries match search "${this.getSearchQuery()}"`), width));
-				lines.push(
-					truncateToWidth(theme.fg("muted", `Press ${formatKeyHint("backspace")} to clear the search`), width),
-				);
-				lines.push(truncateToWidth(theme.fg("muted", `(0/${totalCount})${this.#getFilterLabel()}`), width));
-			} else {
-				const filterLabel = this.#getFilterLabel().trim() || "[default]";
 				lines.push(
 					truncateToWidth(
-						theme.fg("muted", `${totalCount} entries hidden by the current filter ${filterLabel}`),
+						theme.fg(
+							"muted",
+							t("tui.overlays.treeSelector.noSearchMatchLine", 'No entries match search "{query}"', {
+								query: this.getSearchQuery(),
+							}),
+						),
 						width,
 					),
 				);
@@ -932,7 +968,38 @@ class TreeList implements Component {
 					truncateToWidth(
 						theme.fg(
 							"muted",
-							`Press ${formatKeyHint("alt+a")} to show all, ${formatKeyHint("alt+d")} for default`,
+							t("tui.overlays.treeSelector.pressClearSearch", "Press {key} to clear the search", {
+								key: formatKeyHint("backspace"),
+							}),
+						),
+						width,
+					),
+				);
+				lines.push(truncateToWidth(theme.fg("muted", `(0/${totalCount})${this.#getFilterLabel()}`), width));
+			} else {
+				const filterLabel = this.#getFilterLabel().trim() || "[default]";
+				lines.push(
+					truncateToWidth(
+						theme.fg(
+							"muted",
+							t(
+								"tui.overlays.treeSelector.entriesHidden",
+								"{total} entries hidden by the current filter {filter}",
+								{ total: totalCount, filter: filterLabel },
+							),
+						),
+						width,
+					),
+				);
+				lines.push(
+					truncateToWidth(
+						theme.fg(
+							"muted",
+							t(
+								"tui.overlays.treeSelector.pressShowAll",
+								"Press {showAll} to show all, {defaultKey} for default",
+								{ showAll: formatKeyHint("alt+a"), defaultKey: formatKeyHint("alt+d") },
+							),
 						),
 						width,
 					),
@@ -1074,13 +1141,13 @@ class TreeList implements Component {
 				if (role === "user") {
 					const msgWithContent = msg as { content?: unknown };
 					const content = normalize(this.#extractContent(msgWithContent.content));
-					return [{ t: "user: ", s: "accent" }, { t: content }];
+					return [{ t: `${t("tui.overlays.treeSelector.roleUser", "user")}: `, s: "accent" }, { t: content }];
 				}
 				if (role === "developer") {
 					const msgWithContent = msg as { content?: unknown };
 					const content = normalize(this.#extractContent(msgWithContent.content));
 					return [
-						{ t: "developer: ", s: "dim" },
+						{ t: `${t("tui.overlays.treeSelector.roleDeveloper", "developer")}: `, s: "dim" },
 						{ t: content, s: "muted" },
 					];
 				}
@@ -1088,36 +1155,58 @@ class TreeList implements Component {
 					const presentation = resolveAssistantErrorPresentation(msg);
 					if (presentation.kind === "compact-recovered") {
 						return [
-							{ t: "assistant: ", s: "success" },
+							{ t: `${t("tui.overlays.treeSelector.roleAssistant", "assistant")}: `, s: "success" },
 							{ t: presentation.text, s: "dim" },
 						];
 					}
 					const msgWithContent = msg as { content?: unknown; stopReason?: string; errorMessage?: string };
 					const textContent = normalize(this.#extractContent(msgWithContent.content));
-					const head: EntryPart = { t: "assistant: ", s: "success" };
+					const head: EntryPart = {
+						t: `${t("tui.overlays.treeSelector.roleAssistant", "assistant")}: `,
+						s: "success",
+					};
 					if (textContent) return [head, { t: textContent }];
 					if (presentation.kind === "full") {
 						return [head, { t: normalize(presentation.text).slice(0, 80), s: "error" }];
 					}
-					if (msgWithContent.stopReason === "aborted") return [head, { t: "(aborted)", s: "muted" }];
-					return [head, { t: "(no content)", s: "muted" }];
+					if (msgWithContent.stopReason === "aborted")
+						return [head, { t: t("tui.overlays.treeSelector.aborted", "(aborted)"), s: "muted" }];
+					return [head, { t: t("tui.overlays.treeSelector.noContent", "(no content)"), s: "muted" }];
 				}
 				if (role === "toolResult") {
 					const toolMsg = msg as { toolCallId?: string; toolName?: string };
 					const toolCall = toolMsg.toolCallId ? this.#toolCallMap.get(toolMsg.toolCallId) : undefined;
 					if (toolCall) return [{ t: this.#formatToolCall(toolCall.name, toolCall.arguments), s: "muted" }];
-					return [{ t: `[${toolMsg.toolName ?? "tool"}]`, s: "muted" }];
+					return [
+						{
+							t: t("tui.overlays.treeSelector.toolBracket", "[{tool}]", {
+								tool: toolMsg.toolName ?? t("tui.overlays.treeSelector.tool", "tool"),
+							}),
+							s: "muted",
+						},
+					];
 				}
 				if (role === "bashExecution") {
 					const bashMsg = msg as { command?: string };
-					return [{ t: `[bash]: ${normalize(bashMsg.command ?? "")}`, s: "dim" }];
+					return [
+						{
+							t: t("tui.overlays.treeSelector.bashCommand", "[bash]: {command}", {
+								command: normalize(bashMsg.command ?? ""),
+							}),
+							s: "dim",
+						},
+					];
 				}
 				return [{ t: `[${role}]`, s: "dim" }];
 			}
 			case "custom_message": {
 				if (entry.customType === "advisor") {
 					const { qualifier, text } = advisorTreeDisplay(entry.details);
-					const label = qualifier ? `advisor (${qualifier}): ` : "advisor: ";
+					const label = qualifier
+						? t("tui.overlays.treeSelector.advisorWithQualifier", "advisor ({qualifier}): ", {
+								qualifier,
+							})
+						: t("tui.overlays.treeSelector.advisorPlain", "advisor: ");
 					return [{ t: label, s: "customMessageLabel" }, { t: normalize(text) }];
 				}
 				const content = stripSystemWrapperTags(this.#joinTextContent(entry.content));
@@ -1125,40 +1214,98 @@ class TreeList implements Component {
 			}
 			case "compaction": {
 				const tokens = Math.round(entry.tokensBefore / 1000);
-				return [{ t: `[compaction: ${tokens}k tokens]`, s: "borderAccent" }];
+				return [
+					{
+						t: t("tui.overlays.treeSelector.compaction", "[compaction: {tokens}k tokens]", {
+							tokens,
+						}),
+						s: "borderAccent",
+					},
+				];
 			}
 			case "branch_summary":
-				return [{ t: `[branch summary]: `, s: "warning" }, { t: normalize(entry.summary) }];
+				return [
+					{ t: t("tui.overlays.treeSelector.branchSummary", "[branch summary]: "), s: "warning" },
+					{ t: normalize(entry.summary) },
+				];
 			case "model_change":
-				return [{ t: `[model: ${entry.model}]`, s: "dim" }];
+				return [{ t: t("tui.overlays.treeSelector.model", "[model: {model}]", { model: entry.model }), s: "dim" }];
 			case "model_usage": {
 				const purpose = sanitizeTreeField(entry.purpose);
 				const role = sanitizeTreeField(entry.role ?? "");
 				const provider = sanitizeTreeField(entry.provider);
 				const model = sanitizeTreeField(entry.model);
-				return [{ t: `[model usage: ${purpose} ${role ? `${role} ` : ""}${provider}/${model}]`, s: "dim" }];
+				return [
+					{
+						t: t("tui.overlays.treeSelector.modelUsage", "[model usage: {purpose} {role}{provider}/{model}]", {
+							purpose,
+							role: role ? `${role} ` : "",
+							provider,
+							model,
+						}),
+						s: "dim",
+					},
+				];
 			}
 			case "thinking_level_change":
-				return [{ t: `[thinking: ${entry.thinkingLevel ?? ThinkingLevel.Off}]`, s: "dim" }];
+				return [
+					{
+						t: t("tui.overlays.treeSelector.thinking", "[thinking: {level}]", {
+							level: entry.thinkingLevel ?? ThinkingLevel.Off,
+						}),
+						s: "dim",
+					},
+				];
 			case "custom":
-				return [{ t: `[custom: ${entry.customType}]`, s: "dim" }];
+				return [
+					{
+						t: t("tui.overlays.treeSelector.custom", "[custom: {type}]", { type: entry.customType }),
+						s: "dim",
+					},
+				];
 			case "label":
-				return [{ t: `[label: ${entry.label ?? "(cleared)"}]`, s: "dim" }];
+				return [
+					{
+						t: t("tui.overlays.treeSelector.label", "[label: {label}]", {
+							label: entry.label ?? t("tui.overlays.treeSelector.cleared", "(cleared)"),
+						}),
+						s: "dim",
+					},
+				];
 			case "service_tier_change": {
 				// Per-family map, or null when the session went back to the default.
 				const tiers = entry.serviceTier
 					? Object.entries(entry.serviceTier)
 							.map(([family, tier]) => `${family}:${tier}`)
 							.join(" ")
-					: "(default)";
-				return [{ t: `[service tier: ${tiers}]`, s: "dim" }];
+					: t("tui.overlays.treeSelector.defaultValue", "(default)");
+				return [
+					{
+						t: t("tui.overlays.treeSelector.serviceTier", "[service tier: {tiers}]", { tiers }),
+						s: "dim",
+					},
+				];
 			}
 			case "title_change":
-				return [{ t: `[title: ${normalize(entry.title)}]`, s: "dim" }];
+				return [
+					{
+						t: t("tui.overlays.treeSelector.titleEntry", "[title: {title}]", {
+							title: normalize(entry.title),
+						}),
+						s: "dim",
+					},
+				];
 			case "mode_change":
-				return [{ t: `[mode: ${entry.mode}]`, s: "dim" }];
+				return [{ t: t("tui.overlays.treeSelector.mode", "[mode: {mode}]", { mode: entry.mode }), s: "dim" }];
 			case "credential_pin":
-				return [{ t: `[credential pin: ${entry.provider}]`, s: "dim" }];
+				return [
+					{
+						t: t("tui.overlays.treeSelector.credentialPin", "[credential pin: {provider}]", {
+							provider: entry.provider,
+						}),
+						s: "dim",
+					},
+				];
 			default:
 				// Bookkeeping entries with nothing worth spelling out still get their
 				// type. A row that renders to the empty string is worse than a
@@ -1220,15 +1367,15 @@ class TreeList implements Component {
 					const end = limit !== undefined ? start + limit - 1 : "";
 					display += `:${start}${end ? `-${end}` : ""}`;
 				}
-				return `[read: ${display}]`;
+				return t("tui.overlays.treeSelector.toolRead", "[read: {path}]", { path: display });
 			}
 			case "write": {
 				const path = shortenPath(String(args.path || args.file_path || ""));
-				return `[write: ${path}]`;
+				return t("tui.overlays.treeSelector.toolWrite", "[write: {path}]", { path });
 			}
 			case "edit": {
 				const path = shortenPath(String(args.path || args.file_path || ""));
-				return `[edit: ${path}]`;
+				return t("tui.overlays.treeSelector.toolEdit", "[edit: {path}]", { path });
 			}
 			case "bash": {
 				const rawCmd = String(args.command || "");
@@ -1236,7 +1383,9 @@ class TreeList implements Component {
 					.replace(/[\n\t]/g, " ")
 					.trim()
 					.slice(0, 50);
-				return `[bash: ${cmd}${rawCmd.length > 50 ? "..." : ""}]`;
+				return t("tui.overlays.treeSelector.toolBash", "[bash: {command}]", {
+					command: `${cmd}${rawCmd.length > 50 ? "..." : ""}`,
+				});
 			}
 			case "grep": {
 				const pattern = String(args.pattern || "");
@@ -1248,7 +1397,10 @@ class TreeList implements Component {
 							: undefined;
 				const paths = toPathList(searchPathsInput);
 				const scope = paths.length > 0 ? paths.join(", ") : ".";
-				return `[grep: /${pattern}/ in ${shortenPath(scope)}]`;
+				return t("tui.overlays.treeSelector.toolGrep", "[grep: /{pattern}/ in {scope}]", {
+					pattern,
+					scope: shortenPath(scope),
+				});
 			}
 			case "glob": {
 				const globInput =
@@ -1259,16 +1411,19 @@ class TreeList implements Component {
 							: undefined;
 				const paths = toPathList(globInput);
 				const scope = paths.length > 0 ? paths.join(", ") : ".";
-				return `[glob: ${shortenPath(scope)}]`;
+				return t("tui.overlays.treeSelector.toolGlob", "[glob: {scope}]", { scope: shortenPath(scope) });
 			}
 			case "ls": {
 				const path = shortenPath(String(args.path || "."));
-				return `[ls: ${path}]`;
+				return t("tui.overlays.treeSelector.toolLs", "[ls: {path}]", { path });
 			}
 			default: {
 				// Custom tool - show name and truncated JSON args
 				const argsStr = JSON.stringify(args).slice(0, 40);
-				return `[${name}: ${argsStr}${JSON.stringify(args).length > 40 ? "..." : ""}]`;
+				return t("tui.overlays.treeSelector.toolCustom", "[{name}: {args}]", {
+					name,
+					args: `${argsStr}${JSON.stringify(args).length > 40 ? "..." : ""}`,
+				});
 			}
 		}
 	}
@@ -1414,11 +1569,14 @@ class LabelInput implements Component {
 	/** Prompt, the label `Input`, and save/cancel hints; the Input describes its own edits. */
 	describe(_cx: DescribeContext): NativeNode {
 		this.#native ??= node("col", { gap: "xs" }, [
-			text([span("Label (empty to remove):", "muted")]),
+			text([span(t("tui.overlays.treeSelector.labelPrompt", "Label (empty to remove):"), "muted")]),
 			this.#input,
 			hintsRow([
-				{ keys: ["enter"], label: "save" },
-				{ keys: [boundKeys("app.interrupt", ["escape"])[0] ?? "escape"], label: "cancel" },
+				{ keys: ["enter"], label: t("tui.overlays.treeSelector.save", "save") },
+				{
+					keys: [boundKeys("app.interrupt", ["escape"])[0] ?? "escape"],
+					label: t("tui.overlays.treeSelector.cancelLower", "cancel"),
+				},
 			]),
 		]);
 		return this.#native;
@@ -1427,8 +1585,8 @@ class LabelInput implements Component {
 	/** The picker preview while editing: the prompt and the label `Input` (save/cancel sit in the action bar). */
 	get preview(): readonly NativeChild[] {
 		this.#preview ??= [
-			text("Label", { role: "omp.picker.title" }),
-			text([span("Empty to remove", "muted")]),
+			text(t("tui.overlays.treeSelector.labelTitle", "Label"), { role: "omp.picker.title" }),
+			text([span(t("tui.overlays.treeSelector.emptyToRemove", "Empty to remove"), "muted")]),
 			this.#input,
 		];
 		return this.#preview;
@@ -1442,10 +1600,26 @@ class LabelInput implements Component {
 
 	render(width: number): readonly string[] {
 		const lines: string[] = [];
-		lines.push(truncateToWidth(theme.fg("muted", "Label (empty to remove):"), width));
+		lines.push(
+			truncateToWidth(
+				theme.fg("muted", t("tui.overlays.treeSelector.labelPrompt", "Label (empty to remove):")),
+				width,
+			),
+		);
 		lines.push(...this.#input.render(width));
 		const cancel = interruptKey();
-		lines.push(truncateToWidth(theme.fg("dim", `${formatKeyHint("enter")}: save  ${cancel}: cancel`), width));
+		lines.push(
+			truncateToWidth(
+				theme.fg(
+					"dim",
+					t("tui.overlays.treeSelector.labelKeys", "{enter}: save  {cancel}: cancel", {
+						enter: formatKeyHint("enter"),
+						cancel,
+					}),
+				),
+				width,
+			),
+		);
 		return lines;
 	}
 
@@ -1497,7 +1671,7 @@ export class TreeSelectorComponent extends OverlayPanel {
 		/** The picker's subtitle. */
 		private readonly sessionName?: string,
 	) {
-		super("Session Tree");
+		super(t("tui.overlays.treeSelector.title", "Session Tree"));
 		// The outer panel has eight fixed rows around the tree list: top/bottom
 		// borders, the two spacers, help, search, and section divider.
 		const PANEL_CHROME_ROWS = 8;
@@ -1526,16 +1700,35 @@ export class TreeSelectorComponent extends OverlayPanel {
 				theme.fg(
 					"muted",
 					[
-						`${formatKeyHint("enter")}: switch.`,
-						`${formatKeyHints(["alt+up", "alt+down"])}: previous/next turn.`,
-						...(branchKeys ? [`${branchKeys}: previous/next branch.`] : []),
-						`${editorKeys("tui.select.pageUp", "tui.select.pageDown")} (${formatKeyHints(["left", "right"])}): page.`,
-						`${formatKeyHints(["home", "end"])}: first/last item.`,
-						`${formatKeyHint("shift+enter")}: summarize & switch.`,
-						`${formatKeyHint("shift+l")}: label.`,
-						`${formatKeyHint("ctrl+o")}: filter.`,
-						`${formatKeyHints(["alt+d", "alt+t", "alt+u", "alt+l", "alt+a"])}: filter.`,
-						"Type to search",
+						`${formatKeyHint("enter")}: ${t("tui.overlays.treeSelector.helpSwitch", "switch.")}`,
+						`${formatKeyHints(["alt+up", "alt+down"])}: ${t(
+							"tui.overlays.treeSelector.helpPreviousNextTurn",
+							"previous/next turn.",
+						)}`,
+						...(branchKeys
+							? [
+									`${branchKeys}: ${t(
+										"tui.overlays.treeSelector.helpPreviousNextBranch",
+										"previous/next branch.",
+									)}`,
+								]
+							: []),
+						`${editorKeys("tui.select.pageUp", "tui.select.pageDown")} (${formatKeyHints(["left", "right"])}): ${t(
+							"tui.overlays.treeSelector.helpPage",
+							"page.",
+						)}`,
+						`${formatKeyHints(["home", "end"])}: ${t("tui.overlays.treeSelector.helpFirstLast", "first/last item.")}`,
+						`${formatKeyHint("shift+enter")}: ${t(
+							"tui.overlays.treeSelector.helpSummarizeSwitch",
+							"summarize & switch.",
+						)}`,
+						`${formatKeyHint("shift+l")}: ${t("tui.overlays.treeSelector.helpLabel", "label.")}`,
+						`${formatKeyHint("ctrl+o")}: ${t("tui.overlays.treeSelector.helpFilter", "filter.")}`,
+						`${formatKeyHints(["alt+d", "alt+t", "alt+u", "alt+l", "alt+a"])}: ${t(
+							"tui.overlays.treeSelector.helpFilter",
+							"filter.",
+						)}`,
+						t("tui.overlays.treeSelector.searchPlaceholder", "Type to search"),
 					].join(" "),
 				),
 				0,
@@ -1581,15 +1774,15 @@ export class TreeSelectorComponent extends OverlayPanel {
 			return memo.node;
 		}
 		const props: TspPickerProps = {
-			title: "Session tree",
+			title: t("tui.overlays.treeSelector.pickerTitle", "Session tree"),
 			...(this.sessionName ? { subtitle: this.sessionName } : {}),
 			icon: "git-branch",
-			noun: "entries",
+			noun: t("tui.overlays.treeSelector.noun", "entries"),
 			size: "lg",
 			layout: "tree",
 			preview: "side",
 			...pickerQuery(this.#treeList.searchInput),
-			placeholder: "Search entries…",
+			placeholder: t("tui.overlays.treeSelector.searchEntries", "Search entries…"),
 			tabs: FILTER_TABS,
 			tab: view.filterMode,
 			items: view.items,
@@ -1601,14 +1794,22 @@ export class TreeSelectorComponent extends OverlayPanel {
 			focus: label ? "preview" : "list",
 			actions: label
 				? [
-						pickerAction("label-save", "Save label", "enter", { primary: true }),
-						{ ...CLOSE_ACTION, label: "Cancel" },
+						pickerAction("label-save", t("tui.overlays.treeSelector.saveLabel", "Save label"), "enter", {
+							primary: true,
+						}),
+						{ ...CLOSE_ACTION, label: t("tui.overlays.treeSelector.cancel", "Cancel") },
 					]
 				: [
-						pickerAction("switch", "Switch", "enter", { primary: true }),
-						pickerAction("summarize", "Summarize & switch", "shift+enter"),
-						pickerAction("label", "Label", "shift+l"),
-						pickerAction("filter", "Filter", "ctrl+o"),
+						pickerAction("switch", t("tui.overlays.treeSelector.switch", "Switch"), "enter", {
+							primary: true,
+						}),
+						pickerAction(
+							"summarize",
+							t("tui.overlays.treeSelector.summarizeSwitch", "Summarize & switch"),
+							"shift+enter",
+						),
+						pickerAction("label", t("tui.overlays.treeSelector.labelButton", "Label"), "shift+l"),
+						pickerAction("filter", t("tui.overlays.treeSelector.filterButton", "Filter"), "ctrl+o"),
 						CLOSE_ACTION,
 					],
 		};
@@ -1683,17 +1884,23 @@ export class TreeSelectorComponent extends OverlayPanel {
 			search,
 			content,
 			hintsRow([
-				{ keys: ["enter"], label: "switch" },
-				{ keys: ["alt+up", "alt+down"], label: "previous/next turn" },
-				actionHint(["app.tree.previousBranch", "app.tree.nextBranch"], "previous/next branch"),
-				actionHint(["tui.select.pageUp", "tui.select.pageDown"], "page"),
-				{ keys: ["home", "end"], label: "first/last" },
-				{ keys: ["shift+enter"], label: "summarize & switch" },
-				{ keys: ["shift+l"], label: "label" },
-				{ keys: ["ctrl+o"], label: "filter" },
+				{ keys: ["enter"], label: t("tui.overlays.treeSelector.switchHint", "switch") },
+				{
+					keys: ["alt+up", "alt+down"],
+					label: t("tui.overlays.treeSelector.previousNextTurn", "previous/next turn"),
+				},
+				actionHint(
+					["app.tree.previousBranch", "app.tree.nextBranch"],
+					t("tui.overlays.treeSelector.previousNextBranch", "previous/next branch"),
+				),
+				actionHint(["tui.select.pageUp", "tui.select.pageDown"], t("tui.overlays.treeSelector.pageHint", "page")),
+				{ keys: ["home", "end"], label: t("tui.overlays.treeSelector.firstLast", "first/last") },
+				{ keys: ["shift+enter"], label: t("tui.overlays.treeSelector.summarizeSwitchHint", "summarize & switch") },
+				{ keys: ["shift+l"], label: t("tui.overlays.treeSelector.labelHint", "label") },
+				{ keys: ["ctrl+o"], label: t("tui.overlays.treeSelector.filterHint", "filter") },
 			]),
 		];
-		const result = overlayCard("omp.overlay.tree", "Session Tree", children);
+		const result = overlayCard("omp.overlay.tree", t("tui.overlays.treeSelector.title", "Session Tree"), children);
 		this.#nativeMemo = { content, query, cursor, filterMode, node: result };
 		return result;
 	}

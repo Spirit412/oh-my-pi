@@ -42,6 +42,7 @@ import { describeProcRead, renderProcRead, type ProcReadDetails } from "./proc-r
 import { describeCfgRead, renderCfgRead, type CfgReadDetails } from "./cfg-render";
 import type { CardToolResult } from "./result-card";
 import { type InternalUrlSchemeSpec, internalUrlSchemeSpec, splitUrlScheme } from "./url-scheme-host";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 /** Read result metadata retains truncation statistics, not a second copy of the body. */
 export type ReadTruncationStats = Omit<TruncationResult, "content">;
@@ -292,15 +293,23 @@ interface ReadUrlCard {
 /** Read cards keyed by URL scheme. */
 const READ_URL_CARDS: Record<string, ReadUrlCard> = {
 	proc: {
-		label: "Process",
-		rootDetail: "jobs & services",
+		get label() {
+			return t("tui.tools.read.procLabel", "Process");
+		},
+		get rootDetail() {
+			return t("tui.tools.read.procRootDetail", "jobs & services");
+		},
 		detailsKey: "proc",
 		render: (_url, target, result, details, options, uiTheme) =>
 			renderProcRead(target, result, details?.proc, options, uiTheme),
 	},
 	cfg: {
-		label: "Config",
-		rootDetail: "all settings",
+		get label() {
+			return t("tui.tools.read.cfgLabel", "Config");
+		},
+		get rootDetail() {
+			return t("tui.tools.read.cfgRootDetail", "all settings");
+		},
 		detailsKey: "cfg",
 		render: (url, _target, result, details, options, uiTheme) =>
 			renderCfgRead(splitInternalUrlSel(url).path, result, details?.cfg, options, uiTheme),
@@ -439,10 +448,17 @@ function readNativeHead(
 		target += `:${startLine}${endLine ? `-${endLine}` : ""}`;
 	}
 	const meta: string[] = [];
-	if (suffix) meta.push(`corrected from ${shortenPath(suffix.from)}`);
+	if (suffix)
+		meta.push(t("tui.tools.read.correctedFrom", "corrected from {path}", { path: shortenPath(suffix.from) }));
 	if (details?.summary) {
 		const n = details.summary.elidedSpans;
-		meta.push(`summary: ${n} elided span${n === 1 ? "" : "s"}`);
+		meta.push(
+			t(
+				"tui.tools.read.summaryMeta",
+				{ one: "summary: {count} elided span", other: "summary: {count} elided spans" },
+				{ count: n },
+			),
+		);
 	}
 	const conflicts = details?.conflictCount ?? 0;
 	return {
@@ -452,7 +468,18 @@ function readNativeHead(
 		href: fileHref(linkPath ?? details?.resolvedPath ?? details?.displayTarget ?? readSourceFsPath(details)),
 		meta,
 		badges:
-			conflicts > 0 ? [{ text: `${conflicts} conflict${conflicts === 1 ? "" : "s"}`, tone: "warning" }] : undefined,
+			conflicts > 0
+				? [
+						{
+							text: t(
+								"tui.tools.read.conflicts",
+								{ one: "{count} conflict", other: "{count} conflicts" },
+								{ count: conflicts },
+							),
+							tone: "warning",
+						},
+					]
+				: undefined,
 	};
 }
 
@@ -511,7 +538,10 @@ interface TaggedReadImageBlock extends ReadImageBlock {
 function describeReadImage(block: TaggedReadImageBlock, alt: string): NativeNode {
 	const cached = block[kReadImageNode];
 	if (cached) return cached;
-	const described = base64ImageNode(block.data, block.mimeType, { alt: alt || "image", role: "omp.tool.read.image" });
+	const described = base64ImageNode(block.data, block.mimeType, {
+		alt: alt || t("tui.tools.read.imageAlt", "image"),
+		role: "omp.tool.read.image",
+	});
 	block[kReadImageNode] = described;
 	return described;
 }
@@ -576,7 +606,10 @@ export const readToolRenderer = {
 
 		if (result.isError) {
 			const rawErrorText = result.content?.find(c => c.type === "text")?.text ?? "";
-			const errorText = (rawErrorText || "Unknown error").replace(/^Error:\s*/, "");
+			const errorText = (rawErrorText || t("tui.tools.read.unknownError", "Unknown error")).replace(
+				/^Error:\s*/,
+				"",
+			);
 			const rawPath =
 				typeof args?.file_path === "string" ? args.file_path : typeof args?.path === "string" ? args.path : "";
 			const filePath =
@@ -616,12 +649,22 @@ export const readToolRenderer = {
 		const fallback = details?.truncation;
 		if (details?.resolvedPath) {
 			warningLines.push(
-				uiTheme.fg("dim", wrapBrackets(`Resolved path: ${shortenPath(details.resolvedPath)}`, uiTheme)),
+				uiTheme.fg(
+					"dim",
+					wrapBrackets(
+						t("tui.tools.read.resolvedPath", "Resolved path: {path}", {
+							path: shortenPath(details.resolvedPath),
+						}),
+						uiTheme,
+					),
+				),
 			);
 		}
 		if (truncation) {
 			if (fallback?.firstLineExceedsLimit) {
-				let warning = `First line exceeds ${formatBytes(fallback.outputBytes ?? fallback.totalBytes)} limit`;
+				let warning = t("tui.tools.read.firstLineExceeds", "First line exceeds {size} limit", {
+					size: formatBytes(fallback.outputBytes ?? fallback.totalBytes),
+				});
 				if (truncation.artifactId) {
 					warning += `. ${formatFullOutputReference(truncation.artifactId)}`;
 				}
@@ -638,9 +681,11 @@ export const readToolRenderer = {
 				resolvedPath: linkPath ?? details?.resolvedPath,
 				sourcePath: details?.displayTarget ?? readSourceFsPath(details),
 				suffixResolution: suffix,
-				fallbackLabel: "image",
+				fallbackLabel: t("tui.tools.read.imageAlt", "image"),
 			});
-			const correction = suffix ? ` ${uiTheme.fg("dim", `(corrected from ${shortenPath(suffix.from)})`)}` : "";
+			const correction = suffix
+				? ` ${uiTheme.fg("dim", t("tui.tools.read.correctedFromParen", "(corrected from {path})", { path: shortenPath(suffix.from) }))}`
+				: "";
 			const header = renderStatusLine(
 				{ icon: suffix ? "warning" : "success", title: "Read", description: `${displayPath}${correction}` },
 				uiTheme,
@@ -654,8 +699,9 @@ export const readToolRenderer = {
 				phase: "success",
 				sections: [
 					{
-						label: uiTheme.fg("toolTitle", "Details"),
-						content: lines.length > 0 ? lines : [uiTheme.fg("dim", "(image)")],
+						label: uiTheme.fg("toolTitle", t("tui.tools.read.details", "Details")),
+						content:
+							lines.length > 0 ? lines : [uiTheme.fg("dim", t("tui.tools.read.imagePlaceholder", "(image)"))],
 					},
 				],
 			}));
@@ -672,7 +718,9 @@ export const readToolRenderer = {
 			suffixResolution: suffix,
 			offset: args?.offset,
 		});
-		const correction = suffix ? ` ${uiTheme.fg("dim", `(corrected from ${shortenPath(suffix.from)})`)}` : "";
+		const correction = suffix
+			? ` ${uiTheme.fg("dim", t("tui.tools.read.correctedFromParen", "(corrected from {path})", { path: shortenPath(suffix.from) }))}`
+			: "";
 		let title = displayPath ? `Read ${displayPath}${correction}` : "Read";
 		if (args?.offset !== undefined || args?.limit !== undefined) {
 			const startLine = args.offset ?? 1;
@@ -680,11 +728,22 @@ export const readToolRenderer = {
 			title += `:${startLine}${endLine ? `-${endLine}` : ""}`;
 		}
 		if (details?.summary) {
-			title += ` (summary: ${details.summary.elidedSpans} elided span${details.summary.elidedSpans === 1 ? "" : "s"})`;
+			title += ` ${t(
+				"tui.tools.read.summaryTitle",
+				{ one: "(summary: {count} elided span)", other: "(summary: {count} elided spans)" },
+				{ count: details.summary.elidedSpans },
+			)}`;
 		}
 		if (details?.conflictCount && details.conflictCount > 0) {
 			const n = details.conflictCount;
-			title += ` ${uiTheme.fg("warning", `(⚠ ${n} conflict${n === 1 ? "" : "s"})`)}`;
+			title += ` ${uiTheme.fg(
+				"warning",
+				t(
+					"tui.tools.read.conflictsWarning",
+					{ one: "(⚠ {count} conflict)", other: "(⚠ {count} conflicts)" },
+					{ count: n },
+				),
+			)}`;
 		}
 		const isMarkdown = readResultIsMarkdown(details, args);
 		let cachedWidth: number | undefined;
@@ -767,7 +826,10 @@ export const readToolRenderer = {
 		}
 
 		if (result.isError) {
-			const message = (resultText(result) || "Unknown error").replace(/^Error:\s*/, "");
+			const message = (resultText(result) || t("tui.tools.read.unknownError", "Unknown error")).replace(
+				/^Error:\s*/,
+				"",
+			);
 			return inlineErrorView(readNativeHead(rawPath, args, details, linkPath), message);
 		}
 
@@ -778,9 +840,12 @@ export const readToolRenderer = {
 		const firstLineTooLong = truncation !== undefined && fallback?.firstLineExceedsLimit === true;
 		const foot = footnoteText(
 			compact([
-				details?.resolvedPath !== undefined && `resolved ${shortenPath(details.resolvedPath)}`,
+				details?.resolvedPath !== undefined &&
+					t("tui.tools.read.resolved", "resolved {path}", { path: shortenPath(details.resolvedPath) }),
 				firstLineTooLong &&
-					`First line exceeds ${formatBytes(fallback.outputBytes ?? fallback.totalBytes)} limit${truncation.artifactId ? `. ${formatFullOutputReference(truncation.artifactId)}` : ""}`,
+					t("tui.tools.read.firstLineExceeds", "First line exceeds {size} limit", {
+						size: formatBytes(fallback.outputBytes ?? fallback.totalBytes),
+					}) + (truncation.artifactId ? `. ${formatFullOutputReference(truncation.artifactId)}` : ""),
 			]),
 			firstLineTooLong ? { artifactError: details?.meta?.artifactError } : details?.meta,
 		);

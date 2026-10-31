@@ -1,3 +1,4 @@
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import type { Component } from "../tui";
 import { Text } from "../components/text";
 import type { Theme } from "../theme/theme";
@@ -68,28 +69,39 @@ export function formatLocation(snapshot: DebugSessionSnapshot | undefined): stri
 /** Formats the debugger session snapshot for model and terminal output. */
 export function formatSessionSnapshot(snapshot: DebugSessionSnapshot): string[] {
 	const lines = [
-		`Session ${snapshot.id}`,
-		`Adapter: ${snapshot.adapter}`,
-		`Status: ${snapshot.status}`,
-		`CWD: ${snapshot.cwd}`,
+		t("tui.tools.debug.session", "Session {id}", { id: snapshot.id }),
+		t("tui.tools.debug.adapter", "Adapter: {adapter}", { adapter: snapshot.adapter }),
+		t("tui.tools.debug.status", "Status: {status}", { status: snapshot.status }),
+		t("tui.tools.debug.cwd", "CWD: {cwd}", { cwd: snapshot.cwd }),
 	];
-	if (snapshot.program) lines.push(`Program: ${snapshot.program}`);
-	if (snapshot.stopReason) lines.push(`Stop reason: ${snapshot.stopReason}`);
-	if (snapshot.frameName) lines.push(`Frame: ${snapshot.frameName}`);
+	if (snapshot.program) lines.push(t("tui.tools.debug.program", "Program: {program}", { program: snapshot.program }));
+	if (snapshot.stopReason)
+		lines.push(t("tui.tools.debug.stopReason", "Stop reason: {reason}", { reason: snapshot.stopReason }));
+	if (snapshot.frameName) lines.push(t("tui.tools.debug.frame", "Frame: {frame}", { frame: snapshot.frameName }));
 	if (snapshot.instructionPointerReference) {
-		lines.push(`Instruction pointer: ${snapshot.instructionPointerReference}`);
+		lines.push(
+			t("tui.tools.debug.instructionPointer", "Instruction pointer: {pointer}", {
+				pointer: snapshot.instructionPointerReference,
+			}),
+		);
 	}
 	const location = formatLocation(snapshot);
-	if (location) lines.push(`Location: ${location}`);
+	if (location) lines.push(t("tui.tools.debug.location", "Location: {location}", { location }));
 	if (snapshot.needsConfigurationDone) {
-		lines.push("Configuration: pending configurationDone; set breakpoints, then continue.");
+		lines.push(
+			t(
+				"tui.tools.debug.configuration",
+				"Configuration: pending configurationDone; set breakpoints, then continue.",
+			),
+		);
 	}
-	if (snapshot.exitCode !== undefined) lines.push(`Exit code: ${snapshot.exitCode}`);
+	if (snapshot.exitCode !== undefined)
+		lines.push(t("tui.tools.debug.exitCode", "Exit code: {code}", { code: snapshot.exitCode }));
 	return lines;
 }
 
 function summarizeDebugCall(args: DebugRenderArgs): string {
-	const action = args.action ? args.action.replaceAll("_", " ") : "request";
+	const action = args.action ? args.action.replaceAll("_", " ") : t("tui.tools.debug.request", "request");
 	if (args.program) {
 		return `${action} ${truncateToWidth(args.program, TRUNCATE_LENGTHS.TITLE)}`;
 	}
@@ -142,29 +154,34 @@ function describeDebugResult(
 	result: ToolRenderResult<DebugToolDetails>,
 	args: DebugRenderArgs | undefined,
 ): NativeToolView {
-	const [action, target] = debugCallParts(args, result.details?.action ?? "debug");
+	const [action, target] = debugCallParts(args, result.details?.action ?? t("tui.tools.debug.action", "debug"));
 	const output = resultText(result);
-	if (result.isError) return errorView("Debug", output || "Debug failed", action, target);
+	if (result.isError) return errorView("Debug", output || t("tui.tools.debug.failed", "Debug failed"), action, target);
 	const snapshot = result.details?.snapshot;
 	const body: NativeChild[] = [];
 	let sessionRows = 0;
 	if (snapshot) {
 		const location = formatLocation(snapshot);
 		const rows: [string, string | undefined][] = [
-			["Session", snapshot.id],
-			["Adapter", snapshot.adapter],
-			["Status", snapshot.status],
-			["CWD", snapshot.cwd],
-			["Program", snapshot.program],
-			["Stop reason", snapshot.stopReason],
-			["Frame", snapshot.frameName],
-			["Instruction pointer", snapshot.instructionPointerReference],
-			["Location", location ?? undefined],
+			[t("tui.tools.debug.label.session", "Session"), snapshot.id],
+			[t("tui.tools.debug.label.adapter", "Adapter"), snapshot.adapter],
+			[t("tui.tools.debug.label.status", "Status"), snapshot.status],
+			[t("tui.tools.debug.label.cwd", "CWD"), snapshot.cwd],
+			[t("tui.tools.debug.label.program", "Program"), snapshot.program],
+			[t("tui.tools.debug.label.stopReason", "Stop reason"), snapshot.stopReason],
+			[t("tui.tools.debug.label.frame", "Frame"), snapshot.frameName],
+			[t("tui.tools.debug.label.instructionPointer", "Instruction pointer"), snapshot.instructionPointerReference],
+			[t("tui.tools.debug.label.location", "Location"), location ?? undefined],
 			[
-				"Configuration",
-				snapshot.needsConfigurationDone ? "pending configurationDone; set breakpoints, then continue." : undefined,
+				t("tui.tools.debug.label.configuration", "Configuration"),
+				snapshot.needsConfigurationDone
+					? t("tui.tools.debug.configurationPending", "pending configurationDone; set breakpoints, then continue.")
+					: undefined,
 			],
-			["Exit code", snapshot.exitCode !== undefined ? String(snapshot.exitCode) : undefined],
+			[
+				t("tui.tools.debug.label.exitCode", "Exit code"),
+				snapshot.exitCode !== undefined ? String(snapshot.exitCode) : undefined,
+			],
 		];
 		const grid = kv(rows);
 		if (grid) {
@@ -172,7 +189,7 @@ function describeDebugResult(
 			sessionRows = rows.filter(([, value]) => value).length;
 		}
 	}
-	body.push(output ? ansi(output) : noteText("No output"));
+	body.push(output ? ansi(output) : noteText(t("tui.tools.debug.noOutput", "No output")));
 	return {
 		head: toolHead("Debug", action, target),
 		body,
@@ -197,7 +214,10 @@ export const debugToolRenderer = {
 		args?: DebugRenderArgs,
 	): Component {
 		return framedToolCard(theme, () => {
-			const action = (args?.action ?? result.details?.action ?? "debug").replaceAll("_", " ");
+			const action = (args?.action ?? result.details?.action ?? t("tui.tools.debug.action", "debug")).replaceAll(
+				"_",
+				" ",
+			);
 			const success = !options.isPartial && !result.isError;
 			const statusIcon = success
 				? theme.styledSymbol("tool.debug", "accent")
@@ -206,7 +226,8 @@ export const debugToolRenderer = {
 			const summaryLines = result.details?.snapshot
 				? formatSessionSnapshot(result.details.snapshot).map(line => replaceTabs(line))
 				: [];
-			const text = result.content.find(block => block.type === "text")?.text ?? "No output";
+			const text =
+				result.content.find(block => block.type === "text")?.text ?? t("tui.tools.debug.noOutput", "No output");
 			const rawLines = replaceTabs(text).split("\n");
 			const previewLimit = options.expanded ? PREVIEW_LIMITS.EXPANDED_LINES : PREVIEW_LIMITS.COLLAPSED_LINES;
 			const displayedLines = rawLines
@@ -215,22 +236,32 @@ export const debugToolRenderer = {
 			const remaining = rawLines.length - displayedLines.length;
 			if (remaining > 0) {
 				displayedLines.push(
-					theme.fg("muted", `… ${remaining} more lines ${formatExpandHint(theme, options.expanded, true)}`),
+					theme.fg(
+						"muted",
+						`… ${t("tui.tools.debug.moreLines", { one: "{count} more line", other: "{count} more lines" }, { count: remaining })} ${formatExpandHint(theme, options.expanded, true)}`,
+					),
 				);
 			}
 			return {
 				header,
 				phase: options.isPartial ? "partial" : result.isError ? "error" : "success",
 				sections: [
-					...(summaryLines.length > 0 ? [{ label: theme.fg("toolTitle", "Session"), content: summaryLines }] : []),
-					{ label: theme.fg("toolTitle", "Output"), content: displayedLines },
+					...(summaryLines.length > 0
+						? [
+								{
+									label: theme.fg("toolTitle", t("tui.tools.debug.section.session", "Session")),
+									content: summaryLines,
+								},
+							]
+						: []),
+					{ label: theme.fg("toolTitle", t("tui.tools.debug.section.output", "Output")), content: displayedLines },
 				],
 				applyBg: false,
 			};
 		});
 	},
 	describeCall(args: DebugRenderArgs): NativeToolView {
-		const [action, target] = debugCallParts(args, "request");
+		const [action, target] = debugCallParts(args, t("tui.tools.debug.request", "request"));
 		return { head: toolHead("Debug", action, target) };
 	},
 	describeResult(

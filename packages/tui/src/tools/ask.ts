@@ -5,6 +5,7 @@ import type { NativeChild, NativeNode } from "../native/node";
 import { OwnerMemo } from "../native/memo";
 import { plainText } from "../native/spans";
 import { noteText, resultText } from "./native-view";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 import {
 	type Component,
@@ -185,14 +186,15 @@ function renderCustomInputLines(uiTheme: Theme, customInput: string): string[] {
 
 /** Render an answer note with tab replacement and line-width clamping. */
 function renderNoteLines(uiTheme: Theme, note: string, width: number): string[] {
-	const prefix = " Note: ";
+	const prefix = ` ${t("tui.tools.ask.noteLabel", "Note:")} `;
 	const continuationPrefix = "       ";
 	const firstLineWidth = Math.max(1, width - visibleWidth(prefix));
 	const continuationWidth = Math.max(1, width - visibleWidth(continuationPrefix));
 	return replaceTabs(note)
 		.split("\n")
 		.map((line, index) => {
-			const linePrefix = index === 0 ? `${uiTheme.fg("dim", " Note:")} ` : continuationPrefix;
+			const linePrefix =
+				index === 0 ? `${uiTheme.fg("dim", ` ${t("tui.tools.ask.noteLabel", "Note:")}`)} ` : continuationPrefix;
 			const maxWidth = index === 0 ? firstLineWidth : continuationWidth;
 			return `${linePrefix}${uiTheme.fg("toolOutput", truncateToWidth(line, maxWidth))}`;
 		});
@@ -282,7 +284,9 @@ function renderAnswerOptionLines(
 
 	// Nothing was chosen (and no custom answer) → a lone cancelled marker.
 	if (selected.size === 0 && customInput === undefined && note === undefined) {
-		return [` ${uiTheme.styledSymbol("status.warning", "warning")} ${uiTheme.fg("warning", "Cancelled")}`];
+		return [
+			` ${uiTheme.styledSymbol("status.warning", "warning")} ${uiTheme.fg("warning", t("tui.tools.ask.cancelled", "Cancelled"))}`,
+		];
 	}
 
 	const out: string[] = [];
@@ -331,7 +335,7 @@ function describeAnswers(
 ): NativeChild[] {
 	const selected = new Set(selectedOptions ?? []);
 	if (selected.size === 0 && customInput === undefined && note === undefined) {
-		return [text([span("Cancelled", "warning")], { tone: "warning" })];
+		return [text([span(t("tui.tools.ask.cancelled", "Cancelled"), "warning")], { tone: "warning" })];
 	}
 	const labels = options && options.length > 0 ? options : (selectedOptions ?? []);
 	const rows = labels.map((label, index) => {
@@ -353,11 +357,18 @@ function describeAnswers(
 function describeAskCall(args: AskRenderArgs): NativeToolView {
 	const questions = normalizeRenderQuestions(args.questions);
 	const first = questions?.[0]?.question ?? (typeof args.question === "string" ? args.question : undefined);
-	const more = questions && questions.length > 1 ? `${questions.length} questions` : undefined;
+	const more =
+		questions && questions.length > 1
+			? t(
+					"tui.tools.ask.questions",
+					{ one: "{count} question", other: "{count} questions" },
+					{ count: questions.length },
+				)
+			: undefined;
 	return {
 		tool: askHead(first, more),
 		inline: true,
-		body: [text([span("Waiting for your answer…", "muted")])],
+		body: [text([span(t("tui.tools.ask.waiting", "Waiting for your answer…"), "muted")])],
 	};
 }
 
@@ -374,7 +385,7 @@ function describeAskResult(result: ToolRenderResult<AskToolDetails>, args: AskRe
 
 	if (details.chatRedirect) {
 		return {
-			tool: askHead(details.questions?.[0] ?? argQuestion, "chat redirect"),
+			tool: askHead(details.questions?.[0] ?? argQuestion, t("tui.tools.ask.chatRedirect", "chat redirect")),
 			tone: "info",
 			body: (details.questions ?? []).map(q => md(plainText(q))),
 		};
@@ -388,7 +399,16 @@ function describeAskResult(result: ToolRenderResult<AskToolDetails>, args: AskRe
 				r.customInput !== undefined || r.note !== undefined || (r.selectedOptions && r.selectedOptions.length > 0),
 		);
 		return {
-			tool: askHead(results[0]?.question, results.length > 1 ? `${results.length} questions` : undefined),
+			tool: askHead(
+				results[0]?.question,
+				results.length > 1
+					? t(
+							"tui.tools.ask.questions",
+							{ one: "{count} question", other: "{count} questions" },
+							{ count: results.length },
+						)
+					: undefined,
+			),
 			tone: answered ? undefined : "warning",
 			// Sanitizing preserves order and length, so raw indices align with `r`.
 			body: results.map((r, index) =>
@@ -428,7 +448,7 @@ function describeAskResult(result: ToolRenderResult<AskToolDetails>, args: AskRe
 				selectedIndicesFor(rawDetails.options, rawDetails.selectedOptions),
 			),
 			details.timedOut
-				? text([span("auto-selected after timeout — not a user choice", "muted")], {
+				? text([span(t("tui.tools.ask.timedOut", "auto-selected after timeout — not a user choice"), "muted")], {
 						wrap: "word",
 						role: "omp.tool.notice",
 					})
@@ -465,7 +485,7 @@ export const askToolRenderer = {
 		// throw here takes down the whole TUI render loop — normalize first.
 		const questions = normalizeRenderQuestions(args.questions);
 		if (questions && questions.length > 0) {
-			const header = `${label} ${uiTheme.fg("muted", `${questions.length} questions`)}`;
+			const header = `${label} ${uiTheme.fg("muted", t("tui.tools.ask.questions", { one: "{count} question", other: "{count} questions" }, { count: questions.length }))}`;
 			return framedToolCard(uiTheme, ({ width, contentWidth }) => {
 				const sections = questions.map(q => {
 					const meta: string[] = [];
@@ -485,7 +505,7 @@ export const askToolRenderer = {
 
 		// Single question
 		if (typeof args.question !== "string" || !args.question) {
-			const errorLine = formatErrorMessage("No question provided", uiTheme);
+			const errorLine = formatErrorMessage(t("tui.tools.ask.noQuestion", "No question provided"), uiTheme);
 			return framedToolCard(uiTheme, () => ({
 				header: errorLine,
 				sections: [],
@@ -538,7 +558,10 @@ export const askToolRenderer = {
 
 		// Chat redirect: user chose "Chat about this" instead of answering.
 		if (details.chatRedirect) {
-			const header = renderStatusLine({ icon: "info", title: "Ask", meta: ["chat redirect"] }, uiTheme);
+			const header = renderStatusLine(
+				{ icon: "info", title: "Ask", meta: [t("tui.tools.ask.chatRedirect", "chat redirect")] },
+				uiTheme,
+			);
 			const questions = details.questions ?? [];
 			return framedToolCard(uiTheme, ({ width }) => ({
 				header,
@@ -561,7 +584,13 @@ export const askToolRenderer = {
 				{
 					icon: hasAnySelection ? "success" : "warning",
 					title: "Ask",
-					meta: [`${results.length} questions`],
+					meta: [
+						t(
+							"tui.tools.ask.questions",
+							{ one: "{count} question", other: "{count} questions" },
+							{ count: results.length },
+						),
+					],
 				},
 				uiTheme,
 			);
@@ -640,7 +669,9 @@ export const askToolRenderer = {
 			];
 			if (dTimedOut) {
 				// Distinguish auto-selection from a real user choice in the transcript.
-				bodyLines.push(uiTheme.fg("dim", "auto-selected after timeout — not a user choice"));
+				bodyLines.push(
+					uiTheme.fg("dim", t("tui.tools.ask.timedOut", "auto-selected after timeout — not a user choice")),
+				);
 			}
 			return {
 				header,

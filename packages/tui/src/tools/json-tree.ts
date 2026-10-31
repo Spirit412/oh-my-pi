@@ -9,6 +9,7 @@ import type { Theme, ThemeColor } from "../theme/theme";
 import { node, span } from "../native/describe";
 import type { NativeNode } from "../native/node";
 import { plainText } from "../native/spans";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 /** Max depth for JSON tree rendering */
 export const JSON_TREE_MAX_DEPTH_COLLAPSED = 2;
@@ -58,18 +59,21 @@ export function formatScalar(value: unknown, maxLen: number, options: InlineForm
 		if (options.multilineSummary) {
 			const lines = text.split("\n");
 			const firstLine = lines[0].trim();
-			if (!firstLine) return `"" (${lines.length} lines)`;
+			const linesLabel = t("tui.tools.jsonTree.lines", { other: "({count} lines)" }, { count: lines.length });
+			if (!firstLine) return `"" ${linesLabel}`;
 			const preview = truncateToWidth(firstLine, maxLen);
-			return lines.length > 1 ? `"${preview}…" (${lines.length} lines)` : `"${preview}"`;
+			return lines.length > 1 ? `"${preview}…" ${linesLabel}` : `"${preview}"`;
 		}
 		const escaped = text.replace(/\n/g, "\\n").replace(/\t/g, "\\t");
 		const truncated = truncateToWidth(escaped, maxLen);
 		return `"${truncated}"`;
 	}
-	if (Array.isArray(value)) return `[${value.length} items]`;
+	if (Array.isArray(value)) {
+		return `[${t("tui.tools.jsonTree.arrayItems", { other: "{count} items" }, { count: value.length })}]`;
+	}
 	if (typeof value === "object") {
 		const keys = Object.keys(value);
-		return `{${keys.length} keys}`;
+		return `{${t("tui.tools.jsonTree.objectKeys", { other: "{count} keys" }, { count: keys.length })}}`;
 	}
 	const text = String(value);
 	return options.sanitizeText?.(text) ?? text;
@@ -148,13 +152,16 @@ const OUTPUT_INLINE_OPTIONS: InlineFormatOptions = {
 /** Summarize a task's structured output without expanding its JSON tree. */
 export function formatOutputInline(data: unknown, maxWidth = 80): string {
 	const options = OUTPUT_INLINE_OPTIONS;
-	if (data === null || data === undefined) return "Output: none";
-	if (typeof data !== "object") return `Output: ${formatScalar(data, 60, options)}`;
+	const prefix = t("tui.tools.jsonTree.outputPrefix", "Output: ");
+	if (data === null || data === undefined) return `${prefix}${t("tui.tools.jsonTree.outputNone", "none")}`;
+	if (typeof data !== "object") return `${prefix}${formatScalar(data, 60, options)}`;
 	if (Array.isArray(data)) {
-		if (data.length === 0) return "Output: []";
-		return `Output: [${data.length} items] ${formatScalar(data[0], 40, options)}${data.length > 1 ? "…" : ""}`;
+		if (data.length === 0) return `${prefix}[]`;
+		const items = t("tui.tools.jsonTree.arrayItems", { other: "{count} items" }, { count: data.length });
+		return `${prefix}[${items}] ${formatScalar(data[0], 40, options)}${data.length > 1 ? "…" : ""}`;
 	}
-	return `Output: ${formatArgsInline(data as Record<string, unknown>, maxWidth - "Output: ".length, options) || "{}"}`;
+	const args = formatArgsInline(data as Record<string, unknown>, maxWidth - prefix.length, options) || "{}";
+	return `${prefix}${args}`;
 }
 
 /** Object keys a one-line JSON form shows unquoted. */
@@ -380,7 +387,12 @@ export function renderJsonTreeLines(
 			const displayKey = item.key ? sanitize(item.key) : undefined;
 			const label = theme.fg(
 				item.keyColor ?? "muted",
-				displayKey || (item.kind === "array" ? "array" : item.kind === "object" ? "object" : "value"),
+				displayKey ||
+					(item.kind === "array"
+						? t("tui.tools.jsonTree.type.array", "array")
+						: item.kind === "object"
+							? t("tui.tools.jsonTree.type.object", "object")
+							: t("tui.tools.jsonTree.type.value", "value")),
 			);
 			if (item.kind === "placeholder") {
 				body = [theme.fg("dim", item.placeholder ?? "…")];
@@ -410,7 +422,14 @@ export function renderJsonTreeLines(
 					if (sourceLines.length > displayedCount) {
 						scalarTruncated = true;
 						scalarLines.push(
-							`${indent}${theme.fg("dim", `…(${sourceLines.length - displayedCount} more lines)"`)}`,
+							`${indent}${theme.fg(
+								"dim",
+								t(
+									"tui.tools.jsonTree.truncatedLines",
+									{ other: '…({count} more lines)"' },
+									{ count: sourceLines.length - displayedCount },
+								),
+							)}`,
 						);
 					} else {
 						const lastIndex = scalarLines.length - 1;
@@ -507,7 +526,14 @@ export function describeJsonTree(value: unknown, options: JsonTreeDescribeOption
 		for (let index = 0; index < entries.length; index++) {
 			if (budget <= 0) {
 				truncated = true;
-				out.push(leaf([span(`… ${entries.length - index} more`, "dim")]));
+				out.push(
+					leaf([
+						span(
+							t("tui.tools.jsonTree.more", { other: "… {count} more" }, { count: entries.length - index }),
+							"dim",
+						),
+					]),
+				);
 				break;
 			}
 			out.push(describeValue(entries[index], depth));
@@ -542,7 +568,18 @@ export function describeJsonTree(value: unknown, options: JsonTreeDescribeOption
 			for (let index = 0; index < lines.length; index++) {
 				if (budget <= 0) {
 					truncated = true;
-					children.push(leaf([span(`… ${lines.length - index} more lines`, "dim")]));
+					children.push(
+						leaf([
+							span(
+								t(
+									"tui.tools.jsonTree.moreLines",
+									{ other: "… {count} more lines" },
+									{ count: lines.length - index },
+								),
+								"dim",
+							),
+						]),
+					);
 					break;
 				}
 				budget--;
@@ -550,7 +587,11 @@ export function describeJsonTree(value: unknown, options: JsonTreeDescribeOption
 			}
 			return {
 				id,
-				label: [...prefix, span(`"${first}…"`, "syntaxString"), span(` (${lines.length} lines)`, "dim")],
+				label: [
+					...prefix,
+					span(`"${first}…"`, "syntaxString"),
+					span(` ${t("tui.tools.jsonTree.lines", { other: "({count} lines)" }, { count: lines.length })}`, "dim"),
+				],
 				open: false,
 				children,
 			};

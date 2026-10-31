@@ -1,4 +1,5 @@
 import type { NativeToolView, ToolRenderer, ToolRenderResult } from "./renderer";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import { type Component, padding, Text, visibleWidth } from "../index";
 import type { TspTone } from "@oh-my-pi/pi-wire";
 import { ansi, compact, item, list, md, node, span, text } from "../native/describe";
@@ -127,18 +128,24 @@ function buildOpMeta(args: GithubToolRenderArgs, fit: FitText = truncateVisualWi
 function getWatchHeader(watch: GhRunWatchViewDetails): string {
 	if (watch.mode === "run" && watch.run) {
 		if (watch.state === "watching") {
-			return `watching run #${watch.run.id} on ${watch.repo}`;
+			return t("tui.tools.github.watchingRun", "watching run #{id} on {repo}", {
+				id: watch.run.id,
+				repo: watch.repo,
+			});
 		}
 
-		return `run #${watch.run.id} on ${watch.repo}`;
+		return t("tui.tools.github.runOn", "run #{id} on {repo}", { id: watch.run.id, repo: watch.repo });
 	}
 
-	const shortSha = formatShortSha(watch.headSha) ?? "this commit";
+	const shortSha = formatShortSha(watch.headSha) ?? t("tui.tools.github.thisCommit", "this commit");
 	if (watch.state === "watching") {
-		return `watching ${shortSha} on ${watch.repo}`;
+		return t("tui.tools.github.watchingSha", "watching {sha} on {repo}", { sha: shortSha, repo: watch.repo });
 	}
 
-	return `workflow runs for ${shortSha} on ${watch.repo}`;
+	return t("tui.tools.github.workflowRunsFor", "workflow runs for {sha} on {repo}", {
+		sha: shortSha,
+		repo: watch.repo,
+	});
 }
 
 function getRunLabel(run: GhRunWatchRunDetails): string {
@@ -227,7 +234,7 @@ function renderJobLine(job: GhRunWatchJobDetails, width: number, theme: Theme): 
 function renderRunBlock(run: GhRunWatchRunDetails, width: number, theme: Theme): string[] {
 	const lines = [formatRunLine(run, theme)];
 	if (run.jobs.length === 0) {
-		lines.push(theme.fg("dim", "waiting for workflow jobs..."));
+		lines.push(theme.fg("dim", t("tui.tools.github.waitingJobs", "waiting for workflow jobs...")));
 		return lines;
 	}
 
@@ -239,7 +246,9 @@ function renderRunBlock(run: GhRunWatchRunDetails, width: number, theme: Theme):
 
 function formatUnavailableLog(entry: GhRunWatchFailedLogDetails): string {
 	const reason = entry.unavailableReason ? sanitizeDisplayWarning(entry.unavailableReason) : "";
-	return `log tail unavailable${reason ? `: ${reason}` : ""}`;
+	return reason
+		? t("tui.tools.github.logTailUnavailableReason", "log tail unavailable: {reason}", { reason })
+		: t("tui.tools.github.logTailUnavailable", "log tail unavailable");
 }
 
 function renderFailedLogs(
@@ -274,7 +283,12 @@ function renderFailedLogs(
 
 		if (!expanded && tailLines.length > previewLimit) {
 			const remaining = tailLines.length - previewLimit;
-			lines.push(theme.fg("dim", `  … ${remaining} more log lines ${formatExpandHint(theme, false, true)}`));
+			lines.push(
+				theme.fg(
+					"dim",
+					`  ${t("tui.tools.github.moreLogLines", "… {count} more log lines", { count: remaining })} ${formatExpandHint(theme, false, true)}`,
+				),
+			);
 		}
 	}
 
@@ -298,7 +312,7 @@ function buildWatchSections(
 	} else if (watch.mode === "commit") {
 		const runs = watch.runs ?? [];
 		if (runs.length === 0) {
-			main.push(theme.fg("dim", "waiting for workflow runs..."));
+			main.push(theme.fg("dim", t("tui.tools.github.waitingRuns", "waiting for workflow runs...")));
 		} else {
 			runs.forEach((run, index) => {
 				if (index > 0) {
@@ -316,7 +330,7 @@ function buildWatchSections(
 
 	const failed = renderFailedLogs(watch.failedLogs ?? [], width, theme, options.expanded);
 	if (failed.length > 0) {
-		sections.push({ label: "failed logs", content: failed });
+		sections.push({ label: t("tui.tools.github.failedLogs", "failed logs"), content: failed });
 	}
 
 	return sections;
@@ -359,7 +373,9 @@ function renderFallbackComponent(
 	);
 
 	if (!text) {
-		const empty = isError ? "request failed" : "no output";
+		const empty = isError
+			? t("tui.tools.github.requestFailed", "request failed")
+			: t("tui.tools.github.noOutput", "no output");
 		return new Text(`${header}\n${theme.fg("dim", empty)}`, 0, 0);
 	}
 
@@ -419,11 +435,11 @@ function renderWatchCall(args: GithubToolRenderArgs, options: RenderResultOption
 	} else if (branch) {
 		metaText = theme.fg("text", branch);
 	} else {
-		metaText = theme.fg("muted", "current HEAD");
+		metaText = theme.fg("muted", t("tui.tools.github.currentHead", "current HEAD"));
 	}
 
 	const header = `${icon} ${titleText}  ${metaText}`;
-	const wait = theme.fg("dim", "waiting for workflow data...");
+	const wait = theme.fg("dim", t("tui.tools.github.waitingData", "waiting for workflow data..."));
 	return new Text(`${header}\n${wait}`, 0, 0);
 }
 
@@ -443,7 +459,7 @@ function describeRun(run: GhRunWatchRunDetails): NativeNode {
 	});
 	const jobs =
 		run.jobs.length === 0
-			? noteText("waiting for workflow jobs...")
+			? noteText(t("tui.tools.github.waitingJobs", "waiting for workflow jobs..."))
 			: list(
 					run.jobs.map(job => {
 						const tone = jobTone(job);
@@ -463,7 +479,8 @@ function describeWatch(watch: GhRunWatchViewDetails, isError: boolean): NativeTo
 	if (watch.mode === "run" && watch.run) runs.push(describeRun(watch.run));
 	else if (watch.mode === "commit") {
 		const commitRuns = watch.runs ?? [];
-		if (commitRuns.length === 0) runs.push(noteText("waiting for workflow runs..."));
+		if (commitRuns.length === 0)
+			runs.push(noteText(t("tui.tools.github.waitingRuns", "waiting for workflow runs...")));
 		for (const run of commitRuns) runs.push(describeRun(run));
 	}
 	const failed = (watch.failedLogs ?? []).flatMap((entry): NativeChild[] => {
@@ -481,7 +498,12 @@ function describeWatch(watch: GhRunWatchViewDetails, isError: boolean): NativeTo
 			watch.note ? noteText(watch.note) : undefined,
 			...runs,
 			failed.length > 0
-				? node("section", { head: [span("failed logs", "error")], tone: "error" }, failed, "failed")
+				? node(
+						"section",
+						{ head: [span(t("tui.tools.github.failedLogs", "failed logs"), "error")], tone: "error" },
+						failed,
+						"failed",
+					)
 				: undefined,
 		]),
 	};
@@ -491,8 +513,14 @@ function describeFallback(result: ToolRenderResult<GhToolDetails>, args: GithubT
 	const output = extractText(result.content).trim();
 	const title = formatOpTitle(args.op);
 	const meta = buildOpMeta(args, KEEP_TEXT);
-	if (result.isError === true) return errorView(title, output || "request failed", ...meta);
-	if (!output) return { head: toolHead(title, ...meta), tone: "warning", body: [noteText("no output")] };
+	if (result.isError === true)
+		return errorView(title, output || t("tui.tools.github.requestFailed", "request failed"), ...meta);
+	if (!output)
+		return {
+			head: toolHead(title, ...meta),
+			tone: "warning",
+			body: [noteText(t("tui.tools.github.noOutput", "no output"))],
+		};
 	return {
 		head: toolHead(title, ...meta),
 		body: [md(plainText(output))],
@@ -583,8 +611,11 @@ export const githubToolRenderer = {
 		const runId = typeof args.run === "string" && args.run.trim().length > 0 ? args.run.trim() : undefined;
 		const branch = typeof args.branch === "string" && args.branch.trim().length > 0 ? args.branch.trim() : undefined;
 		return {
-			head: toolHead("GitHub Run Watch", runId ? `#${runId}` : (branch ?? "current HEAD")),
-			body: [noteText("waiting for workflow data...")],
+			head: toolHead(
+				"GitHub Run Watch",
+				runId ? `#${runId}` : (branch ?? t("tui.tools.github.currentHead", "current HEAD")),
+			),
+			body: [noteText(t("tui.tools.github.waitingData", "waiting for workflow data..."))],
 		};
 	},
 

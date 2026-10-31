@@ -60,6 +60,7 @@ import {
 	selectListPicker,
 } from "../native/picker";
 import { getThinkingLevelMetadata, parseThinkingLevel } from "../thinking";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 export const ADVISOR_REVIEW_MODES = ["turn", "agent-end"] as const;
 export const ADVISOR_SYNC_BACKLOG_MODES = ["off", "1", "3", "5", "strict"] as const;
@@ -153,6 +154,13 @@ export interface AdvisorConfigDeps {
 
 const PREVIEW_WIDTH = 60;
 
+/** The scope word as displayed in prose. */
+function scopeWord(scope: AdvisorConfigScope): string {
+	return scope === "project"
+		? t("tui.overlays.advisorConfig.scopeProject", "project")
+		: t("tui.overlays.advisorConfig.scopeUser", "user");
+}
+
 /**
  * One-line provider quota display. The host supplies normalized usage reports
  * and an optional credential filter; the overlay owns only presentation.
@@ -183,18 +191,25 @@ export function formatCompactQuota(
 		const windowLabel = limit.window?.label ?? limit.scope.windowId ?? "—";
 		const identity = limit.label.trim();
 		const header = identity && identity !== windowLabel ? `${windowLabel} (${identity})` : windowLabel;
-		const parts = [`${header}: ${pct}% used`];
+		const parts = [
+			t("tui.overlays.advisorConfig.usageHeader", "{header}: {percent}% used", { header, percent: pct }),
+		];
 		const window = limit.window;
 		if (window?.resetsAt !== undefined && Number.isFinite(window.resetsAt) && window.resetsAt > nowMs) {
-			parts.push(`${window.resetLabel ?? "resets"} in ${formatDuration(window.resetsAt - nowMs)}`);
+			parts.push(
+				t("tui.overlays.advisorConfig.resetIn", "{reset} in {duration}", {
+					reset: window.resetLabel ?? t("tui.overlays.advisorConfig.resets", "resets"),
+					duration: formatDuration(window.resetsAt - nowMs),
+				}),
+			);
 		}
 		lines.push(parts.join(" · "));
 	}
-	return `Quota: ${lines.join(" │ ")}`;
+	return t("tui.overlays.advisorConfig.quota", "Quota: {lines}", { lines: lines.join(" │ ") });
 }
 
 function previewLineOrNone(text: string | undefined): string {
-	if (!text?.trim()) return "(none)";
+	if (!text?.trim()) return t("tui.overlays.advisorConfig.none", "(none)");
 	const first = text.trim().split("\n", 1)[0] ?? "";
 	return first.length > PREVIEW_WIDTH ? `${first.slice(0, PREVIEW_WIDTH - 1)}…` : first;
 }
@@ -220,7 +235,7 @@ function commitTools(
 }
 
 function formatAdvisorTools(tools: readonly string[] | undefined, emptyLabel: string): string {
-	if (tools === undefined) return "read, grep, glob (default)";
+	if (tools === undefined) return t("tui.overlays.advisorConfig.defaultTools", "read, grep, glob (default)");
 	return tools.length > 0 ? tools.join(", ") : emptyLabel;
 }
 
@@ -264,18 +279,29 @@ function sameDeps(a: readonly unknown[], b: readonly unknown[]): boolean {
 /** One-line cadence label: mode plus interval. */
 function formatReviewCadence(advisor: AdvisorConfig): string {
 	const reviewInterval = advisor.reviewInterval ?? 1;
-	return `${advisor.reviewMode ?? "turn"} · every ${reviewInterval} eligible update${reviewInterval === 1 ? "" : "s"}`;
+	return t(
+		"tui.overlays.advisorConfig.reviewCadence",
+		{ one: "{mode} · every {count} eligible update", other: "{mode} · every {count} eligible updates" },
+		{ mode: advisor.reviewMode ?? "turn", count: reviewInterval },
+	);
 }
 
 /** Picker description for one explicit catch-up policy value. */
 function describeSyncBacklogMode(mode: AdvisorSyncBacklog): string {
 	switch (mode) {
 		case "off":
-			return "Never wait for this advisor's backlog.";
+			return t("tui.overlays.advisorConfig.syncBacklogOff", "Never wait for this advisor's backlog.");
 		case "strict":
-			return "Wait for all of this advisor's scheduled reviews; no wall-clock cap.";
+			return t(
+				"tui.overlays.advisorConfig.syncBacklogStrict",
+				"Wait for all of this advisor's scheduled reviews; no wall-clock cap.",
+			);
 		default:
-			return `Wait until fewer than ${mode} scheduled reviews remain (30s cap).`;
+			return t(
+				"tui.overlays.advisorConfig.syncBacklogWaitUntil",
+				"Wait until fewer than {mode} scheduled reviews remain (30s cap).",
+				{ mode },
+			);
 	}
 }
 
@@ -302,31 +328,49 @@ function screenHints(screen: Screen): (NativeHint | undefined)[] {
 	switch (screen) {
 		case "list":
 			return [
-				actionHint(["tui.select.up", "tui.select.down"], "move"),
-				actionHint("tui.select.confirm", "select"),
-				actionHint("tui.select.cancel", "close"),
+				actionHint(["tui.select.up", "tui.select.down"], t("tui.overlays.advisorConfig.hintMove", "move")),
+				actionHint("tui.select.confirm", t("tui.overlays.advisorConfig.hintSelect", "select")),
+				actionHint("tui.select.cancel", t("tui.overlays.advisorConfig.hintClose", "close")),
 			];
 		case "detail":
-			return [actionHint("tui.select.confirm", "edit field"), actionHint("tui.select.cancel", "back")];
+			return [
+				actionHint("tui.select.confirm", t("tui.overlays.advisorConfig.editField", "edit field")),
+				actionHint("tui.select.cancel", t("tui.overlays.advisorConfig.hintBack", "back")),
+			];
 		case "name":
-			return [actionHint("tui.input.submit", "save"), actionHint("tui.select.cancel", "cancel")];
+			return [
+				actionHint("tui.input.submit", t("tui.overlays.advisorConfig.hintSave", "save")),
+				actionHint("tui.select.cancel", t("tui.overlays.advisorConfig.hintCancel", "cancel")),
+			];
 		case "model":
 			return [
-				{ keys: [], label: "type to search" },
-				{ keys: ["enter"], label: "pick" },
-				actionHint("tui.select.cancel", "back"),
+				{ keys: [], label: t("tui.overlays.advisorConfig.typeToSearch", "type to search") },
+				{ keys: ["enter"], label: t("tui.overlays.advisorConfig.pick", "pick") },
+				actionHint("tui.select.cancel", t("tui.overlays.advisorConfig.hintBack", "back")),
 			];
 		case "thinking":
 		case "review-mode":
 		case "sync-backlog":
-			return [actionHint("tui.select.confirm", "pick"), actionHint("tui.select.cancel", "back")];
+			return [
+				actionHint("tui.select.confirm", t("tui.overlays.advisorConfig.pick", "pick")),
+				actionHint("tui.select.cancel", t("tui.overlays.advisorConfig.hintBack", "back")),
+			];
 		case "review-interval":
-			return [actionHint("tui.input.submit", "save"), actionHint("tui.select.cancel", "cancel")];
+			return [
+				actionHint("tui.input.submit", t("tui.overlays.advisorConfig.hintSave", "save")),
+				actionHint("tui.select.cancel", t("tui.overlays.advisorConfig.hintCancel", "cancel")),
+			];
 		case "tools":
 			return [
-				actionHint("tui.select.confirm", "toggle"),
-				{ keys: [], label: "Done applies (empty = no tools; read/grep/glob = default)" },
-				actionHint("tui.select.cancel", "apply"),
+				actionHint("tui.select.confirm", t("tui.overlays.advisorConfig.toggle", "toggle")),
+				{
+					keys: [],
+					label: t(
+						"tui.overlays.advisorConfig.doneApplies",
+						"Done applies (empty = no tools; read/grep/glob = default)",
+					),
+				},
+				actionHint("tui.select.cancel", t("tui.overlays.advisorConfig.apply", "apply")),
 			];
 		case "instructions":
 			return [];
@@ -454,7 +498,9 @@ export class AdvisorConfigOverlayComponent implements Component {
 		const height = Math.max(14, process.stdout.rows || 40);
 		const bodyRows = Math.max(3, height - 4);
 		this.#bodyRowsLast = bodyRows;
-		const title = `Advisor configuration · ${this.#scope}${this.#dirty ? "  ● unsaved" : ""}`;
+		const title = `${t("tui.overlays.advisorConfig.title", "Advisor configuration · {scope}", {
+			scope: scopeWord(this.#scope),
+		})}${this.#dirty ? t("tui.overlays.advisorConfig.unsavedSuffix", "  ● unsaved") : ""}`;
 		this.#split.setNarrowPane(this.#screen === "list" ? undefined : "left");
 		this.#split.setSplitAt(this.#screen === "list" ? 0 : Number.MAX_SAFE_INTEGER);
 		this.#split.setHeight(bodyRows);
@@ -503,22 +549,31 @@ export class AdvisorConfigOverlayComponent implements Component {
 		const advisor = shared ? undefined : doc.advisors[index];
 		const pages: TspPrefsProps["pages"][number][] = doc.advisors.map((a, i) => ({
 			id: `advisor:${i}`,
-			label: a.name || "(unnamed)",
+			label: a.name || t("tui.overlays.advisorConfig.unnamed", "(unnamed)"),
 			icon: "advisor",
-			group: "Advisors",
+			group: t("tui.overlays.advisorConfig.groupAdvisors", "Advisors"),
 		}));
-		pages.push({ id: "shared", label: "Shared instructions", icon: "doc", group: "All advisors" });
+		pages.push({
+			id: "shared",
+			label: t("tui.overlays.advisorConfig.sharedInstructions", "Shared instructions"),
+			icon: "doc",
+			group: t("tui.overlays.advisorConfig.groupAllAdvisors", "All advisors"),
+		});
 
 		const sections: TspPrefsProps["sections"][number][] = [];
 		if (doc.warnings?.length) {
 			sections.push({
 				id: "warnings",
-				title: "Config problems",
+				title: t("tui.overlays.advisorConfig.configProblems", "Config problems"),
 				rows: sanitizeDisplayWarnings(doc.warnings).map((warning, i) => ({
 					id: `warning:${i}`,
-					label: "Dropped while loading",
+					label: t("tui.overlays.advisorConfig.droppedWhileLoading", "Dropped while loading"),
 					warning,
-					control: { k: "action", label: "Save to rewrite", act: "save" },
+					control: {
+						k: "action",
+						label: t("tui.overlays.advisorConfig.saveToRewrite", "Save to rewrite"),
+						act: "save",
+					},
 				})),
 			});
 		}
@@ -528,23 +583,44 @@ export class AdvisorConfigOverlayComponent implements Component {
 			const rows: TspPrefsRow[] = [
 				{
 					id: "toggleEnabled",
-					label: "Enabled",
-					hint: "Run this advisor alongside the session.",
+					label: t("tui.overlays.advisorConfig.enabled", "Enabled"),
+					hint: t("tui.overlays.advisorConfig.enabledHint", "Run this advisor alongside the session."),
 					control: { k: "switch", on: advisor.enabled !== false },
 				},
-				{ id: "name", label: "Name", control: { k: "text", value: advisor.name } },
+				{
+					id: "name",
+					label: t("tui.overlays.advisorConfig.name", "Name"),
+					control: { k: "text", value: advisor.name },
+				},
 				{
 					id: "model",
-					label: "Model",
-					hint: model ? undefined : `Uses the advisor role default (${this.#defaultModelLabel ?? "unset"}).`,
+					label: t("tui.overlays.advisorConfig.model", "Model"),
+					hint: model
+						? undefined
+						: t("tui.overlays.advisorConfig.modelDefaultHint", "Uses the advisor role default ({model}).", {
+								model: this.#defaultModelLabel ?? t("tui.overlays.advisorConfig.unset", "unset"),
+							}),
 					changed: model ? true : undefined,
-					defaultLabel: model ? (this.#defaultModelLabel ?? "advisor role default") : undefined,
-					control: { k: "action", label: model || this.#defaultModelLabel || "advisor role default", act: "edit" },
+					defaultLabel: model
+						? (this.#defaultModelLabel ??
+							t("tui.overlays.advisorConfig.advisorRoleDefault", "advisor role default"))
+						: undefined,
+					control: {
+						k: "action",
+						label:
+							model ||
+							this.#defaultModelLabel ||
+							t("tui.overlays.advisorConfig.advisorRoleDefault", "advisor role default"),
+						act: "edit",
+					},
 				},
 				{
 					id: "reviewMode",
-					label: "Review mode",
-					hint: "turn reviews every primary turn; agent-end reviews only final yields.",
+					label: t("tui.overlays.advisorConfig.reviewMode", "Review mode"),
+					hint: t(
+						"tui.overlays.advisorConfig.reviewModeHint",
+						"turn reviews every primary turn; agent-end reviews only final yields.",
+					),
 					changed: advisor.reviewMode !== undefined ? true : undefined,
 					control: {
 						k: "choice",
@@ -555,21 +631,28 @@ export class AdvisorConfigOverlayComponent implements Component {
 				},
 				{
 					id: "reviewInterval",
-					label: "Review interval",
-					hint: "Review every Nth eligible update; skipped updates join the next review.",
+					label: t("tui.overlays.advisorConfig.reviewInterval", "Review interval"),
+					hint: t(
+						"tui.overlays.advisorConfig.reviewIntervalHint",
+						"Review every Nth eligible update; skipped updates join the next review.",
+					),
 					changed: advisor.reviewInterval !== undefined ? true : undefined,
 					control: { k: "number", value: advisor.reviewInterval ?? 1, min: 1, step: 1 },
 				},
 				{
 					id: "syncBacklog",
-					label: "Sync backlog",
-					hint: `Catch-up policy; inherit follows advisor.syncBacklog (currently ${this.#deps.syncBacklog ?? "off"}).`,
+					label: t("tui.overlays.advisorConfig.syncBacklog", "Sync backlog"),
+					hint: t(
+						"tui.overlays.advisorConfig.syncBacklogHint",
+						"Catch-up policy; inherit follows advisor.syncBacklog (currently {mode}).",
+						{ mode: this.#deps.syncBacklog ?? "off" },
+					),
 					changed: advisor.syncBacklog !== undefined ? true : undefined,
 					control: {
 						k: "choice",
 						value: advisor.syncBacklog ?? SYNC_BACKLOG_INHERIT,
 						options: [
-							{ value: SYNC_BACKLOG_INHERIT, label: "inherit" },
+							{ value: SYNC_BACKLOG_INHERIT, label: t("tui.overlays.advisorConfig.inherit", "inherit") },
 							...ADVISOR_SYNC_BACKLOG_MODES.map(mode => ({
 								value: mode,
 								label: mode,
@@ -581,8 +664,11 @@ export class AdvisorConfigOverlayComponent implements Component {
 				},
 				{
 					id: "tools",
-					label: "Tools",
-					hint: "None means no tools; read, grep and glob are the default.",
+					label: t("tui.overlays.advisorConfig.tools", "Tools"),
+					hint: t(
+						"tui.overlays.advisorConfig.toolsHint",
+						"None means no tools; read, grep and glob are the default.",
+					),
 					control: {
 						k: "multi",
 						values: tools,
@@ -591,49 +677,83 @@ export class AdvisorConfigOverlayComponent implements Component {
 				},
 				{
 					id: "instructions",
-					label: "Instructions",
+					label: t("tui.overlays.advisorConfig.instructions", "Instructions"),
 					hint: previewLineOrNone(advisor.instructions),
-					control: { k: "action", label: "Edit…", act: "edit" },
+					control: {
+						k: "action",
+						label: t("tui.overlays.advisorConfig.editEllipsis", "Edit…"),
+						act: "edit",
+					},
 				},
-				{ id: "delete", label: "Delete this advisor", control: { k: "action", label: "Delete", act: "delete" } },
+				{
+					id: "delete",
+					label: t("tui.overlays.advisorConfig.deleteThisAdvisor", "Delete this advisor"),
+					control: { k: "action", label: t("tui.overlays.advisorConfig.delete", "Delete"), act: "delete" },
+				},
 			];
-			sections.push({ id: "advisor", title: advisor.name || "Advisor", rows });
+			sections.push({
+				id: "advisor",
+				title: advisor.name || t("tui.overlays.advisorConfig.advisor", "Advisor"),
+				rows,
+			});
 		} else {
 			sections.push({
 				id: "shared",
-				title: "Shared instructions",
+				title: t("tui.overlays.advisorConfig.sharedInstructions", "Shared instructions"),
 				rows: [
 					{
 						id: "shared",
-						label: "Instructions",
+						label: t("tui.overlays.advisorConfig.instructions", "Instructions"),
 						hint: previewLineOrNone(doc.instructions),
-						control: { k: "action", label: "Edit…", act: "edit" },
+						control: {
+							k: "action",
+							label: t("tui.overlays.advisorConfig.editEllipsis", "Edit…"),
+							act: "edit",
+						},
 					},
 				],
 			});
 		}
 		sections.push({
 			id: "file",
-			title: `WATCHDOG.yml · ${this.#scope}`,
+			title: t("tui.overlays.advisorConfig.fileTitle", "WATCHDOG.yml · {scope}", {
+				scope: scopeWord(this.#scope),
+			}),
 			rows: [
 				{
 					id: "save",
-					label: "Save & apply",
-					hint: "Write this file and reload the live advisors without a restart.",
-					warning: this.#dirty ? "Unsaved changes" : undefined,
-					control: { k: "action", label: "Save", act: "save" },
+					label: t("tui.overlays.advisorConfig.saveApply", "Save & apply"),
+					hint: t(
+						"tui.overlays.advisorConfig.saveHint",
+						"Write this file and reload the live advisors without a restart.",
+					),
+					warning: this.#dirty ? t("tui.overlays.advisorConfig.unsavedChanges", "Unsaved changes") : undefined,
+					control: { k: "action", label: t("tui.overlays.advisorConfig.save", "Save"), act: "save" },
 				},
 				{
 					id: "add",
-					label: "Add advisor",
-					hint: "Create a new advisor entry, then set its model, tools and instructions.",
-					control: { k: "action", label: "Add", act: "add" },
+					label: t("tui.overlays.advisorConfig.addAdvisor", "Add advisor"),
+					hint: t(
+						"tui.overlays.advisorConfig.addHint",
+						"Create a new advisor entry, then set its model, tools and instructions.",
+					),
+					control: { k: "action", label: t("tui.overlays.advisorConfig.add", "Add"), act: "add" },
 				},
 				{
 					id: "scope",
-					label: "Scope",
-					hint: `Editing the ${this.#scope} file. Switch to the ${this.#otherScope()} file.`,
-					control: { k: "action", label: `Open ${this.#otherScope()}`, act: "scope" },
+					label: t("tui.overlays.advisorConfig.scopeLabel", "Scope"),
+					hint: t(
+						"tui.overlays.advisorConfig.scopeHint",
+						"Editing the {scope} file. Switch to the {other} file.",
+						{ scope: scopeWord(this.#scope), other: scopeWord(this.#otherScope()) },
+					),
+					control: {
+						k: "action",
+						label: t("tui.overlays.advisorConfig.openScope", "Open {scope}", {
+							scope: scopeWord(this.#otherScope()),
+						}),
+						act: "scope",
+					},
 				},
 			],
 		});
@@ -657,12 +777,17 @@ export class AdvisorConfigOverlayComponent implements Component {
 				? (this.#active.getSelectedItem()?.value ?? null)
 				: null;
 		const props: TspPrefsProps = {
-			title: this.#dirty ? "Advisors · unsaved" : "Advisors",
+			title: this.#dirty
+				? t("tui.overlays.advisorConfig.prefsTitleUnsaved", "Advisors · unsaved")
+				: t("tui.overlays.advisorConfig.advisors", "Advisors"),
 			pages,
 			page: shared ? "shared" : `advisor:${index}`,
 			lead: shared
-				? "Instructions every advisor gets before its own."
-				: "An advisor watches the session and leaves notes; set its model, tools and instructions here.",
+				? t("tui.overlays.advisorConfig.sharedLead", "Instructions every advisor gets before its own.")
+				: t(
+						"tui.overlays.advisorConfig.advisorLead",
+						"An advisor watches the session and leaves notes; set its model, tools and instructions here.",
+					),
 			sections,
 			focus,
 			editing,
@@ -692,7 +817,12 @@ export class AdvisorConfigOverlayComponent implements Component {
 		const active = this.#active;
 		const memo = this.#nativeEditor;
 		if (active instanceof ModelBrowser) {
-			const order = active.pickerOrder({ providers: false, rest: active.query.trim() ? "Matches" : "All" });
+			const order = active.pickerOrder({
+				providers: false,
+				rest: active.query.trim()
+					? t("tui.overlays.advisorConfig.matches", "Matches")
+					: t("tui.overlays.advisorConfig.all", "All"),
+			});
 			const catalogue = active.pickerItems(this.#modelItems);
 			const preview = active.pickerPreview("compact", this.#modelCurrent);
 			const deps = [active, order, catalogue, preview, active.query, active.cursor, active.pickerSelected];
@@ -714,8 +844,11 @@ export class AdvisorConfigOverlayComponent implements Component {
 							...props,
 							items: props.items?.filter(item => item.id !== TOOLS_DONE),
 							actions: [
-								pickerAction("confirm", "Toggle", "enter"),
-								pickerAction("apply", "Apply", "escape", { primary: true, end: true }),
+								pickerAction("confirm", t("tui.overlays.advisorConfig.toggleAction", "Toggle"), "enter"),
+								pickerAction("apply", t("tui.overlays.advisorConfig.applyAction", "Apply"), "escape", {
+									primary: true,
+									end: true,
+								}),
 							],
 						}
 					: props,
@@ -736,24 +869,34 @@ export class AdvisorConfigOverlayComponent implements Component {
 		catalogue: ModelPickerCatalogue,
 		preview: readonly NativeChild[],
 	): NativeNode {
-		const name = this.#doc.advisors[this.#detailIndex]?.name || "This advisor";
-		const fallback = this.#defaultModelLabel ?? "the advisor role default";
+		const name =
+			this.#doc.advisors[this.#detailIndex]?.name || t("tui.overlays.advisorConfig.thisAdvisor", "This advisor");
+		const fallback =
+			this.#defaultModelLabel ?? t("tui.overlays.advisorConfig.theAdvisorRoleDefault", "the advisor role default");
 		return node(
 			"picker",
 			{
-				title: "Advisor model",
-				subtitle: `${name} reviews with this model. Unset, it uses ${fallback}.`,
+				title: t("tui.overlays.advisorConfig.advisorModelTitle", "Advisor model"),
+				subtitle: t(
+					"tui.overlays.advisorConfig.advisorModelSubtitle",
+					"{name} reviews with this model. Unset, it uses {model}.",
+					{ name, model: fallback },
+				),
 				icon: "model",
-				noun: "models",
+				noun: t("tui.overlays.advisorConfig.modelsNoun", "models"),
 				size: "md",
 				layout: "rows",
 				preview: "below",
-				placeholder: "Search models…",
+				placeholder: t("tui.overlays.advisorConfig.searchModels", "Search models…"),
 				...browser.pickerRows(catalogue, order, this.#modelCurrent),
-				empty: "No models available",
+				empty: t("tui.overlays.advisorConfig.noModels", "No models available"),
 				actions: [
-					pickerAction("use", "Use for advisor", "enter", { primary: true }),
-					browser.query.length > 0 ? { ...CLOSE_ACTION, label: "Clear search" } : CLOSE_ACTION,
+					pickerAction("use", t("tui.overlays.advisorConfig.useForAdvisor", "Use for advisor"), "enter", {
+						primary: true,
+					}),
+					browser.query.length > 0
+						? { ...CLOSE_ACTION, label: t("tui.overlays.advisorConfig.clearSearch", "Clear search") }
+						: CLOSE_ACTION,
 				],
 			},
 			preview,
@@ -762,18 +905,38 @@ export class AdvisorConfigOverlayComponent implements Component {
 
 	/** The review-interval field as a titled card: what the number means, the field, Cancel and Save. */
 	#intervalCard(input: Component): NativeNode {
-		const name = this.#doc.advisors[this.#detailIndex]?.name || "this advisor";
-		return overlayCard("omp.overlay.advisor.interval", `Review interval · ${name}`, [
-			text([span("Review every Nth eligible update; skipped updates join the next review.", "muted")], {
-				wrap: "word",
-			}),
-			input,
-			actionBar([
-				null,
-				actionButton("Cancel", "field-cancel", { keys: "escape" }),
-				actionButton("Save", "field-save", { keys: "enter", tone: "accent" }),
-			]),
-		]);
+		const name =
+			this.#doc.advisors[this.#detailIndex]?.name ||
+			t("tui.overlays.advisorConfig.thisAdvisorLower", "this advisor");
+		return overlayCard(
+			"omp.overlay.advisor.interval",
+			t("tui.overlays.advisorConfig.intervalTitle", "Review interval · {name}", { name }),
+			[
+				text(
+					[
+						span(
+							t(
+								"tui.overlays.advisorConfig.reviewIntervalHint",
+								"Review every Nth eligible update; skipped updates join the next review.",
+							),
+							"muted",
+						),
+					],
+					{
+						wrap: "word",
+					},
+				),
+				input,
+				actionBar([
+					null,
+					actionButton(t("tui.overlays.advisorConfig.cancel", "Cancel"), "field-cancel", { keys: "escape" }),
+					actionButton(t("tui.overlays.advisorConfig.save", "Save"), "field-save", {
+						keys: "enter",
+						tone: "accent",
+					}),
+				]),
+			],
+		);
 	}
 
 	/** A pointer event on the editor's picker sheet, on the path of the key it stands for. */
@@ -825,7 +988,11 @@ export class AdvisorConfigOverlayComponent implements Component {
 				}
 				if (event.act === "save" || event.act === "add" || event.act === "scope") {
 					void this.#onListSelect(event.act).catch(err => {
-						this.#cb.notify(`Advisor config: ${err instanceof Error ? err.message : String(err)}`);
+						this.#cb.notify(
+							t("tui.overlays.advisorConfig.errorPrefix", "Advisor config: {message}", {
+								message: err instanceof Error ? err.message : String(err),
+							}),
+						);
 					});
 					return;
 				}
@@ -885,7 +1052,9 @@ export class AdvisorConfigOverlayComponent implements Component {
 	}
 
 	#describeCard(): NativeNode {
-		const title = `Advisor configuration · ${this.#scope}${this.#dirty ? "  ● unsaved" : ""}`;
+		const title = `${t("tui.overlays.advisorConfig.title", "Advisor configuration · {scope}", {
+			scope: scopeWord(this.#scope),
+		})}${this.#dirty ? t("tui.overlays.advisorConfig.unsavedSuffix", "  ● unsaved") : ""}`;
 		const preview = this.#screen === "list" ? this.#describePreview() : undefined;
 		if (this.#nativeHints?.screen !== this.#screen) {
 			const hints = screenHints(this.#screen);
@@ -902,8 +1071,14 @@ export class AdvisorConfigOverlayComponent implements Component {
 		) {
 			return prev.node;
 		}
-		const head: TspSpan[] = [span(`Advisor configuration · ${this.#scope}`)];
-		if (this.#dirty) head.push(span("  ● unsaved", "warning"));
+		const head: TspSpan[] = [
+			span(
+				t("tui.overlays.advisorConfig.title", "Advisor configuration · {scope}", {
+					scope: scopeWord(this.#scope),
+				}),
+			),
+		];
+		if (this.#dirty) head.push(span(t("tui.overlays.advisorConfig.unsavedSuffix", "  ● unsaved"), "warning"));
 		const body: NativeNode = preview
 			? node(
 					"row",
@@ -931,7 +1106,15 @@ export class AdvisorConfigOverlayComponent implements Component {
 					"col",
 					{ tone: "warning" },
 					[
-						text([span("⚠ Config problems — dropped while loading:", "warning")]),
+						text([
+							span(
+								t(
+									"tui.overlays.advisorConfig.configProblemsInline",
+									"⚠ Config problems — dropped while loading:",
+								),
+								"warning",
+							),
+						]),
 						...sanitizeDisplayWarnings(this.#doc.warnings).map(warning =>
 							text([span(warning, "warning")], { wrap: "word" }),
 						),
@@ -949,19 +1132,31 @@ export class AdvisorConfigOverlayComponent implements Component {
 		} else if (value === "shared") {
 			const instructions = this.#doc.instructions?.trim();
 			children.push(
-				text([span("Shared instructions", "strong")]),
-				instructions ? text(instructions, { wrap: "word" }) : text([span("(none)", "muted")]),
+				text([span(t("tui.overlays.advisorConfig.sharedInstructions", "Shared instructions"), "strong")]),
+				instructions
+					? text(instructions, { wrap: "word" })
+					: text([span(t("tui.overlays.advisorConfig.none", "(none)"), "muted")]),
 			);
 		} else {
 			const help =
 				value === "add"
-					? "Create a new advisor entry, then edit its model, tools, and instructions."
+					? t(
+							"tui.overlays.advisorConfig.addHelp",
+							"Create a new advisor entry, then edit its model, tools, and instructions.",
+						)
 					: value === "scope"
-						? `Switch between the project and user WATCHDOG.yml. Currently editing the ${this.#scope}-level file.`
+						? t(
+								"tui.overlays.advisorConfig.scopeHelp",
+								"Switch between the {project} and {user} WATCHDOG.yml. Currently editing the {scope}-level file.",
+								{ project: scopeWord("project"), user: scopeWord("user"), scope: scopeWord(this.#scope) },
+							)
 						: value === "save"
-							? "Write this scope's WATCHDOG.yml and reload the live advisors without a restart."
+							? t(
+									"tui.overlays.advisorConfig.saveHelp",
+									"Write this scope's WATCHDOG.yml and reload the live advisors without a restart.",
+								)
 							: value === "close"
-								? "Close the editor. Unsaved changes are discarded."
+								? t("tui.overlays.advisorConfig.closeHelp", "Close the editor. Unsaved changes are discarded.")
 								: "";
 			if (help) children.push(text([span(help, "muted")], { wrap: "word" }));
 		}
@@ -973,39 +1168,71 @@ export class AdvisorConfigOverlayComponent implements Component {
 	}
 
 	#describeAdvisorPreview(advisor: AdvisorConfig): NativeNode[] {
-		const model = advisor.model?.trim() || this.#defaultModelLabel || "advisor role default";
+		const model =
+			advisor.model?.trim() ||
+			this.#defaultModelLabel ||
+			t("tui.overlays.advisorConfig.advisorRoleDefault", "advisor role default");
 		const instructions = advisor.instructions?.trim();
 		const out: NativeNode[] = [
-			text([span(advisor.name || "(unnamed)", "strong")]),
+			text([span(advisor.name || t("tui.overlays.advisorConfig.unnamed", "(unnamed)"), "strong")]),
 			node("kv", {
 				items: [
-					{ k: "Enabled", v: advisor.enabled === false ? "○ off" : "● on" },
-					{ k: "Model", v: model },
-					{ k: "Tools", v: formatAdvisorTools(advisor.tools, "no tools") },
-					{ k: "Review", v: formatReviewCadence(advisor) },
-					{ k: "Sync backlog", v: this.#syncBacklogLabel(advisor) },
+					{
+						k: t("tui.overlays.advisorConfig.enabled", "Enabled"),
+						v:
+							advisor.enabled === false
+								? t("tui.overlays.advisorConfig.off", "○ off")
+								: t("tui.overlays.advisorConfig.on", "● on"),
+					},
+					{ k: t("tui.overlays.advisorConfig.model", "Model"), v: model },
+					{
+						k: t("tui.overlays.advisorConfig.tools", "Tools"),
+						v: formatAdvisorTools(advisor.tools, t("tui.overlays.advisorConfig.noTools", "no tools")),
+					},
+					{ k: t("tui.overlays.advisorConfig.review", "Review"), v: formatReviewCadence(advisor) },
+					{
+						k: t("tui.overlays.advisorConfig.syncBacklog", "Sync backlog"),
+						v: this.#syncBacklogLabel(advisor),
+					},
 				],
 			}),
-			text([span("Instructions:", "dim")]),
-			instructions ? text(instructions, { wrap: "word" }) : text([span("(none)", "muted")]),
+			text([span(t("tui.overlays.advisorConfig.instructionsColon", "Instructions:"), "dim")]),
+			instructions
+				? text(instructions, { wrap: "word" })
+				: text([span(t("tui.overlays.advisorConfig.none", "(none)"), "muted")]),
 		];
 		const liveStat = this.#cb.getAdvisorStats?.()?.find(s => s.name === (advisor.name || "default"));
 		if (liveStat && (liveStat.status === "running" || liveStat.status === "quota_exhausted")) {
 			const spendParts = [
-				`${liveStat.tokens.input.toLocaleString()} in`,
-				`${liveStat.tokens.output.toLocaleString()} out`,
+				t("tui.overlays.advisorConfig.tokensIn", "{count} in", {
+					count: liveStat.tokens.input.toLocaleString(),
+				}),
+				t("tui.overlays.advisorConfig.tokensOut", "{count} out", {
+					count: liveStat.tokens.output.toLocaleString(),
+				}),
 			];
-			if (liveStat.tokens.cacheRead > 0) spendParts.push(`${liveStat.tokens.cacheRead.toLocaleString()} cache`);
-			const usage: { k: string; v: string }[] = [{ k: "Tokens", v: spendParts.join(", ") }];
-			if (liveStat.cost > 0) usage.push({ k: "Cost", v: `$${liveStat.cost.toFixed(4)}` });
+			if (liveStat.tokens.cacheRead > 0)
+				spendParts.push(
+					t("tui.overlays.advisorConfig.tokensCache", "{count} cache", {
+						count: liveStat.tokens.cacheRead.toLocaleString(),
+					}),
+				);
+			const usage: { k: string; v: string }[] = [
+				{ k: t("tui.overlays.advisorConfig.tokens", "Tokens"), v: spendParts.join(", ") },
+			];
+			if (liveStat.cost > 0)
+				usage.push({ k: t("tui.overlays.advisorConfig.cost", "Cost"), v: `$${liveStat.cost.toFixed(4)}` });
 			if (liveStat.contextWindow > 0) {
 				const pct = Math.round((liveStat.contextTokens / liveStat.contextWindow) * 100);
 				usage.push({
-					k: "Context",
+					k: t("tui.overlays.advisorConfig.context", "Context"),
 					v: `${liveStat.contextTokens.toLocaleString()}/${liveStat.contextWindow.toLocaleString()} (${pct}%)`,
 				});
 			}
-			out.push(text([span("Usage:", "dim")]), node("kv", { items: usage }));
+			out.push(
+				text([span(t("tui.overlays.advisorConfig.usageColon", "Usage:"), "dim")]),
+				node("kv", { items: usage }),
+			);
 		}
 		const quotaProvider =
 			(advisor.model?.includes("/") ? advisor.model.split("/")[0] : null) ?? liveStat?.model?.provider;
@@ -1068,8 +1295,13 @@ export class AdvisorConfigOverlayComponent implements Component {
 		if (lines.length > rows) {
 			const marker =
 				start + rows < lines.length
-					? theme.fg("dim", `  ↓ ${lines.length - rows - start} more`)
-					: theme.fg("dim", "  (end)");
+					? theme.fg(
+							"dim",
+							`  ↓ ${t("tui.overlays.advisorConfig.moreLines", "{count} more", {
+								count: lines.length - rows - start,
+							})}`,
+						)
+					: theme.fg("dim", `  ${t("tui.overlays.advisorConfig.endMarker", "(end)")}`);
 			window[rows - 1] = marker;
 		}
 		return window;
@@ -1081,7 +1313,10 @@ export class AdvisorConfigOverlayComponent implements Component {
 		// until a successful save rewrites the file without them.
 		const warnings = this.#doc.warnings?.length
 			? [
-					theme.fg("warning", "⚠ Config problems — dropped while loading:"),
+					theme.fg(
+						"warning",
+						t("tui.overlays.advisorConfig.configProblemsInline", "⚠ Config problems — dropped while loading:"),
+					),
 					...sanitizeDisplayWarnings(this.#doc.warnings).flatMap(warning =>
 						wrap(warning, bodyWidth).map(line => theme.fg("warning", line)),
 					),
@@ -1096,58 +1331,93 @@ export class AdvisorConfigOverlayComponent implements Component {
 			if (advisor) return [...warnings, ...this.#advisorPreview(advisor, bodyWidth)];
 		}
 		if (value === "shared") {
-			const lines = [...warnings, theme.bold("Shared instructions"), ""];
+			const lines = [
+				...warnings,
+				theme.bold(t("tui.overlays.advisorConfig.sharedInstructions", "Shared instructions")),
+				"",
+			];
 			const text = this.#doc.instructions?.trim();
-			lines.push(...(text ? wrap(text, bodyWidth) : [theme.fg("muted", "(none)")]));
+			lines.push(
+				...(text ? wrap(text, bodyWidth) : [theme.fg("muted", t("tui.overlays.advisorConfig.none", "(none)"))]),
+			);
 			return lines.map(line => truncateToWidth(line, bodyWidth));
 		}
 		const help =
 			value === "add"
-				? "Create a new advisor entry, then edit its model, tools, and instructions."
+				? t(
+						"tui.overlays.advisorConfig.addHelp",
+						"Create a new advisor entry, then edit its model, tools, and instructions.",
+					)
 				: value === "scope"
-					? `Switch between the project and user WATCHDOG.yml. Currently editing the ${this.#scope}-level file.`
+					? t(
+							"tui.overlays.advisorConfig.scopeHelp",
+							"Switch between the {project} and {user} WATCHDOG.yml. Currently editing the {scope}-level file.",
+							{ project: scopeWord("project"), user: scopeWord("user"), scope: scopeWord(this.#scope) },
+						)
 					: value === "save"
-						? "Write this scope's WATCHDOG.yml and reload the live advisors without a restart."
+						? t(
+								"tui.overlays.advisorConfig.saveHelp",
+								"Write this scope's WATCHDOG.yml and reload the live advisors without a restart.",
+							)
 						: value === "close"
-							? "Close the editor. Unsaved changes are discarded."
+							? t("tui.overlays.advisorConfig.closeHelp", "Close the editor. Unsaved changes are discarded.")
 							: "";
 		return [...warnings, ...wrap(help, bodyWidth).map(line => truncateToWidth(theme.fg("muted", line), bodyWidth))];
 	}
 
 	#advisorPreview(advisor: AdvisorConfig, bodyWidth: number): string[] {
-		const model = advisor.model?.trim() || this.#defaultModelLabel || "advisor role default";
-		const tools = formatAdvisorTools(advisor.tools, "no tools");
+		const model =
+			advisor.model?.trim() ||
+			this.#defaultModelLabel ||
+			t("tui.overlays.advisorConfig.advisorRoleDefault", "advisor role default");
+		const tools = formatAdvisorTools(advisor.tools, t("tui.overlays.advisorConfig.noTools", "no tools"));
 		const syncBacklog = this.#syncBacklogLabel(advisor);
 		const lines = [
-			theme.bold(advisor.name || "(unnamed)"),
+			theme.bold(advisor.name || t("tui.overlays.advisorConfig.unnamed", "(unnamed)")),
 			"",
-			`${theme.fg("dim", "Enabled:")} ${advisor.enabled === false ? "○ off" : "● on"}`,
-			`${theme.fg("dim", "Model:")} ${model}`,
-			`${theme.fg("dim", "Tools:")} ${tools}`,
-			`${theme.fg("dim", "Review:")} ${formatReviewCadence(advisor)}`,
-			`${theme.fg("dim", "Sync backlog:")} ${syncBacklog}`,
+			`${theme.fg("dim", t("tui.overlays.advisorConfig.enabledColon", "Enabled:"))} ${advisor.enabled === false ? t("tui.overlays.advisorConfig.off", "○ off") : t("tui.overlays.advisorConfig.on", "● on")}`,
+			`${theme.fg("dim", t("tui.overlays.advisorConfig.modelColon", "Model:"))} ${model}`,
+			`${theme.fg("dim", t("tui.overlays.advisorConfig.toolsColon", "Tools:"))} ${tools}`,
+			`${theme.fg("dim", t("tui.overlays.advisorConfig.reviewColon", "Review:"))} ${formatReviewCadence(advisor)}`,
+			`${theme.fg("dim", t("tui.overlays.advisorConfig.syncBacklogColon", "Sync backlog:"))} ${syncBacklog}`,
 			"",
-			theme.fg("dim", "Instructions:"),
+			theme.fg("dim", t("tui.overlays.advisorConfig.instructionsColon", "Instructions:")),
 		];
 		const instr = advisor.instructions?.trim();
-		lines.push(...(instr ? wrap(instr, bodyWidth) : [theme.fg("muted", "(none)")]));
+		lines.push(
+			...(instr ? wrap(instr, bodyWidth) : [theme.fg("muted", t("tui.overlays.advisorConfig.none", "(none)"))]),
+		);
 		// Show live usage stats when available from the session.
 		const liveStat = this.#cb.getAdvisorStats?.()?.find(s => s.name === (advisor.name || "default"));
 		if (liveStat && (liveStat.status === "running" || liveStat.status === "quota_exhausted")) {
-			lines.push("", theme.fg("dim", "Usage:"));
+			lines.push("", theme.fg("dim", t("tui.overlays.advisorConfig.usageColon", "Usage:")));
 			const spendParts: string[] = [
-				`${liveStat.tokens.input.toLocaleString()} in`,
-				`${liveStat.tokens.output.toLocaleString()} out`,
+				t("tui.overlays.advisorConfig.tokensIn", "{count} in", {
+					count: liveStat.tokens.input.toLocaleString(),
+				}),
+				t("tui.overlays.advisorConfig.tokensOut", "{count} out", {
+					count: liveStat.tokens.output.toLocaleString(),
+				}),
 			];
-			if (liveStat.tokens.cacheRead > 0) spendParts.push(`${liveStat.tokens.cacheRead.toLocaleString()} cache`);
-			lines.push(theme.fg("dim", `  Tokens: ${spendParts.join(", ")}`));
-			if (liveStat.cost > 0) lines.push(theme.fg("dim", `  Cost: $${liveStat.cost.toFixed(4)}`));
+			if (liveStat.tokens.cacheRead > 0)
+				spendParts.push(
+					t("tui.overlays.advisorConfig.tokensCache", "{count} cache", {
+						count: liveStat.tokens.cacheRead.toLocaleString(),
+					}),
+				);
+			lines.push(
+				theme.fg("dim", `  ${t("tui.overlays.advisorConfig.tokensColon", "Tokens:")} ${spendParts.join(", ")}`),
+			);
+			if (liveStat.cost > 0)
+				lines.push(
+					theme.fg("dim", `  ${t("tui.overlays.advisorConfig.costColon", "Cost:")} $${liveStat.cost.toFixed(4)}`),
+				);
 			if (liveStat.contextWindow > 0) {
 				const pct = Math.round((liveStat.contextTokens / liveStat.contextWindow) * 100);
 				lines.push(
 					theme.fg(
 						"dim",
-						`  Context: ${liveStat.contextTokens.toLocaleString()}/${liveStat.contextWindow.toLocaleString()} (${pct}%)`,
+						`  ${t("tui.overlays.advisorConfig.contextColon", "Context:")} ${liveStat.contextTokens.toLocaleString()}/${liveStat.contextWindow.toLocaleString()} (${pct}%)`,
 					),
 				);
 			}
@@ -1205,14 +1475,27 @@ export class AdvisorConfigOverlayComponent implements Component {
 	}
 
 	#advisorSummary(advisor: AdvisorConfig): string {
-		const model = advisor.model?.trim() || this.#defaultModelLabel || "advisor role default";
-		const tools = formatAdvisorTools(advisor.tools, "no tools");
-		return `${model} · ${tools} · review ${advisor.reviewMode ?? "turn"}/${advisor.reviewInterval ?? 1}`;
+		const model =
+			advisor.model?.trim() ||
+			this.#defaultModelLabel ||
+			t("tui.overlays.advisorConfig.advisorRoleDefault", "advisor role default");
+		const tools = formatAdvisorTools(advisor.tools, t("tui.overlays.advisorConfig.noTools", "no tools"));
+		return t("tui.overlays.advisorConfig.advisorSummary", "{model} · {tools} · review {mode}/{interval}", {
+			model,
+			tools,
+			mode: advisor.reviewMode ?? "turn",
+			interval: advisor.reviewInterval ?? 1,
+		});
 	}
 
 	/** The advisor's explicit catch-up override, else the inherited global policy. */
 	#syncBacklogLabel(advisor: AdvisorConfig): string {
-		return advisor.syncBacklog ?? `${this.#deps.syncBacklog ?? "off"} (inherited)`;
+		return (
+			advisor.syncBacklog ??
+			t("tui.overlays.advisorConfig.inheritedMode", "{mode} (inherited)", {
+				mode: this.#deps.syncBacklog ?? "off",
+			})
+		);
 	}
 
 	#showList(): void {
@@ -1220,18 +1503,22 @@ export class AdvisorConfigOverlayComponent implements Component {
 		this.#ensureRosterVisible();
 		const items: SelectItem[] = this.#doc.advisors.map((advisor, index) => ({
 			value: `advisor:${index}`,
-			label: `${advisor.enabled === false ? "○" : "●"} ${advisor.name || "(unnamed)"}`,
+			label: `${advisor.enabled === false ? "○" : "●"} ${advisor.name || t("tui.overlays.advisorConfig.unnamed", "(unnamed)")}`,
 			description: this.#advisorSummary(advisor),
 		}));
-		items.push({ value: "add", label: "+ Add advisor" });
+		items.push({ value: "add", label: t("tui.overlays.advisorConfig.addAdvisorRow", "+ Add advisor") });
 		items.push({
 			value: "shared",
-			label: "Shared instructions",
+			label: t("tui.overlays.advisorConfig.sharedInstructions", "Shared instructions"),
 			description: previewLineOrNone(this.#doc.instructions),
 		});
-		items.push({ value: "scope", label: `Scope: ${this.#scope}`, description: `→ ${this.#otherScope()}` });
-		items.push({ value: "save", label: "Save & apply" });
-		items.push({ value: "close", label: "Close" });
+		items.push({
+			value: "scope",
+			label: t("tui.overlays.advisorConfig.scopeRow", "Scope: {scope}", { scope: scopeWord(this.#scope) }),
+			description: `→ ${scopeWord(this.#otherScope())}`,
+		});
+		items.push({ value: "save", label: t("tui.overlays.advisorConfig.saveApply", "Save & apply") });
+		items.push({ value: "close", label: t("tui.overlays.advisorConfig.close", "Close") });
 
 		// Show every row (no internal overflow-search); the split frame supplies height.
 		const list = new SelectList(items, Math.max(1, items.length), getSelectListTheme());
@@ -1241,19 +1528,27 @@ export class AdvisorConfigOverlayComponent implements Component {
 		};
 		list.onSelect = item =>
 			void this.#onListSelect(item.value).catch(err => {
-				this.#cb.notify(`Advisor config: ${err instanceof Error ? err.message : String(err)}`);
+				this.#cb.notify(
+					t("tui.overlays.advisorConfig.errorPrefix", "Advisor config: {message}", {
+						message: err instanceof Error ? err.message : String(err),
+					}),
+				);
 			});
 		list.onCancel = () => this.#cb.close();
 		this.#setScreen(
 			"list",
 			list,
-			`${editorKeys("tui.select.up", "tui.select.down")} move · ${editorKey("tui.select.confirm")} / click select · scroll preview on the right · ${editorKey("tui.select.cancel")} close`,
+			`${editorKeys("tui.select.up", "tui.select.down")} ${t("tui.overlays.advisorConfig.hintMove", "move")} · ${editorKey("tui.select.confirm")} / click ${t("tui.overlays.advisorConfig.hintSelect", "select")} · ${t("tui.overlays.advisorConfig.hintScrollPreview", "scroll preview on the right")} · ${editorKey("tui.select.cancel")} ${t("tui.overlays.advisorConfig.hintClose", "close")}`,
 		);
 	}
 
 	async #onListSelect(value: string): Promise<void> {
 		if (value === "add") {
-			this.#doc.advisors.push({ name: `Advisor ${this.#doc.advisors.length + 1}` });
+			this.#doc.advisors.push({
+				name: t("tui.overlays.advisorConfig.advisorDefaultName", "Advisor {number}", {
+					number: this.#doc.advisors.length + 1,
+				}),
+			});
 			this.#dirty = true;
 			this.#showDetail(this.#doc.advisors.length - 1);
 			return;
@@ -1264,7 +1559,12 @@ export class AdvisorConfigOverlayComponent implements Component {
 		}
 		if (value === "scope") {
 			if (this.#dirty) {
-				this.#cb.notify('Unsaved changes — "Save & apply" or Close before switching scope.');
+				this.#cb.notify(
+					t(
+						"tui.overlays.advisorConfig.scopeSwitchBlocked",
+						'Unsaved changes — "Save & apply" or Close before switching scope.',
+					),
+				);
 				return;
 			}
 			const next = this.#otherScope();
@@ -1275,7 +1575,9 @@ export class AdvisorConfigOverlayComponent implements Component {
 			// the initial scope's warnings when the overlay opens, so only switches
 			// report here — no double-showing the opening file.
 			if (doc.warnings?.length) {
-				const message = `WATCHDOG.yml: ${sanitizeDisplayWarnings(doc.warnings).join("; ")}`;
+				const message = t("tui.overlays.advisorConfig.warningsPrefix", "WATCHDOG.yml: {warnings}", {
+					warnings: sanitizeDisplayWarnings(doc.warnings).join("; "),
+				});
 				if (this.#cb.warn) this.#cb.warn(message);
 				else this.#cb.notify(message);
 			}
@@ -1308,34 +1610,55 @@ export class AdvisorConfigOverlayComponent implements Component {
 			return;
 		}
 		this.#detailIndex = index;
-		const modelDescription = advisor.model?.trim() || this.#defaultModelLabel || "advisor role default";
-		const toolsDescription = formatAdvisorTools(advisor.tools, "no tools");
+		const modelDescription =
+			advisor.model?.trim() ||
+			this.#defaultModelLabel ||
+			t("tui.overlays.advisorConfig.advisorRoleDefault", "advisor role default");
+		const toolsDescription = formatAdvisorTools(advisor.tools, t("tui.overlays.advisorConfig.noTools", "no tools"));
 		const reviewMode = advisor.reviewMode ?? "turn";
 		const reviewInterval = advisor.reviewInterval ?? 1;
 		const items: SelectItem[] = [
-			{ value: "name", label: "Name", description: advisor.name },
+			{ value: "name", label: t("tui.overlays.advisorConfig.name", "Name"), description: advisor.name },
 			{
 				value: "toggleEnabled",
-				label: "Enabled",
-				description: advisor.enabled === false ? "○ off" : "● on",
+				label: t("tui.overlays.advisorConfig.enabled", "Enabled"),
+				description:
+					advisor.enabled === false
+						? t("tui.overlays.advisorConfig.off", "○ off")
+						: t("tui.overlays.advisorConfig.on", "● on"),
 			},
-			{ value: "model", label: "Model", description: modelDescription },
-			{ value: "reviewMode", label: "Review mode", description: reviewMode },
-			{ value: "reviewInterval", label: "Review interval", description: String(reviewInterval) },
+			{ value: "model", label: t("tui.overlays.advisorConfig.model", "Model"), description: modelDescription },
+			{
+				value: "reviewMode",
+				label: t("tui.overlays.advisorConfig.reviewMode", "Review mode"),
+				description: reviewMode,
+			},
+			{
+				value: "reviewInterval",
+				label: t("tui.overlays.advisorConfig.reviewInterval", "Review interval"),
+				description: String(reviewInterval),
+			},
 			{
 				value: "syncBacklog",
-				label: "Sync backlog",
+				label: t("tui.overlays.advisorConfig.syncBacklog", "Sync backlog"),
 				description: this.#syncBacklogLabel(advisor),
 			},
 		];
 		if (advisor.model?.trim()) {
-			items.push({ value: "resetModel", label: "Reset model to advisor-role default" });
+			items.push({
+				value: "resetModel",
+				label: t("tui.overlays.advisorConfig.resetModel", "Reset model to advisor-role default"),
+			});
 		}
 		items.push(
-			{ value: "tools", label: "Tools", description: toolsDescription },
-			{ value: "instructions", label: "Instructions", description: previewLineOrNone(advisor.instructions) },
-			{ value: "delete", label: "Delete this advisor" },
-			{ value: "back", label: "Back" },
+			{ value: "tools", label: t("tui.overlays.advisorConfig.tools", "Tools"), description: toolsDescription },
+			{
+				value: "instructions",
+				label: t("tui.overlays.advisorConfig.instructions", "Instructions"),
+				description: previewLineOrNone(advisor.instructions),
+			},
+			{ value: "delete", label: t("tui.overlays.advisorConfig.deleteThisAdvisor", "Delete this advisor") },
+			{ value: "back", label: t("tui.overlays.advisorConfig.back", "Back") },
 		);
 		const list = new SelectList(items, Math.max(1, items.length), getSelectListTheme());
 		list.onSelect = item => this.#onDetailSelect(index, item.value);
@@ -1343,7 +1666,7 @@ export class AdvisorConfigOverlayComponent implements Component {
 		this.#setScreen(
 			"detail",
 			list,
-			`Editing "${advisor.name}" · ${editorKey("tui.select.confirm")} / click edit field · ${editorKey("tui.select.cancel")} back`,
+			`${t("tui.overlays.advisorConfig.editingName", 'Editing "{name}"', { name: advisor.name })} · ${editorKey("tui.select.confirm")} / click ${t("tui.overlays.advisorConfig.editField", "edit field")} · ${editorKey("tui.select.cancel")} ${t("tui.overlays.advisorConfig.hintBack", "back")}`,
 		);
 	}
 
@@ -1409,7 +1732,7 @@ export class AdvisorConfigOverlayComponent implements Component {
 		this.#setScreen(
 			"name",
 			input,
-			`Type a name · ${editorKey("tui.input.submit")} save · ${editorKey("tui.select.cancel")} cancel`,
+			`${t("tui.overlays.advisorConfig.typeAName", "Type a name")} · ${editorKey("tui.input.submit")} ${t("tui.overlays.advisorConfig.hintSave", "save")} · ${editorKey("tui.select.cancel")} ${t("tui.overlays.advisorConfig.hintCancel", "cancel")}`,
 		);
 	}
 
@@ -1454,12 +1777,17 @@ export class AdvisorConfigOverlayComponent implements Component {
 		this.#setScreen(
 			"model",
 			picker,
-			`Type to search · ${formatKeyHint("enter")} / click twice picks · ${editorKey("tui.select.cancel")} back`,
+			`${t("tui.overlays.advisorConfig.typeToSearchCaps", "Type to search")} · ${formatKeyHint("enter")} / click twice ${t("tui.overlays.advisorConfig.picks", "picks")} · ${editorKey("tui.select.cancel")} ${t("tui.overlays.advisorConfig.hintBack", "back")}`,
 		);
 	}
 
 	#showThinkingPicker(index: number, selector: string, efforts: readonly string[]): void {
-		const items: SelectItem[] = [{ value: "", label: "(model default thinking)" }];
+		const items: SelectItem[] = [
+			{
+				value: "",
+				label: t("tui.overlays.advisorConfig.modelDefaultThinking", "(model default thinking)"),
+			},
+		];
 		for (const effort of efforts) items.push({ value: effort, label: effort });
 		const list = new SelectList(items, Math.max(1, items.length), getSelectListTheme());
 		// The level the advisor already runs this model at, when it is this model.
@@ -1477,16 +1805,23 @@ export class AdvisorConfigOverlayComponent implements Component {
 		this.#setScreen(
 			"thinking",
 			list,
-			`Thinking effort for ${selector} · ${editorKey("tui.select.confirm")} / click pick · ${editorKey("tui.select.cancel")} back`,
+			`${t("tui.overlays.advisorConfig.thinkingEffortFor", "Thinking effort for {model}", { model: selector })} · ${editorKey("tui.select.confirm")} / click ${t("tui.overlays.advisorConfig.pick", "pick")} · ${editorKey("tui.select.cancel")} ${t("tui.overlays.advisorConfig.hintBack", "back")}`,
 			{
-				title: "Thinking level",
-				subtitle: `How hard ${this.#doc.advisors[index]?.name || "the advisor"} reasons on ${selector}.`,
+				title: t("tui.overlays.advisorConfig.thinkingLevelTitle", "Thinking level"),
+				subtitle: t("tui.overlays.advisorConfig.thinkingSubtitle", "How hard {name} reasons on {model}.", {
+					name: this.#doc.advisors[index]?.name || t("tui.overlays.advisorConfig.theAdvisor", "the advisor"),
+					model: selector,
+				}),
 				icon: "thinking",
-				noun: "levels",
+				noun: t("tui.overlays.advisorConfig.levelsNoun", "levels"),
 				current: current === undefined ? [] : [current],
-				confirm: "Use level",
+				confirm: t("tui.overlays.advisorConfig.useLevel", "Use level"),
 				decorate: item => {
-					if (!item.value) return { label: "Model default", detail: "No level; the provider decides." };
+					if (!item.value)
+						return {
+							label: t("tui.overlays.advisorConfig.modelDefault", "Model default"),
+							detail: t("tui.overlays.advisorConfig.noLevelDetail", "No level; the provider decides."),
+						};
 					const level = parseThinkingLevel(item.value);
 					const dot = `thinking${item.value.charAt(0).toUpperCase()}${item.value.slice(1)}`;
 					return {
@@ -1506,11 +1841,17 @@ export class AdvisorConfigOverlayComponent implements Component {
 		const current = advisor.reviewMode ?? ADVISOR_REVIEW_MODES[0];
 		const items: SelectItem[] = ADVISOR_REVIEW_MODES.map(mode => ({
 			value: mode,
-			label: mode === current ? `${mode} (current)` : mode,
+			label: mode === current ? t("tui.overlays.advisorConfig.currentChoice", "{mode} (current)", { mode }) : mode,
 			description:
 				mode === "turn"
-					? "Review every primary turn (tool-call round)."
-					: "Review only at agent end (once per run).",
+					? t(
+							"tui.overlays.advisorConfig.reviewModeTurnDescription",
+							"Review every primary turn (tool-call round).",
+						)
+					: t(
+							"tui.overlays.advisorConfig.reviewModeAgentEndDescription",
+							"Review only at agent end (once per run).",
+						),
 		}));
 		const list = new SelectList(items, Math.max(1, items.length), getSelectListTheme());
 		list.setSelectedIndex(ADVISOR_REVIEW_MODES.indexOf(current));
@@ -1523,12 +1864,14 @@ export class AdvisorConfigOverlayComponent implements Component {
 		this.#setScreen(
 			"review-mode",
 			list,
-			`${editorKey("tui.select.confirm")} / click choose review mode · ${editorKey("tui.select.cancel")} back`,
+			`${editorKey("tui.select.confirm")} / click ${t("tui.overlays.advisorConfig.chooseReviewMode", "choose review mode")} · ${editorKey("tui.select.cancel")} ${t("tui.overlays.advisorConfig.hintBack", "back")}`,
 			{
-				title: "Review mode",
-				subtitle: `When ${advisor.name || "the advisor"} reviews the session.`,
+				title: t("tui.overlays.advisorConfig.reviewMode", "Review mode"),
+				subtitle: t("tui.overlays.advisorConfig.reviewModeSubtitle", "When {name} reviews the session.", {
+					name: advisor.name || t("tui.overlays.advisorConfig.theAdvisor", "the advisor"),
+				}),
 				icon: "review",
-				noun: "modes",
+				noun: t("tui.overlays.advisorConfig.modesNoun", "modes"),
 				current: [current],
 				decorate: item => ({ label: item.value }),
 			},
@@ -1546,7 +1889,9 @@ export class AdvisorConfigOverlayComponent implements Component {
 		input.onSubmit = value => {
 			const interval = Number(value.trim());
 			if (!Number.isSafeInteger(interval) || interval < 1) {
-				this.#cb.notify("Review interval must be a positive integer.");
+				this.#cb.notify(
+					t("tui.overlays.advisorConfig.reviewIntervalInvalid", "Review interval must be a positive integer."),
+				);
 				return;
 			}
 			advisor.reviewInterval = interval === 1 ? undefined : interval;
@@ -1557,7 +1902,7 @@ export class AdvisorConfigOverlayComponent implements Component {
 		this.#setScreen(
 			"review-interval",
 			input,
-			`Type a positive integer · ${editorKey("tui.input.submit")} save · ${editorKey("tui.select.cancel")} cancel`,
+			`${t("tui.overlays.advisorConfig.typePositiveInteger", "Type a positive integer")} · ${editorKey("tui.input.submit")} ${t("tui.overlays.advisorConfig.hintSave", "save")} · ${editorKey("tui.select.cancel")} ${t("tui.overlays.advisorConfig.hintCancel", "cancel")}`,
 		);
 	}
 
@@ -1572,8 +1917,15 @@ export class AdvisorConfigOverlayComponent implements Component {
 		const items: SelectItem[] = [
 			{
 				value: SYNC_BACKLOG_INHERIT,
-				label: current === undefined ? "inherit (current)" : "inherit",
-				description: `Follow the global advisor.syncBacklog setting (currently "${global}").`,
+				label:
+					current === undefined
+						? t("tui.overlays.advisorConfig.inheritCurrent", "inherit (current)")
+						: t("tui.overlays.advisorConfig.inherit", "inherit"),
+				description: t(
+					"tui.overlays.advisorConfig.inheritDescription",
+					'Follow the global advisor.syncBacklog setting (currently "{mode}").',
+					{ mode: global },
+				),
 			},
 			...ADVISOR_SYNC_BACKLOG_MODES.map(mode => ({
 				value: mode,
@@ -1593,12 +1945,16 @@ export class AdvisorConfigOverlayComponent implements Component {
 		this.#setScreen(
 			"sync-backlog",
 			list,
-			`${editorKey("tui.select.confirm")} / click choose catch-up policy · ${editorKey("tui.select.cancel")} back`,
+			`${editorKey("tui.select.confirm")} / click ${t("tui.overlays.advisorConfig.chooseCatchUpPolicy", "choose catch-up policy")} · ${editorKey("tui.select.cancel")} ${t("tui.overlays.advisorConfig.hintBack", "back")}`,
 			{
-				title: "Sync backlog",
-				subtitle: `How long the session waits for ${advisor.name || "the advisor"}'s pending reviews.`,
+				title: t("tui.overlays.advisorConfig.syncBacklog", "Sync backlog"),
+				subtitle: t(
+					"tui.overlays.advisorConfig.syncBacklogSubtitle",
+					"How long the session waits for {name}'s pending reviews.",
+					{ name: advisor.name || t("tui.overlays.advisorConfig.theAdvisor", "the advisor") },
+				),
 				icon: "time",
-				noun: "policies",
+				noun: t("tui.overlays.advisorConfig.policiesNoun", "policies"),
 				current: [current ?? SYNC_BACKLOG_INHERIT],
 				decorate: item => ({ label: item.value }),
 			},
@@ -1611,7 +1967,7 @@ export class AdvisorConfigOverlayComponent implements Component {
 			value: name,
 			label: `${selected.has(name) ? "[x]" : "[ ]"} ${name}`,
 		}));
-		items.push({ value: TOOLS_DONE, label: "Done" });
+		items.push({ value: TOOLS_DONE, label: t("tui.overlays.advisorConfig.done", "Done") });
 		const list = new SelectList(items, Math.max(1, items.length), getSelectListTheme());
 		list.setSelectedIndex(cursor);
 		let cursorIndex = cursor;
@@ -1637,12 +1993,18 @@ export class AdvisorConfigOverlayComponent implements Component {
 		this.#setScreen(
 			"tools",
 			list,
-			`${editorKey("tui.select.confirm")} / click toggle · select Done or ${editorKey("tui.select.cancel")} to apply (empty = no tools; read/grep/glob = default)`,
+			`${editorKey("tui.select.confirm")} / click ${t("tui.overlays.advisorConfig.toggle", "toggle")} · ${t("tui.overlays.advisorConfig.selectDoneOr", "select {done} or", { done: t("tui.overlays.advisorConfig.done", "Done") })} ${editorKey("tui.select.cancel")} ${t("tui.overlays.advisorConfig.toApplyTools", "to apply (empty = no tools; read/grep/glob = default)")}`,
 			{
-				title: "Tools",
-				subtitle: `What ${this.#doc.advisors[index]?.name || "the advisor"} may call. None grants no tools; read, grep and glob are the default.`,
+				title: t("tui.overlays.advisorConfig.tools", "Tools"),
+				subtitle: t(
+					"tui.overlays.advisorConfig.toolsSubtitle",
+					"What {name} may call. None grants no tools; read, grep and glob are the default.",
+					{
+						name: this.#doc.advisors[index]?.name || t("tui.overlays.advisorConfig.theAdvisor", "the advisor"),
+					},
+				),
 				icon: "tools",
-				noun: "tools",
+				noun: t("tui.overlays.advisorConfig.toolsNoun", "tools"),
 				current: [...selected],
 				decorate: item => ({ label: item.value }),
 			},
@@ -1654,7 +2016,11 @@ export class AdvisorConfigOverlayComponent implements Component {
 		const shared = index < 0;
 		this.#detailIndex = index;
 		const current = shared ? this.#doc.instructions : this.#doc.advisors[index].instructions;
-		const title = shared ? "Shared advisor instructions" : `Instructions — ${this.#doc.advisors[index].name}`;
+		const title = shared
+			? t("tui.overlays.advisorConfig.sharedAdvisorInstructions", "Shared advisor instructions")
+			: t("tui.overlays.advisorConfig.instructionsTitle", "Instructions — {name}", {
+					name: this.#doc.advisors[index].name,
+				});
 		const editor = new HookEditorComponent(
 			this.#tui,
 			title,
