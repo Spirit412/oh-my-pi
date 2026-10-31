@@ -2,6 +2,7 @@ import type { AssistantMessage } from "@oh-my-pi/pi-ai";
 import { classifyModel } from "@oh-my-pi/pi-catalog/identity";
 import { MessageDividerComponent } from "../chrome/message-divider";
 import { theme } from "../theme";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 /** A turn whose response provably came from a different model than was requested. */
 export interface ServedModelMismatch {
@@ -81,7 +82,11 @@ export class ServedModelMarkerComponent extends MessageDividerComponent {
 			label: () => {
 				const dot = theme.sep.dot.trim();
 				const via = info.upstreamProvider ? `${info.provider}/${info.upstreamProvider}` : info.provider;
-				return `${theme.status.warning} served ${info.served} ${dot} requested ${info.requested} ${dot} via ${via}`;
+				return `${theme.status.warning} ${t(
+					"tui.chat.servedModel.ansi",
+					"served {served} {dot} requested {requested} {dot} via {via}",
+					{ served: info.served, dot, requested: info.requested, via },
+				)}`;
 			},
 			labelColor: "warning",
 			ruleColor: "dim",
@@ -91,7 +96,11 @@ export class ServedModelMarkerComponent extends MessageDividerComponent {
 				icon: "warn",
 				label: () => {
 					const via = info.upstreamProvider ? `${info.provider}/${info.upstreamProvider}` : info.provider;
-					return `Served ${info.served} · requested ${info.requested} · via ${via}`;
+					return t("tui.chat.servedModel.native", "Served {served} · requested {requested} · via {via}", {
+						served: info.served,
+						requested: info.requested,
+						via,
+					});
 				},
 			},
 		});

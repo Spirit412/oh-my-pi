@@ -21,6 +21,7 @@ import { MODEL_MENTION_TAG_RE } from "../prompt/model-mention-syntax";
 import { expandKeyHint, fileHyperlink, fileLinkSpan } from "../render";
 import { imageLinksEnabled, imageReferenceHyperlink } from "../prompt/image-references";
 import { highlightMagicKeywords } from "../prompt/magic-keywords";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import type { ReactionTarget } from "./reaction";
 import { card, md, node, row, span, text } from "../native/describe";
 import { base64ImageNode, openableImageProps } from "../native/blobs";
@@ -219,8 +220,8 @@ export class UserMessageComponent extends Container implements ReactionTarget, T
 					{
 						name: "copy",
 						role: "omp.user.tool",
-						title: "Copy message",
-						aria: "Copy message",
+						title: t("tui.chat.userMessage.copy", "Copy message"),
+						aria: t("tui.chat.userMessage.copy", "Copy message"),
 						actions: { click: "copy-message" },
 					},
 					undefined,
@@ -231,8 +232,8 @@ export class UserMessageComponent extends Container implements ReactionTarget, T
 					{
 						name: "rewind",
 						role: "omp.user.tool",
-						title: "Rewind the conversation to an earlier message",
-						aria: "Rewind",
+						title: t("tui.chat.userMessage.rewindTitle", "Rewind the conversation to an earlier message"),
+						aria: t("tui.chat.userMessage.rewind", "Rewind"),
 						actions: { click: "rewind" },
 					},
 					undefined,
@@ -270,9 +271,9 @@ export class UserMessageComponent extends Container implements ReactionTarget, T
 		if (this.#liveSteered) {
 			badges.push(
 				node("badge", {
-					text: "steered",
+					text: t("tui.chat.userMessage.steered", "steered"),
 					tone: "accent",
-					title: "Delivered into the response that was streaming",
+					title: t("tui.chat.userMessage.steeredTitle", "Delivered into the response that was streaming"),
 				}),
 			);
 		}
@@ -529,7 +530,11 @@ function summarizeSyntheticInput(text: string): string {
 	const size = formatBytes(Buffer.byteLength(text, "utf-8"));
 	const lineCount = text === "" ? 0 : text.split("\n").length;
 	const dot = theme.sep.dot.trim();
-	return `${syntheticInputLabel(text)} ${dot} ${size} ${dot} ${lineCount} line${lineCount === 1 ? "" : "s"}`;
+	return `${syntheticInputLabel(text)} ${dot} ${size} ${dot} ${t(
+		"tui.chat.userMessage.lines",
+		{ one: "{count} line", other: "{count} lines" },
+		{ count: lineCount },
+	)}`;
 }
 
 /** First Markdown heading text in `text`, else `Synthetic input`. */
@@ -538,7 +543,8 @@ function syntheticInputLabel(text: string): string {
 		const line = raw.trim();
 		if (!line) continue;
 		const heading = /^#{1,6}\s+(.*)$/.exec(line);
-		return heading ? heading[1]!.trim() || "Synthetic input" : "Synthetic input";
+		const fallback = t("tui.chat.userMessage.syntheticInput", "Synthetic input");
+		return heading ? heading[1]!.trim() || fallback : fallback;
 	}
-	return "Synthetic input";
+	return t("tui.chat.userMessage.syntheticInput", "Synthetic input");
 }

@@ -21,6 +21,7 @@ import { ToolActivityContainer } from "../chrome/tool-activity";
 import { type TranscriptBlock } from "../chrome/transcript-container";
 import { TranscriptStatusBlock, type TranscriptStatusRow } from "../chrome/transcript-status";
 import { theme } from "../theme";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 type CustomOrHookMessage = Extract<AgentMessage, { role: "custom" | "hookMessage" }>;
 type AssistantAgentMessage = Extract<AgentMessage, { role: "assistant" }>;
@@ -60,19 +61,25 @@ export function buildAsyncResultBlock(message: CustomOrHookMessage): ToolActivit
 				];
 	const rows: TranscriptStatusRow[] = [];
 	for (const job of jobs) {
-		const jobId = job.jobId ?? "unknown";
-		const type = job.type ?? "job";
+		const jobId = job.jobId ?? t("tui.chat.renderHelpers.unknownJob", "unknown");
+		const type = job.type ?? t("tui.chat.renderHelpers.jobType", "job");
 		const duration = typeof job.durationMs === "number" ? formatDuration(job.durationMs) : undefined;
 		rows.push({
 			parts: [
-				{ text: `${theme.status.done} Background job completed`, color: "success" },
+				{
+					text: `${theme.status.done} ${t("tui.chat.renderHelpers.backgroundCompleted", "Background job completed")}`,
+					color: "success",
+				},
 				{ text: `[${type}]`, color: "dim" },
 				{ text: jobId, color: "accent" },
 				duration ? { text: `(${duration})`, color: "dim" } : undefined,
 			],
 			native: {
 				tone: "success",
-				message: [span("Background job completed"), ...facts([type, jobId, duration])],
+				message: [
+					span(t("tui.chat.renderHelpers.backgroundCompleted", "Background job completed")),
+					...facts([type, jobId, duration]),
+				],
 			},
 		});
 		if (job.meta?.artifactError) rows.push(artifactErrorRow(job.meta.artifactError));
@@ -112,8 +119,13 @@ export function buildLaunchCompletionBlock(message: CustomOrHookMessage): ToolAc
 	}
 	for (const daemon of daemons) {
 		const failed = daemon.state === "failed" || (daemon.exitCode !== undefined && daemon.exitCode !== 0);
-		const label = failed ? "Supervised process failed" : "Supervised process completed";
-		const exit = daemon.exitCode !== undefined ? `exit ${daemon.exitCode}` : undefined;
+		const label = failed
+			? t("tui.chat.renderHelpers.supervisedFailed", "Supervised process failed")
+			: t("tui.chat.renderHelpers.supervisedCompleted", "Supervised process completed");
+		const exit =
+			daemon.exitCode !== undefined
+				? t("tui.chat.renderHelpers.exit", "exit {code}", { code: daemon.exitCode })
+				: undefined;
 		const duration =
 			daemon.exitedAt !== undefined && daemon.startedAt !== undefined
 				? formatDuration(daemon.exitedAt - daemon.startedAt)
@@ -188,13 +200,19 @@ export function buildFileMentionBlock(files: FileMentionMessage["files"], indent
 	for (const file of files) {
 		let detail: string;
 		if (file.skippedReason === "tooLarge" || file.skippedReason === "binary") {
-			const size = typeof file.byteSize === "number" ? formatBytes(file.byteSize) : "unknown size";
-			detail = file.skippedReason === "binary" ? `skipped: binary, ${size}` : `skipped: ${size}`;
+			const size =
+				typeof file.byteSize === "number"
+					? formatBytes(file.byteSize)
+					: t("tui.chat.renderHelpers.unknownSize", "unknown size");
+			detail =
+				file.skippedReason === "binary"
+					? t("tui.chat.renderHelpers.skippedBinary", "skipped: binary, {size}", { size })
+					: t("tui.chat.renderHelpers.skipped", "skipped: {size}", { size });
 		} else {
 			detail = file.image
-				? "image"
+				? t("tui.chat.renderHelpers.image", "image")
 				: file.lineCount === undefined
-					? "unknown lines"
+					? t("tui.chat.renderHelpers.unknownLines", "unknown lines")
 					: formatCount("line", file.lineCount);
 		}
 		rows.push({

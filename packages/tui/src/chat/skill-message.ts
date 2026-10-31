@@ -16,6 +16,7 @@ import type { TspSpan } from "@oh-my-pi/pi-wire";
 import { card, md, node, span } from "../native/describe";
 import { type NativeChild, type NativeNode, type NativeUiEvent } from "../native/node";
 import { Memo } from "../native/memo";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 /**
  * Transcript row for a user-invoked skill. Two layouts, chosen by where the
@@ -74,7 +75,7 @@ export class SkillMessageComponent extends Container {
 	override describe(): NativeNode {
 		return this.#native.get([this.#expanded], () => {
 			const details = this.#message.details;
-			const name = details?.name?.trim() || "unknown";
+			const name = details?.name?.trim() || t("tui.chat.skill.unknownName", "unknown");
 			const token = skillToken(name);
 			const prompt = details?.prompt ?? (details?.args ? `${token} ${details.args}` : token);
 			const display = collapseSkillTokens(
@@ -89,7 +90,12 @@ export class SkillMessageComponent extends Container {
 				span(label, "customMessageLabel strong", details?.path ? { href: tryFileUri(details.path) } : undefined),
 			];
 			if (typeof details?.lineCount === "number") {
-				head.push(span(`  ${details.lineCount} ${details.lineCount === 1 ? "line" : "lines"}`, "muted"));
+				const lines = t(
+					"tui.chat.skill.lines",
+					{ one: "{count} line", other: "{count} lines" },
+					{ count: details.lineCount },
+				);
+				head.push(span(`  ${lines}`, "muted"));
 			}
 			const children: NativeChild[] = [];
 			if (draft) children.push(md(draft));
@@ -98,10 +104,10 @@ export class SkillMessageComponent extends Container {
 				node(
 					"section",
 					{
-						head: [span("prompt", "muted")],
 						role: "omp.skill.prompt",
 						collapsible: true,
 						collapsed: !this.#expanded,
+						head: [span(t("tui.chat.skill.promptSection", "prompt"), "muted")],
 					},
 					promptText ? [md(promptText)] : [],
 					"prompt",
@@ -145,7 +151,7 @@ export class SkillMessageComponent extends Container {
 		this.#disclosure?.dispose();
 		this.clear();
 		const details = this.#message.details;
-		const name = details?.name?.trim() || "unknown";
+		const name = details?.name?.trim() || t("tui.chat.skill.unknownName", "unknown");
 		const token = skillToken(name);
 		const prompt = details?.prompt ?? (details?.args ? `${token} ${details.args}` : token);
 		// Display-only collapse: only the invoked skill becomes a chip; a second `/skill:` token the

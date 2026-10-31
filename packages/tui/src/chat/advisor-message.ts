@@ -11,6 +11,7 @@ import { card, node, span, text } from "../native/describe";
 import { type NativeNode, type NativeUiEvent, rootToggleExpanded } from "../native/node";
 import { plainText } from "../native/spans";
 import { Memo } from "../native/memo";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 const COLLAPSED_NOTES = 3;
 const NOTE_LINE_WIDTH = 110;
@@ -104,7 +105,16 @@ class AdvisorNotes implements Component {
 			const uiTheme = this.#uiTheme;
 			const rail = uiTheme.fg("dim", uiTheme.symbol("advisor.rail"));
 			const hidden = this.#hidden;
-			lines.push(`  ${rail} ${uiTheme.fg("dim", `… +${hidden} more ${hidden === 1 ? "note" : "notes"}`)}`);
+			lines.push(
+				`  ${rail} ${uiTheme.fg(
+					"dim",
+					t(
+						"tui.chat.advisor.moreNotes",
+						{ one: "… +{count} more note", other: "… +{count} more notes" },
+						{ count: hidden },
+					),
+				)}`,
+			);
 		}
 		const rendered = lines.map(line => truncateToWidth(line, width, Ellipsis.Unicode));
 		this.#cache = { width, lines: rendered };
@@ -155,12 +165,30 @@ type AdvisorRank = AdvisorSeverity | "note";
 /** Ranks worst first: the callout wears the worst rank among its notes. */
 const RANKS: readonly AdvisorRank[] = ["blocker", "concern", "nit", "note"];
 
+/** English source text for each rank's tally ("1 blocker · 2 concerns"). */
+const TALLY_MESSAGES: Record<AdvisorRank, { one: string; other: string }> = {
+	blocker: { one: "{count} blocker", other: "{count} blockers" },
+	concern: { one: "{count} concern", other: "{count} concerns" },
+	nit: { one: "{count} nit", other: "{count} nits" },
+	note: { one: "{count} note", other: "{count} notes" },
+};
+
 /** Each rank's native look, GitHub-alert style: card/icon tone, Tern icon name, label and its span style. */
-const RANK_LOOK: Record<AdvisorRank, { tone: TspTone; icon: string; label: string; style: string }> = {
-	blocker: { tone: "error", icon: "octagon-alert", label: "Blocker", style: "error strong" },
-	concern: { tone: "warning", icon: "warn", label: "Concern", style: "warning strong" },
-	nit: { tone: "neutral", icon: "lightbulb", label: "Nit", style: "strong" },
-	note: { tone: "neutral", icon: "info", label: "Note", style: "strong" },
+const RANK_LOOK: Record<AdvisorRank, { tone: TspTone; icon: string; label: () => string; style: string }> = {
+	blocker: {
+		tone: "error",
+		icon: "octagon-alert",
+		label: () => t("tui.chat.advisor.rank.blocker", "Blocker"),
+		style: "error strong",
+	},
+	concern: {
+		tone: "warning",
+		icon: "warn",
+		label: () => t("tui.chat.advisor.rank.concern", "Concern"),
+		style: "warning strong",
+	},
+	nit: { tone: "neutral", icon: "lightbulb", label: () => t("tui.chat.advisor.rank.nit", "Nit"), style: "strong" },
+	note: { tone: "neutral", icon: "info", label: () => t("tui.chat.advisor.rank.note", "Note"), style: "strong" },
 };
 
 function rankOf(entry: AdvisorNote): AdvisorRank {
@@ -170,15 +198,15 @@ function rankOf(entry: AdvisorNote): AdvisorRank {
 /** The callout's title: one note's rank (`Concern`), else a tally worst first (`1 blocker · 2 concerns`). */
 function tallySpans(notes: readonly AdvisorNote[]): TspSpan[] {
 	if (notes.length === 1) {
-		const { label, style } = RANK_LOOK[rankOf(notes[0]!)];
-		return [span(label, style)];
+		const look = RANK_LOOK[rankOf(notes[0]!)];
+		return [span(look.label(), look.style)];
 	}
 	const spans: TspSpan[] = [];
 	for (const rank of RANKS) {
 		const count = notes.filter(entry => rankOf(entry) === rank).length;
 		if (count === 0) continue;
 		if (spans.length > 0) spans.push(span(" · ", "dim"));
-		spans.push(span(`${count} ${rank}${count === 1 ? "" : "s"}`, RANK_LOOK[rank].style));
+		spans.push(span(t(`tui.chat.advisor.tally.${rank}`, TALLY_MESSAGES[rank], { count }), RANK_LOOK[rank].style));
 	}
 	return spans;
 }
@@ -217,8 +245,10 @@ export function createAdvisorMessageCard(
 ): AdvisorMessageCard {
 	const notes = details?.notes ?? [];
 	const blockers = notes.filter(note => note.severity === "blocker").length;
-	const meta: string[] = [`${notes.length} ${notes.length === 1 ? "note" : "notes"}`];
-	if (blockers > 0) meta.push(uiTheme.fg("error", `${blockers} blocker${blockers === 1 ? "" : "s"}`));
+	const meta: string[] = [t("tui.chat.advisor.tally.note", TALLY_MESSAGES.note, { count: notes.length })];
+	if (blockers > 0) {
+		meta.push(uiTheme.fg("error", t("tui.chat.advisor.tally.blocker", TALLY_MESSAGES.blocker, { count: blockers })));
+	}
 	let override: boolean | undefined;
 	let lastGlobal = getExpanded();
 	const expanded = (): boolean => {
@@ -252,7 +282,7 @@ export function createAdvisorMessageCard(
 			return node(
 				"row",
 				{ gap: "sm", align: "start", role: "omp.advisor.note", tone },
-				[node("icon", { name: icon, tone, aria: label }), text(spans, { wrap: "word", grow: 1, shrink: 1 })],
+				[node("icon", { name: icon, tone, aria: label() }), text(spans, { wrap: "word", grow: 1, shrink: 1 })],
 				`n${index}`,
 			);
 		});

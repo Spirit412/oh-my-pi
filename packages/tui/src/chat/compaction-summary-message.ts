@@ -11,15 +11,25 @@ import { md, node, span, text } from "../native/describe";
 import { type NativeChild, type NativeNode, type NativeUiEvent, rootToggleExpanded } from "../native/node";
 import { Memo } from "../native/memo";
 import { noticeRow } from "../chrome/transcript-notice";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
-/** Divider labels per compaction method; unknown/legacy methods fall back to "compacted". */
-const COMPACTION_METHOD_LABELS: Record<string, string> = {
-	remote: "remote-compacted",
-	soft: "soft-compacted",
-	handoff: "handed-off",
-	snapcompact: "snap-compacted",
-	shake: "shaken",
-};
+/** Divider label per compaction method; unknown/legacy methods fall back to "compacted". */
+function compactionMethodLabel(method: string | undefined): string {
+	switch (method) {
+		case "remote":
+			return t("tui.chat.compaction.method.remote", "remote-compacted");
+		case "soft":
+			return t("tui.chat.compaction.method.soft", "soft-compacted");
+		case "handoff":
+			return t("tui.chat.compaction.method.handoff", "handed-off");
+		case "snapcompact":
+			return t("tui.chat.compaction.method.snapcompact", "snap-compacted");
+		case "shake":
+			return t("tui.chat.compaction.method.shake", "shaken");
+		default:
+			return t("tui.chat.compaction.method.compacted", "compacted");
+	}
+}
 
 /** `256K→20K` amount badge, or undefined when the entry predates `tokensAfter`. */
 function compactionAmount(message: CompactionSummaryMessage): string | undefined {
@@ -217,13 +227,20 @@ export class CompactionSummaryMessageComponent extends SummaryMessageComponent {
 
 /** The divider chip: `Soft-compacted · 19K → 6.9K tokens`, the arrow dimmed. */
 function compactionNativeLabel(message: CompactionSummaryMessage): TspSpan[] {
-	const name = (message.method && COMPACTION_METHOD_LABELS[message.method]) || "compacted";
+	const name = compactionMethodLabel(message.method);
 	const spans = [span(`${name[0]!.toUpperCase()}${name.slice(1)}`, "muted")];
 	if (message.tokensAfter !== undefined && message.tokensBefore > 0) {
 		spans.push(
 			span(` · ${formatNumber(message.tokensBefore)}`, "muted mono"),
 			span(" → ", "dim"),
-			span(`${formatNumber(message.tokensAfter)} tokens`, "muted mono"),
+			span(
+				t(
+					"tui.chat.compaction.tokens",
+					{ one: "{count} token", other: "{count} tokens" },
+					{ count: formatNumber(message.tokensAfter) },
+				),
+				"muted mono",
+			),
 		);
 	}
 	if (message.warning) spans.push(span(` ${theme.icon.warning}`, "warning"));
@@ -235,8 +252,15 @@ function compactionNativeDetail(message: CompactionSummaryMessage): NativeChild[
 	const frames = message.images?.length ?? 0;
 	const caption =
 		frames > 0
-			? `Summary · ${frames} snapcompact frame${frames === 1 ? "" : "s"} attached`
-			: "Summary of the earlier conversation";
+			? t(
+					"tui.chat.compaction.captionFrames",
+					{
+						one: "Summary · {count} snapcompact frame attached",
+						other: "Summary · {count} snapcompact frames attached",
+					},
+					{ count: frames },
+				)
+			: t("tui.chat.compaction.caption", "Summary of the earlier conversation");
 	const detail: NativeChild[] = [text([span(caption, "dim")], { role: "omp.compaction.caption", key: "caption" })];
 	if (message.warning) detail.push(noticeRow("warning", message.warning, { key: "warning" }));
 	detail.push(md(message.summary, { key: "summary" }));
@@ -244,7 +268,7 @@ function compactionNativeDetail(message: CompactionSummaryMessage): NativeChild[
 }
 
 function compactionLabel(message: CompactionSummaryMessage): string {
-	const name = (message.method && COMPACTION_METHOD_LABELS[message.method]) || "compacted";
+	const name = compactionMethodLabel(message.method);
 	let label = `${theme.icon.camera} ${name}`;
 	const amount = compactionAmount(message);
 	if (amount) label += `${theme.sep.dot}${amount}`;
@@ -256,15 +280,33 @@ function compactionDetailMarkdown(message: CompactionSummaryMessage): string {
 	const tokenLine =
 		message.tokensBefore > 0
 			? message.tokensAfter !== undefined
-				? `Compacted from ${message.tokensBefore.toLocaleString()} to ${message.tokensAfter.toLocaleString()} tokens`
-				: `Compacted from ${message.tokensBefore.toLocaleString()} tokens`
+				? t("tui.chat.compaction.fromTo", "Compacted from {before} to {after} tokens", {
+						before: message.tokensBefore.toLocaleString(),
+						after: message.tokensAfter.toLocaleString(),
+					})
+				: t("tui.chat.compaction.from", "Compacted from {before} tokens", {
+						before: message.tokensBefore.toLocaleString(),
+					})
 			: message.tokensAfter !== undefined
-				? `Compacted to ${message.tokensAfter.toLocaleString()} tokens`
-				: "Compacted context";
+				? t("tui.chat.compaction.to", "Compacted to {after} tokens", {
+						after: message.tokensAfter.toLocaleString(),
+					})
+				: t("tui.chat.compaction.context", "Compacted context");
 	const frameCount = message.images?.length ?? 0;
 	const frameNote =
-		frameCount > 0 ? `\n\n_${frameCount} snapcompact frame${frameCount === 1 ? "" : "s"} attached_` : "";
-	const warningNote = message.warning ? `\n\n${theme.icon.warning} **Warning:** ${message.warning}` : "";
+		frameCount > 0
+			? `\n\n_${t(
+					"tui.chat.compaction.framesNote",
+					{
+						one: "{count} snapcompact frame attached",
+						other: "{count} snapcompact frames attached",
+					},
+					{ count: frameCount },
+				)}_`
+			: "";
+	const warningNote = message.warning
+		? `\n\n${theme.icon.warning} ${t("tui.chat.compaction.warning", "**Warning:**")} ${message.warning}`
+		: "";
 	return `**${tokenLine}**${warningNote}\n\n${message.summary}${frameNote}`;
 }
 
@@ -276,12 +318,14 @@ function compactionDetailMarkdown(message: CompactionSummaryMessage): string {
 export class HandoffSummaryMessageComponent extends SummaryMessageComponent {
 	constructor(message: CustomMessage<unknown>) {
 		super({
-			label: () => `${theme.icon.context} handed-off`,
-			nativeLabel: () => [span("Handed off", "muted")],
+			label: () => `${theme.icon.context} ${t("tui.chat.compaction.method.handoff", "handed-off")}`,
+			nativeLabel: () => [span(t("tui.chat.compaction.handedOff", "Handed off"), "muted")],
 			role: "omp.handoff",
 			detailMarkdown: () => {
 				const document = extractHandoffDocument(getCustomMessageText(message));
-				return `**Handoff context**\n\n${document || "_No handoff content._"}`;
+				return `${t("tui.chat.compaction.handoffContext", "**Handoff context**")}\n\n${
+					document || t("tui.chat.compaction.noHandoffContent", "_No handoff content._")
+				}`;
 			},
 		});
 	}
@@ -305,10 +349,10 @@ export function createHandoffSummaryMessageComponent(
 export class BranchSummaryMessageComponent extends SummaryMessageComponent {
 	constructor(message: BranchSummaryMessage) {
 		super({
-			label: () => `${theme.icon.branch} branch`,
-			nativeLabel: () => [span("Branch summarized", "muted")],
+			label: () => `${theme.icon.branch} ${t("tui.chat.compaction.branch", "branch")}`,
+			nativeLabel: () => [span(t("tui.chat.compaction.branchSummarized", "Branch summarized"), "muted")],
 			role: "omp.branch",
-			detailMarkdown: () => `**Branch summary**\n\n${message.summary}`,
+			detailMarkdown: () => `${t("tui.chat.compaction.branchSummary", "**Branch summary**")}\n\n${message.summary}`,
 		});
 	}
 }

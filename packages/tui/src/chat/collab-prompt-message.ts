@@ -7,6 +7,7 @@ import type { CustomMessage } from "./messages";
 import { getMarkdownTheme, theme } from "../theme";
 import { card, md, span } from "../native/describe";
 import type { NativeNode } from "../native/node";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 /**
  * Renders a collab guest prompt on every participant's transcript: a
@@ -17,7 +18,7 @@ export class CollabPromptMessageComponent extends Container {
 
 	constructor(message: CustomMessage<CollabPromptDetails>) {
 		super();
-		const from = message.details?.from?.trim() || "guest";
+		const from = message.details?.from?.trim() || t("tui.chat.collab.guest", "guest");
 		const authorText = new Text(theme.fg("accent", `\x1b[1m«${from}»\x1b[22m ›`), 1, 0);
 		authorText.setIgnoreTight(true);
 		this.addChild(authorText);

@@ -8,6 +8,7 @@ import { card, span, text, withHidden } from "../native/describe";
 import { type NativeNode, type NativeUiEvent, rootToggleExpanded } from "../native/node";
 import { plainText } from "../native/spans";
 import { Memo } from "../native/memo";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 /** Diagnostics shown by the collapsed native card, matching the ANSI tree's collapsed count. */
 const COLLAPSED_DIAGNOSTICS = 5;
@@ -111,7 +112,8 @@ export class LateDiagnosticsMessageComponent extends Container {
 		return this.#native.get(key, () => {
 			const input = this.#diagnosticInput();
 			const icon = input?.errored ? theme.status.error : theme.status.warning;
-			const head = [span(`${icon} `, input?.errored ? "error" : "warning"), span("Late diagnostics", "toolTitle")];
+			const title = t("tui.chat.lateDiagnostics.title", "Late diagnostics");
+			const head = [span(`${icon} `, input?.errored ? "error" : "warning"), span(title, "toolTitle")];
 			if (input?.summary) head.push(span(` (${plainText(input.summary)})`, "dim"));
 			const diagnostics = card(
 				{
@@ -169,7 +171,7 @@ export class LateDiagnosticsMessageComponent extends Container {
 	/** Render one branch of the diagnostic tree, reusing the tool renderer. */
 	#format(input: { errored: boolean; summary: string; messages: string[] }, expanded: boolean): string {
 		return formatDiagnostics(input, expanded, theme, fp => theme.getLangIcon(getLanguageFromPath(fp)), {
-			title: "Late diagnostics",
+			title: t("tui.chat.lateDiagnostics.title", "Late diagnostics"),
 		}).replace(/^\n+/, "");
 	}
 }

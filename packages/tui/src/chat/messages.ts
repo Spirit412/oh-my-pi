@@ -3,6 +3,7 @@ import * as AIError from "@oh-my-pi/pi-ai/error";
 import { COLLAB_PROMPT_MESSAGE_TYPE } from "@oh-my-pi/pi-wire";
 import type { OutputMeta } from "../tools/output-meta";
 import type { BranchSummaryMessage, CompactionSummaryMessage } from "@oh-my-pi/pi-agent-core/compaction/messages";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 declare module "@oh-my-pi/pi-agent-core" {
 	interface CustomAgentMessages {
@@ -130,9 +131,13 @@ export function resolveAbortLabel(
 		return message.errorMessage!;
 	}
 	if (retryAttempt > 0) {
-		return `Aborted after ${retryAttempt} retry attempt${retryAttempt > 1 ? "s" : ""}`;
+		return t(
+			"tui.chat.messages.abortedAfter",
+			{ one: "Aborted after {count} retry attempt", other: "Aborted after {count} retry attempts" },
+			{ count: retryAttempt },
+		);
 	}
-	return "Operation aborted";
+	return t("tui.chat.messages.operationAborted", "Operation aborted");
 }
 
 /** True when a persisted or extension-supplied value can be sent as custom-message content. */

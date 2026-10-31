@@ -42,6 +42,7 @@ import { FigureMarkdown } from "./figure-markdown";
 import { svgFigureRendering } from "./svg-figure";
 import { hasSvgFence } from "./svg-source";
 import { chartFence, hasChartTable, lookupTableChart, splitTableCharts } from "./table-chart";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 /**
  * Max wrapped rows of a turn-ending provider error rendered inline in the
@@ -57,9 +58,10 @@ const failedTextRenderers = new WeakSet<AssistantTextRenderer>();
 
 /** The native head of a finished thinking block: "Thought for 12s", or "Thought" when it was never seen streaming. */
 function thoughtLabel(clock: { start: number; end?: number } | undefined): string {
-	if (clock?.end === undefined) return "Thought";
+	if (clock?.end === undefined) return t("tui.chat.assistant.thought", "Thought");
 	const ms = clock.end - clock.start;
-	return `Thought for ${ms < 60_000 ? `${Math.max(1, Math.round(ms / 1000))}s` : formatDuration(ms)}`;
+	const duration = ms < 60_000 ? `${Math.max(1, Math.round(ms / 1000))}s` : formatDuration(ms);
+	return t("tui.chat.assistant.thoughtFor", "Thought for {duration}", { duration });
 }
 
 type ThinkingContentBlock = Extract<AssistantMessage["content"][number], { type: "thinking" }>;
@@ -772,7 +774,7 @@ export class AssistantMessageComponent extends Container {
 	#thinkingDotsLabel(): string {
 		const glyph = THINKING_DOTS_FRAMES[this.#thinkingDotsFrame % THINKING_DOTS_FRAMES.length] ?? "…";
 		const coloredGlyph = theme.fg("thinkingText", glyph);
-		const thinkingLabel = theme.fg("muted", " Thinking");
+		const thinkingLabel = theme.fg("muted", t("tui.chat.assistant.thinkingLabel", " Thinking"));
 		const rate = Math.min(SPEED_MAX, sharedSpeedTracker.getSpeed());
 		// The numeric badge ("<total> · <rate> toks/s") only renders while this block
 		// is genuinely streaming provider tokens. A block that has observed no token
@@ -790,7 +792,7 @@ export class AssistantMessageComponent extends Container {
 		// gray until the rarely-hit SPEED_MAX ceiling.
 		const ratio = Math.sqrt(rate / SPEED_MAX);
 		const hex = lerpHex(theme.getColorHex("dim"), theme.getAccentColorHex(), ratio);
-		const rateText = ` · ${rate.toFixed(1)} toks/s`;
+		const rateText = t("tui.chat.assistant.rate", " · {rate} toks/s", { rate: rate.toFixed(1) });
 		const rateSpan = theme.getColorMode() === "truecolor" ? chalk.hex(hex)(rateText) : theme.fg("muted", rateText);
 		return coloredGlyph + thinkingLabel + totalSpan + rateSpan;
 	}
@@ -1026,7 +1028,14 @@ export class AssistantMessageComponent extends Container {
 					// Hidden (Ctrl+T): only the live "Thinking…" head shows; a finished thought leaves nothing.
 					if (this.#hideThinkingBlock && !thinkingLive) continue;
 					const tokens = thinkingLive ? this.#thinkingTokens : (clock?.tokens ?? 0);
-					const title = tokens > 0 ? `${formatNumber(tokens)} tokens` : undefined;
+					const title =
+						tokens > 0
+							? t(
+									"tui.chat.assistant.tokens",
+									{ one: "{count} token", other: "{count} tokens" },
+									{ count: formatNumber(tokens) },
+								)
+							: undefined;
 					// Live: starburst · "Thinking…" · ticking timer · tok/s. Done: "Thought for 12s".
 					const head = thinkingLive
 						? node(
@@ -1034,7 +1043,7 @@ export class AssistantMessageComponent extends Container {
 								{ gap: "sm", title },
 								[
 									node("spinner", { style: "starburst", role: "omp.thinking.spin" }),
-									text([span("Thinking…", "muted")]),
+									text([span(t("tui.chat.assistant.thinking", "Thinking…"), "muted")]),
 									elapsed(performance.now() - (this.#thinkingClock.get(index)?.start ?? performance.now())),
 									...(rate >= 0.05 ? [node("rate", { value: rate, unit: "tok/s" })] : []),
 								],
@@ -1098,7 +1107,7 @@ export class AssistantMessageComponent extends Container {
 			children.push(
 				node(
 					"badge",
-					{ text: "↺ rewound", tone: "muted", role: "omp.assistant.rewound-tag" },
+					{ text: t("tui.chat.assistant.rewound", "↺ rewound"), tone: "muted", role: "omp.assistant.rewound-tag" },
 					undefined,
 					"rewound",
 				),
@@ -1116,8 +1125,8 @@ export class AssistantMessageComponent extends Container {
 						{
 							name: "copy",
 							role: "omp.turn.copy",
-							title: "Copy answer",
-							aria: "Copy answer",
+							title: t("tui.chat.assistant.copyAnswer", "Copy answer"),
+							aria: t("tui.chat.assistant.copyAnswer", "Copy answer"),
 							actions: { click: "copy-answer" },
 						},
 						undefined,
@@ -1152,7 +1161,19 @@ export class AssistantMessageComponent extends Container {
 				"section",
 				{
 					role: "omp.assistant.recovered",
-					head: [span(`↻ Recovered after ${attempt} ${attempt === 1 ? "retry" : "retries"}`, "muted")],
+					head: [
+						span(
+							t(
+								"tui.chat.assistant.recovered",
+								{
+									one: "↻ Recovered after {count} retry",
+									other: "↻ Recovered after {count} retries",
+								},
+								{ count: attempt },
+							),
+							"muted",
+						),
+					],
 					collapsible: true,
 					collapsed: true,
 				},
@@ -1174,13 +1195,13 @@ export class AssistantMessageComponent extends Container {
 		const code = /^(\d{3})\s+/.exec(lines[0] ?? "");
 		if (code) lines[0] = lines[0]!.slice(code[0].length);
 		const detail = lines.filter((line, index) => !lines.slice(index + 1).some(next => next.startsWith(line)));
-		const errorText = detail.join("\n") || "Unknown error";
+		const errorText = detail.join("\n") || t("tui.chrome.unknownError", "Unknown error");
 		const children: NativeChild[] = [
 			node(
 				"row",
 				{ gap: "sm" },
 				[
-					text([span("Request failed", "error strong")]),
+					text([span(t("tui.chat.assistant.requestFailed", "Request failed"), "error strong")]),
 					...(code ? [node("badge", { text: code[1]!, tone: "error", role: "omp.error.code" })] : []),
 				],
 				"head",
@@ -1205,9 +1226,24 @@ export class AssistantMessageComponent extends Container {
 					"row",
 					{ gap: "sm", role: "omp.error.actions" },
 					[
-						button("retry", "Retry", ["F5"], "Retry the failed turn"),
-						button("copy-error", "Copy error", [], "Copy the error message"),
-						button("switch-model", "Switch model", ["⌥P"], "Pick another model for this session"),
+						button(
+							"retry",
+							t("tui.chat.assistant.retry", "Retry"),
+							["F5"],
+							t("tui.chat.assistant.retryTitle", "Retry the failed turn"),
+						),
+						button(
+							"copy-error",
+							t("tui.chat.assistant.copyError", "Copy error"),
+							[],
+							t("tui.chat.assistant.copyErrorTitle", "Copy the error message"),
+						),
+						button(
+							"switch-model",
+							t("tui.chat.assistant.switchModel", "Switch model"),
+							["⌥P"],
+							t("tui.chat.assistant.switchModelTitle", "Pick another model for this session"),
+						),
 					],
 					"actions",
 				),
@@ -1642,7 +1678,7 @@ export class AssistantMessageComponent extends Container {
 			new WidthAwareText(
 				contentWidth =>
 					formatErrorBlock(message, contentWidth, maxRows, (line, index) =>
-						theme.fg("error", index === 0 ? `Error: ${line}` : line),
+						theme.fg("error", index === 0 ? t("tui.chat.assistant.errorLine", "Error: {line}", { line }) : line),
 					),
 				1,
 				0,
@@ -1762,8 +1798,9 @@ export class AssistantMessageComponent extends Container {
 				);
 				continue;
 			}
+			const fallback = t("tui.chat.assistant.imageFallback", "[Image: {mime}]", { mime: image.mimeType });
 			this.#contentContainer.addChild(
-				new Text(theme.fg("toolOutput", linkedImageText(`[Image: ${image.mimeType}]`, image, sourcePath)), 1, 0),
+				new Text(theme.fg("toolOutput", linkedImageText(fallback, image, sourcePath)), 1, 0),
 			);
 		}
 	}

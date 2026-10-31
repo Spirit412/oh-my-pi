@@ -37,6 +37,7 @@ import { imageLinksEnabled, linkedImageText } from "../prompt/image-references";
 import { Memo } from "../native/memo";
 import { type EditMode, type PerFileDiffPreview, renderStreamingFallback } from "../tools/edit";
 import { taskCardAgentIds } from "../tools/task";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import { TODO_STRIKE_TOTAL_FRAMES, type TodoToolDetails } from "../tools/todo";
 import { isNativeRendering } from "../native/state";
 import { isWaitingPollDetails } from "../tools/wait";
@@ -1080,7 +1081,14 @@ export class ToolExecutionComponent extends Container {
 				: node("col", { gap: "sm", role: "omp.tool.diagnostics" }, sections, "late");
 		return {
 			section,
-			chip: { text: count === 1 ? "1 diagnostic" : `${count} diagnostics`, tone: errored ? "error" : "warning" },
+			chip: {
+				text: t(
+					"tui.chat.toolExecution.diagnostics",
+					{ one: "{count} diagnostic", other: "{count} diagnostics" },
+					{ count },
+				),
+				tone: errored ? "error" : "warning",
+			},
 		};
 	}
 
@@ -1149,7 +1157,8 @@ export class ToolExecutionComponent extends Container {
 		const target = typeof head.target === "string" ? span(head.target, "muted") : head.target?.map(s => ({ ...s }));
 		const meta = (head.meta ?? []).map(m => (typeof m === "string" ? m : m.map(s => s.t).join("")));
 		const spans = toolHead(title, ...(Array.isArray(target) ? target : [target]), ...meta);
-		if (head.exit) spans.push(span(" "), span(`exit ${head.exit}`, "error"));
+		if (head.exit)
+			spans.push(span(" "), span(t("tui.chat.toolExecution.exit", "exit {code}", { code: head.exit }), "error"));
 		if (head.note)
 			spans.push(
 				span(" "),
@@ -1435,7 +1444,7 @@ export class ToolExecutionComponent extends Container {
 			// A detail-less custom summary (e.g. wait before its result
 			// parse) must not fold to a bare `╭─ Label` frame under viewport
 			// pressure — keep the generic liveness hint for in-flight calls.
-			return this.#isRunning() ? { ...summary, detail: "running" } : summary;
+			return this.#isRunning() ? { ...summary, detail: t("tui.chat.toolExecution.running", "running") } : summary;
 		}
 		if (isRecord(this.#args)) {
 			for (const key of ["command", "path", "input"] as const) {
@@ -1445,7 +1454,10 @@ export class ToolExecutionComponent extends Container {
 				}
 			}
 		}
-		return { label: this.#toolLabel, detail: this.#isRunning() ? "running" : undefined };
+		return {
+			label: this.#toolLabel,
+			detail: this.#isRunning() ? t("tui.chat.toolExecution.running", "running") : undefined,
+		};
 	}
 	/** Still executing: no settled result yet and the turn has not sealed it. */
 	#isRunning(): boolean {
@@ -1659,7 +1671,14 @@ export class ToolExecutionComponent extends Container {
 						{
 							iconOverride: spinner,
 							title: "Edit",
-							description: theme.fg("dim", `${remaining} more file${remaining > 1 ? "s" : ""} pending…`),
+							description: theme.fg(
+								"dim",
+								t(
+									"tui.chat.toolExecution.moreFiles",
+									{ one: "{count} more file pending…", other: "{count} more files pending…" },
+									{ count: remaining },
+								),
+							),
 						},
 						theme,
 					);

@@ -5,6 +5,7 @@ import { theme } from "../theme";
 import { type TodoItem, todoChecklistPhases } from "../tools/todo";
 import { node, span, withHidden } from "../native/describe";
 import type { DescribeContext, NativeNode } from "../native/node";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 /**
  * Component that renders a todo completion reminder notification, committed into
@@ -21,9 +22,16 @@ export class TodoReminderComponent extends Container {
 	constructor(todos: TodoItem[], attempt: number, maxAttempts: number) {
 		super();
 		this.#todos = todos;
-		this.#note = `reminder ${attempt}/${maxAttempts}`;
+		this.#note = t("tui.chat.todoReminder.note", "reminder {attempt}/{max}", { attempt, max: maxAttempts });
 		const count = todos.length;
-		const header = `${count} incomplete ${count === 1 ? "todo" : "todos"} - reminder ${attempt}/${maxAttempts}`;
+		const header = t(
+			"tui.chat.todoReminder.header",
+			{
+				one: "{count} incomplete todo - reminder {attempt}/{max}",
+				other: "{count} incomplete todos - reminder {attempt}/{max}",
+			},
+			{ count, attempt, max: maxAttempts },
+		);
 		this.#notice = new MessageNoticeComponent({
 			presentation: () => {
 				const todoList = todos.map(todo => `  ${theme.checkbox.unchecked} ${todo.content}`).join("\n");

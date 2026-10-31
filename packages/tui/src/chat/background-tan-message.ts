@@ -4,6 +4,7 @@ import { theme } from "../theme";
 import type { TranscriptBlock } from "../chrome/transcript-container";
 import { TranscriptStatusBlock } from "../chrome/transcript-status";
 import { span } from "../native/describe";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 const TAN_WORK_PREVIEW_LENGTH = 56;
 
@@ -21,15 +22,20 @@ function previewWork(work: string): string {
  */
 export function createBackgroundTanDispatchBlock(message: CustomMessage<unknown>): TranscriptBlock {
 	const details = (message as CustomMessage<Partial<BackgroundTanDispatchDetails>>).details;
-	const jobId = details?.jobId ?? "unknown";
+	const jobId = details?.jobId ?? t("tui.chat.backgroundTan.unknownJob", "unknown");
 	const work = details?.work ? previewWork(details.work) : undefined;
-	const spans = [span("Tangent dispatched"), span(" · ", "dim"), span(`task ${jobId}`, "dim")];
+	const dispatched = t("tui.chat.backgroundTan.dispatched", "Tangent dispatched");
+	const spans = [
+		span(dispatched),
+		span(" · ", "dim"),
+		span(t("tui.chat.backgroundTan.task", "task {id}", { id: jobId }), "dim"),
+	];
 	if (work) spans.push(span(" · ", "dim"), span(work, "dim"));
 	return new TranscriptStatusBlock([
 		{
 			parts: [
-				{ text: `${theme.icon.output} Tangent dispatched`, color: "muted" },
-				{ text: "[task]", color: "dim" },
+				{ text: `${theme.icon.output} ${dispatched}`, color: "muted" },
+				{ text: t("tui.chat.backgroundTan.taskTag", "[task]"), color: "dim" },
 				{ text: jobId, color: "accent" },
 				work ? { text: `${theme.format.dash} ${work}`, color: "dim" } : undefined,
 			],

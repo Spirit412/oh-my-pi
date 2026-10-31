@@ -2,6 +2,7 @@ import { Text } from "../components/text";
 import { theme } from "../theme";
 import { span, text } from "../native/describe";
 import type { NativeNode } from "../native/node";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 /**
  * Dim transcript marker for tool calls stripped from the resolved branch
@@ -14,7 +15,14 @@ export class StrippedToolCallsPlaceholder extends Text {
 	#native: NativeNode | undefined;
 
 	constructor(strippedToolCalls: number, toolActivityVisible: boolean) {
-		const label = `${strippedToolCalls} tool call${strippedToolCalls === 1 ? "" : "s"} elided — no result on this branch`;
+		const label = t(
+			"tui.chat.strippedToolCalls.label",
+			{
+				one: "{count} tool call elided — no result on this branch",
+				other: "{count} tool calls elided — no result on this branch",
+			},
+			{ count: strippedToolCalls },
+		);
 		super(theme.fg("dim", theme.italic(label)), 1, 0);
 		this.#label = label;
 		this.#toolActivityVisible = toolActivityVisible;

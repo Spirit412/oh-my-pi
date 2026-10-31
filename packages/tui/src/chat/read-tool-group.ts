@@ -35,6 +35,7 @@ import {
 import { plainText } from "../native/spans";
 import { Memo } from "../native/memo";
 import { fileHref, fileRow, inlineErrorView } from "../tools/native-view";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 /**
  * Extract the read call's target path. `path` is the canonical arg; `file_path`
@@ -186,6 +187,16 @@ const READ_STATUS_RANK: Record<ReadEntry["status"], number> = {
 	warning: 2,
 	error: 3,
 };
+
+/** `corrected from <path>`: the read landed on a sibling the loader corrected to. */
+function correctedFromLabel(path: string): string {
+	return t("tui.chat.readGroup.correctedFrom", "corrected from {path}", { path });
+}
+
+/** `<n> conflict(s)` badge for a read that disagreed with an edit. */
+function conflictLabel(count: number): string {
+	return t("tui.chat.readGroup.conflicts", { one: "{count} conflict", other: "{count} conflicts" }, { count });
+}
 
 function getDisplayReadTargets(
 	details: ReadToolDetails | undefined,
@@ -696,10 +707,8 @@ export class ReadToolGroupComponent extends Container implements ToolExecutionHa
 			target: filePath ? `${filePath}${split.sel ? `:${split.sel}` : ""}` : "…",
 			targetKind: "path",
 			href: fileHref(linkPathForTargets(row.targets)),
-			meta: correctedFrom ? [`corrected from ${shortenPath(correctedFrom)}`] : undefined,
-			badges: conflicts
-				? [{ text: `${conflicts} conflict${conflicts === 1 ? "" : "s"}`, tone: "warning" }]
-				: undefined,
+			meta: correctedFrom ? [correctedFromLabel(shortenPath(correctedFrom))] : undefined,
+			badges: conflicts ? [{ text: conflictLabel(conflicts), tone: "warning" }] : undefined,
 		};
 	}
 
@@ -714,14 +723,14 @@ export class ReadToolGroupComponent extends Container implements ToolExecutionHa
 			error !== undefined
 				? [span(`— ${error.split("\n", 1)[0]}`, "error")]
 				: correctedFrom
-					? `corrected from ${shortenPath(correctedFrom)}`
+					? correctedFromLabel(shortenPath(correctedFrom))
 					: undefined;
 		return fileRow(shortenPath(split.sel ? split.path : row.targetPath), {
 			range: split.sel ? `:${split.sel}` : undefined,
 			href: fileHref(linkPathForTargets(row.targets)),
 			icon: status === "error" ? "x-circle" : undefined,
 			tone: READ_STATUS_TONE[status],
-			chip: conflicts ? { text: `${conflicts} conflict${conflicts === 1 ? "" : "s"}` } : undefined,
+			chip: conflicts ? { text: conflictLabel(conflicts) } : undefined,
 			detail,
 			title: error,
 			key: row.targetPath,
@@ -734,7 +743,7 @@ export class ReadToolGroupComponent extends Container implements ToolExecutionHa
 		return (
 			plainText(failed?.contentText ?? "")
 				.replace(/^Error:\s*/, "")
-				.trim() || "Read failed"
+				.trim() || t("tui.chat.readGroup.failed", "Read failed")
 		);
 	}
 
@@ -882,9 +891,9 @@ export class ReadToolGroupComponent extends Container implements ToolExecutionHa
 		}
 		if (split.sel) spans.push(span(`:${split.sel}`, "accent"));
 		const correctedFrom = this.#correctedFromForTargets(row.targets);
-		if (correctedFrom) spans.push(span(` (corrected from ${shortenPath(correctedFrom)})`, "dim"));
+		if (correctedFrom) spans.push(span(` (${correctedFromLabel(shortenPath(correctedFrom))})`, "dim"));
 		const conflicts = this.#conflictCountForTargets(row.targets);
-		if (conflicts) spans.push(span(` (⚠ ${conflicts} conflict${conflicts === 1 ? "" : "s"})`, "warning"));
+		if (conflicts) spans.push(span(` (⚠ ${conflictLabel(conflicts)})`, "warning"));
 		return spans;
 	}
 
@@ -1152,7 +1161,7 @@ export class ReadToolGroupComponent extends Container implements ToolExecutionHa
 			pathDisplay += theme.fg("accent", selectorSuffix);
 		}
 		if (options.correctedFrom) {
-			pathDisplay += theme.fg("dim", ` (corrected from ${shortenPath(options.correctedFrom)})`);
+			pathDisplay += theme.fg("dim", ` (${correctedFromLabel(shortenPath(options.correctedFrom))})`);
 		}
 		pathDisplay += this.#formatConflictBadge(options.conflictCount);
 		return pathDisplay;
@@ -1161,7 +1170,7 @@ export class ReadToolGroupComponent extends Container implements ToolExecutionHa
 	#formatConflictBadge(conflictCount: number | undefined): string {
 		if (!conflictCount || conflictCount <= 0) return "";
 		const n = conflictCount;
-		return ` ${theme.fg("warning", `(⚠ ${n} conflict${n === 1 ? "" : "s"})`)}`;
+		return ` ${theme.fg("warning", `(⚠ ${conflictLabel(n)})`)}`;
 	}
 
 	/**

@@ -2,6 +2,7 @@ import type { Usage } from "@oh-my-pi/pi-ai";
 import { formatNumber } from "@oh-my-pi/pi-utils";
 import { MessageDividerComponent } from "../chrome/message-divider";
 import { theme } from "../theme";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 /**
  * Minimum prefix the previous turn must have READ back from cache before a
@@ -80,9 +81,16 @@ export class CacheInvalidationMarkerComponent extends MessageDividerComponent {
 		super({
 			label: () => {
 				const icon = theme.icon.cacheMiss;
-				const head = icon ? `${icon} cache miss` : "cache miss";
+				const miss = t("tui.chat.cacheInvalidation.miss", "cache miss");
+				const head = icon ? `${icon} ${miss}` : miss;
 				const tokens = info.reprocessedTokens;
-				return tokens > 0 ? `${head} ${theme.sep.dot.trim()} ${formatNumber(tokens)} tokens` : head;
+				if (tokens <= 0) return head;
+				const count = formatNumber(tokens);
+				return `${head} ${theme.sep.dot.trim()} ${t(
+					"tui.chat.cacheInvalidation.tokens",
+					{ one: "{count} token", other: "{count} tokens" },
+					{ count },
+				)}`;
 			},
 			labelColor: "muted",
 			ruleColor: "dim",
@@ -90,10 +98,16 @@ export class CacheInvalidationMarkerComponent extends MessageDividerComponent {
 			role: "omp.marker.cache-miss",
 			native: {
 				icon: "database",
-				label: () =>
-					info.reprocessedTokens > 0
-						? `Cache miss · ${formatNumber(info.reprocessedTokens)} tokens`
-						: "Cache miss",
+				label: () => {
+					const miss = t("tui.chat.cacheInvalidation.missTitle", "Cache miss");
+					if (info.reprocessedTokens <= 0) return miss;
+					const count = formatNumber(info.reprocessedTokens);
+					return `${miss} · ${t(
+						"tui.chat.cacheInvalidation.tokens",
+						{ one: "{count} token", other: "{count} tokens" },
+						{ count },
+					)}`;
+				},
 			},
 			// Too narrow to frame — preserve the legacy bare label.
 			truncateWhenNarrow: false,

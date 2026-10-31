@@ -21,6 +21,7 @@ import type { TspCardStatus, TspSpan, TspText, TspTone } from "@oh-my-pi/pi-wire
 import { card, node, span, text } from "../native/describe";
 import type { NativeChild, NativeNode } from "../native/node";
 import { runBox, runFoot, runInput, runOutput, type RunState } from "../tools/native-view";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 /** Output rows shown while an execution is collapsed. */
 export const PREVIEW_LINES = 20;
@@ -35,7 +36,11 @@ export function clampDisplayLine(line: string): string {
 		return line;
 	}
 	const omitted = visible - MAX_DISPLAY_LINE_CHARS;
-	return `${truncateToWidth(line, MAX_DISPLAY_LINE_CHARS, Ellipsis.Omit)}… [${omitted} visible columns omitted]`;
+	return `${truncateToWidth(line, MAX_DISPLAY_LINE_CHARS, Ellipsis.Omit)}… [${t(
+		"tui.chat.execution.columnsOmitted",
+		"{count} visible columns omitted",
+		{ count: omitted },
+	)}]`;
 }
 
 export type ExecutionStatus = "running" | "complete" | "cancelled" | "error";
@@ -65,7 +70,7 @@ export function buildExecutionFrame(
 		ui,
 		spinner => theme.fg(colorKey, spinner),
 		text => theme.fg("muted", text),
-		`Running… (${interruptKey()} to cancel)`,
+		t("tui.chat.execution.running", "Running… ({key} to cancel)", { key: interruptKey() }),
 		getSymbolTheme().spinnerFrames,
 	);
 
@@ -90,12 +95,20 @@ export function buildStatusFooter(opts: {
 	const parts: string[] = [];
 
 	if (opts.hiddenLineCount > 0 && !opts.suppressHiddenCount) {
-		parts.push(theme.fg("dim", `… ${opts.hiddenLineCount} more lines (${expandKeyHint()} to expand)`));
+		parts.push(
+			theme.fg(
+				"dim",
+				t("tui.chat.execution.moreLines", "… {count} more lines ({key} to expand)", {
+					count: opts.hiddenLineCount,
+					key: expandKeyHint(),
+				}),
+			),
+		);
 	}
 	if (opts.status === "cancelled") {
-		parts.push(theme.fg("warning", "(cancelled)"));
+		parts.push(theme.fg("warning", t("tui.chat.execution.cancelled", "(cancelled)")));
 	} else if (opts.status === "error") {
-		parts.push(theme.fg("error", `(exit ${opts.exitCode})`));
+		parts.push(theme.fg("error", t("tui.chat.execution.exit", "(exit {code})", { code: String(opts.exitCode) })));
 	}
 	if (opts.truncation) {
 		parts.push(theme.fg("warning", formatTruncationMetaNotice(opts.truncation)));
@@ -159,7 +172,16 @@ export function describeExecutionCard(input: ExecutionCardInput): NativeNode {
 	if (input.images) children.push(...input.images);
 	if (running) {
 		children.push(
-			node("spinner", { label: [span(`Running… (${interruptKey()} to cancel)`, "muted")] }, undefined, "running"),
+			node(
+				"spinner",
+				{
+					label: [
+						span(t("tui.chat.execution.running", "Running… ({key} to cancel)", { key: interruptKey() }), "muted"),
+					],
+				},
+				undefined,
+				"running",
+			),
 		);
 	}
 	const notes: TspSpan[] = [];
@@ -167,8 +189,9 @@ export function describeExecutionCard(input: ExecutionCardInput): NativeNode {
 		if (notes.length > 0) notes.push(span("\n"));
 		notes.push(span(value, token));
 	};
-	if (input.status === "cancelled") note("(cancelled)", "warning");
-	else if (input.status === "error") note(`(exit ${input.exitCode})`, "error");
+	if (input.status === "cancelled") note(t("tui.chat.execution.cancelled", "(cancelled)"), "warning");
+	else if (input.status === "error")
+		note(t("tui.chat.execution.exit", "(exit {code})", { code: String(input.exitCode) }), "error");
 	if (input.truncation) note(formatTruncationMetaNotice(input.truncation), "warning");
 	if (input.artifactError) note(formatArtifactErrorNotice(input.artifactError), "warning");
 	if (notes.length > 0) children.push(text(notes, { wrap: "word", key: "notes" }));
@@ -249,8 +272,15 @@ export function describeExecutionTool(input: ExecutionToolInput): NativeNode {
 		],
 		{ key: "run", tone: state === "failed" ? "error" : undefined },
 	);
-	const badges: { text: string; tone?: TspTone; title?: string }[] = [{ text: "you", tone: "user" }];
-	if (input.excluded) badges.push({ text: "not sent", title: "Not sent to the model", tone: "muted" });
+	const badges: { text: string; tone?: TspTone; title?: string }[] = [
+		{ text: t("tui.chat.execution.you", "you"), tone: "user" },
+	];
+	if (input.excluded)
+		badges.push({
+			text: t("tui.chat.execution.notSent", "not sent"),
+			title: t("tui.chat.execution.notSentTitle", "Not sent to the model"),
+			tone: "muted",
+		});
 	return node(
 		"tool",
 		{
