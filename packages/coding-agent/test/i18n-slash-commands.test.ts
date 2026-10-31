@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { registerCatalog, registerCoreCatalogs, resetI18nForTest, setLocale } from "../src/i18n";
+import { hasTranslation, registerCatalog, registerCoreCatalogs, resetI18nForTest, setLocale } from "../src/i18n";
 import { buildAvailableSlashCommands } from "../src/slash-commands/available-commands";
-import { BUILTIN_SLASH_COMMAND_DEFS } from "../src/slash-commands/builtin-registry";
+import { BUILTIN_SLASH_COMMANDS_INTERNAL, BUILTIN_SLASH_COMMAND_DEFS } from "../src/slash-commands/builtin-registry";
+import { acpCommandDescriptionKey, commandDescriptionKey } from "../src/slash-commands/i18n";
 
 function commandDef(name: string) {
 	const def = BUILTIN_SLASH_COMMAND_DEFS.find(command => command.name === name);
@@ -77,5 +78,34 @@ describe("builtin slash-command descriptions", () => {
 			description: "Spend a saved provider rate-limit reset",
 			usage: "[provider/credential-id|provider/active]",
 		});
+	});
+});
+
+describe("bundled Russian catalog", () => {
+	test("covers every builtin command description and ACP override", () => {
+		for (const command of BUILTIN_SLASH_COMMAND_DEFS) {
+			expect(hasTranslation(commandDescriptionKey(command.name), "ru")).toBe(true);
+		}
+		for (const command of BUILTIN_SLASH_COMMANDS_INTERNAL) {
+			if (!command.acpDescription) continue;
+			expect(hasTranslation(acpCommandDescriptionKey(command.name), "ru")).toBe(true);
+		}
+	});
+
+	test("feeds the live registry and the ACP palette", async () => {
+		setLocale("ru");
+		expect(commandDef("settings").description).toBe("Открыть меню настроек");
+
+		const commands = await buildAvailableSlashCommands(
+			{
+				customCommands: [],
+				skills: [],
+				sessionManager: { getCwd: () => process.cwd() },
+				setSlashCommands() {},
+			} as never,
+			async () => [],
+		);
+		const byName = Object.fromEntries(commands.map(command => [command.name, command]));
+		expect(byName.model.description).toBe("Показать текущий выбор модели");
 	});
 });
