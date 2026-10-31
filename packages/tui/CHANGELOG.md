@@ -5,6 +5,7 @@
 ### Changed
 
 - Approval dialog labels, tooltips, and footer hints now resolve through `@oh-my-pi/pi-utils/i18n`. English output is unchanged when no catalog is active; Russian catalogs can override the labels.
+- Settings panel tab labels, tab leads, and section headings now resolve through `@oh-my-pi/pi-utils/i18n`; raw group names stay the ordering ids.
 
 ## [18.14.1] - 2026-10-31
 

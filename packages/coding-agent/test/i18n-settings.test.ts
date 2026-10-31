@@ -1,7 +1,15 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import type { SubmenuOption } from "@oh-my-pi/pi-tui/overlays/settings-defs";
+import {
+	TAB_GROUPS,
+	TAB_LEADS,
+	TAB_METADATA,
+	type SettingTab,
+	type SubmenuOption,
+	settingsGroupKey,
+	settingsGroupLabel,
+} from "@oh-my-pi/pi-tui/overlays/settings-defs";
 import { createSettingsHost } from "../src/config/settings-ui";
-import { registerCatalog, registerCoreCatalogs, resetI18nForTest, setLocale } from "../src/i18n";
+import { hasTranslation, registerCatalog, registerCoreCatalogs, resetI18nForTest, setLocale } from "../src/i18n";
 
 afterEach(() => {
 	resetI18nForTest();
@@ -14,17 +22,22 @@ function settingsEntry(path: string) {
 	return found;
 }
 
+function settingsUi(path: string) {
+	const ui = settingsEntry(path).ui;
+	if (!ui) throw new Error(`setting has no UI metadata: ${path}`);
+	return ui;
+}
+
 function submenuOptions(path: string): SubmenuOption[] {
-	const options = settingsEntry(path).ui.options;
+	const options = settingsUi(path).options;
 	if (options === "runtime" || options === undefined) throw new Error(`no static options for: ${path}`);
 	return [...options];
 }
 
 describe("settings UI i18n", () => {
 	test("English labels, descriptions, and option copy are unchanged", () => {
-		const language = settingsEntry("language");
-		expect(language.ui.label).toBe("Language");
-		expect(language.ui.description).toBe(
+		expect(settingsUi("language").label).toBe("Language");
+		expect(settingsUi("language").description).toBe(
 			"UI language. Auto follows the system locale; English and Russian are bundled.",
 		);
 
@@ -47,9 +60,9 @@ describe("settings UI i18n", () => {
 		);
 		setLocale("de");
 
-		const storageEntry = settingsEntry("modelRoleStorage");
-		expect(storageEntry.ui.label).toBe("Speicherort der Modellrollen");
-		expect(storageEntry.ui.description).toBe("Wo Rollenmodelle gespeichert werden");
+		const storageUi = settingsUi("modelRoleStorage");
+		expect(storageUi.label).toBe("Speicherort der Modellrollen");
+		expect(storageUi.description).toBe("Wo Rollenmodelle gespeichert werden");
 
 		const storage = submenuOptions("modelRoleStorage");
 		expect(storage[0].value).toBe("global");
@@ -73,12 +86,52 @@ describe("settings UI i18n", () => {
 			);
 			setLocale("de");
 
-			expect(settingsEntry("language").ui.description).toBe(
+			expect(settingsUi("language").description).toBe(
 				"Sprache der Oberfläche. $OMP_LANG überschreibt diese Einstellung, solange sie gesetzt ist.",
 			);
 		} finally {
 			if (previous === undefined) delete Bun.env.OMP_LANG;
 			else Bun.env.OMP_LANG = previous;
 		}
+	});
+});
+
+describe("bundled Russian settings catalog", () => {
+	test("covers every setting label, description, warning, and option", () => {
+		for (const entry of createSettingsHost().entries) {
+			expect(hasTranslation(`omp.setting.${entry.path}.label`, "ru")).toBe(true);
+			expect(hasTranslation(`omp.setting.${entry.path}.description`, "ru")).toBe(true);
+			const ui = entry.ui;
+			if (!ui) continue;
+			if (ui.warning) {
+				expect(hasTranslation(`omp.setting.${entry.path}.warning`, "ru")).toBe(true);
+			}
+			if (Array.isArray(ui.options)) {
+				for (const option of ui.options) {
+					expect(hasTranslation(`omp.setting.${entry.path}.option.${option.value}.label`, "ru")).toBe(true);
+					if (option.description) {
+						expect(hasTranslation(`omp.setting.${entry.path}.option.${option.value}.description`, "ru")).toBe(
+							true,
+						);
+					}
+				}
+			}
+		}
+	});
+
+	test("covers tab labels, leads, and every section heading", () => {
+		for (const tab of Object.keys(TAB_METADATA) as SettingTab[]) {
+			expect(hasTranslation(`tui.settings.tab.${tab}`, "ru")).toBe(true);
+			expect(hasTranslation(`tui.settings.lead.${tab}`, "ru")).toBe(true);
+		}
+		for (const groups of Object.values(TAB_GROUPS)) {
+			for (const group of groups) {
+				expect(hasTranslation(settingsGroupKey(group), "ru")).toBe(true);
+			}
+		}
+
+		setLocale("ru");
+		expect(settingsGroupLabel("Theme")).toBe("Тема");
+		expect(TAB_METADATA.appearance.label).toBe("Внешний вид");
 	});
 });

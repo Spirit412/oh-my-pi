@@ -5,6 +5,7 @@
 ### Added
 
 - Added `@oh-my-pi/pi-utils/i18n`: an ambient `t()` translator with inline English fallbacks, locale normalization, plural messages via `Intl.PluralRules`, catalog registration with source precedence and disposal, and a test reset for locale/catalog isolation.
+- CLI help rendering now resolves section headers, command/flag/argument descriptions, and shell-completion descriptions through `@oh-my-pi/pi-utils/i18n`; `run()` accepts `prepareHelp` and `rootCommandName` so hosts can set the UI locale before help renders.
 
 ## [18.14.1] - 2026-10-31
 
