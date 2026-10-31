@@ -132,6 +132,113 @@ async function runInstall(
 	return { exitCode, stdout, stderr, installDir };
 }
 
+/**
+ * A source install with stubbed tooling: `bun` answers the installer's probes
+ * and creates the global shim on `link`, `git clone` lays down the checkout
+ * layout, and `cargo` only has to exist. Nothing is built, so the assertions
+ * cover the installer's own linking and PATH handling. PATH holds only the
+ * stubs and /usr/bin:/bin, never the host's real omp, so the resolution checks
+ * cannot see an unrelated install.
+ */
+async function runSourceInstall(options: {
+	installDirOnPath: boolean;
+	bunBinOnPath?: boolean;
+	staleBinary?: boolean;
+}): Promise<{
+	exitCode: number;
+	stdout: string;
+	stderr: string;
+	installDir: string;
+	env: NodeJS.ProcessEnv;
+}> {
+	const dir = await fs.mkdtemp(path.join(os.tmpdir(), "omp-source-install-"));
+	cleanups.push(() => fs.rm(dir, { recursive: true, force: true }));
+	const binDir = path.join(dir, "bin");
+	const bunBinDir = path.join(dir, "bun-bin");
+	const installDir = path.join(dir, "install");
+	const home = path.join(dir, "home");
+	await Promise.all([fs.mkdir(binDir), fs.mkdir(bunBinDir), fs.mkdir(installDir), fs.mkdir(home)]);
+	await writeExecutable(
+		path.join(binDir, "bun"),
+		`#!/bin/sh
+case "$1" in
+	--version) echo "1.4.4" ;;
+	-e) printf '%s' "${process.arch}" ;;
+	pm) echo "${bunBinDir}" ;;
+	link) printf '#!/bin/sh\\necho "omp/18.14.3"\\n' > "${bunBinDir}/omp"; chmod +x "${bunBinDir}/omp" ;;
+esac
+exit 0
+`,
+	);
+	await writeExecutable(
+		path.join(binDir, "git"),
+		`#!/bin/sh
+if [ "$1" = "clone" ]; then
+	for last; do :; done
+	mkdir -p "$last/packages/coding-agent"
+fi
+exit 0
+`,
+	);
+	await writeExecutable(path.join(binDir, "cargo"), "#!/bin/sh\nexit 0\n");
+	if (options.staleBinary) {
+		await writeExecutable(path.join(installDir, "omp"), '#!/bin/sh\necho "omp/17.1.3"\n');
+	}
+	const pathParts = [
+		...(options.installDirOnPath ? [installDir] : []),
+		...(options.bunBinOnPath ? [bunBinDir] : []),
+		binDir,
+		"/usr/bin",
+		"/bin",
+	];
+	const env = {
+		...process.env,
+		HOME: home,
+		PATH: pathParts.join(":"),
+		PI_INSTALL_DIR: installDir,
+		PI_SOURCE_DIR: path.join(dir, "source"),
+	};
+	const proc = Bun.spawn(["sh", "scripts/install.sh", "--source"], {
+		cwd: repoRoot,
+		env,
+		stdout: "pipe",
+		stderr: "pipe",
+	});
+	const [exitCode, stdout, stderr] = await Promise.all([
+		proc.exited,
+		new Response(proc.stdout).text(),
+		new Response(proc.stderr).text(),
+	]);
+	return { exitCode, stdout, stderr, installDir, env };
+}
+
+describe.skipIf(process.platform === "win32")("install.sh source mode", () => {
+	test("exposes omp through PI_INSTALL_DIR when bun's global bin is off PATH", async () => {
+		const result = await runSourceInstall({ installDirOnPath: true });
+
+		expect(result.exitCode, result.stdout + result.stderr).toBe(0);
+		expect((await fs.lstat(path.join(result.installDir, "omp"))).isSymbolicLink()).toBe(true);
+		const probe = Bun.spawnSync(["sh", "-c", "command -v omp && omp --version"], { env: result.env });
+		expect(probe.stdout.toString().trim().split("\n")).toEqual([path.join(result.installDir, "omp"), "omp/18.14.3"]);
+	});
+
+	test("replaces a prebuilt omp in PI_INSTALL_DIR instead of letting it shadow the new link", async () => {
+		const result = await runSourceInstall({ installDirOnPath: true, staleBinary: true });
+
+		expect(result.exitCode, result.stdout + result.stderr).toBe(0);
+		expect((await fs.lstat(path.join(result.installDir, "omp"))).isSymbolicLink()).toBe(true);
+		const probe = Bun.spawnSync(["sh", "-c", "omp --version"], { env: result.env });
+		expect(probe.stdout.toString().trim()).toBe("omp/18.14.3");
+	});
+
+	test("leaves PI_INSTALL_DIR alone when bun's global bin is already on PATH", async () => {
+		const result = await runSourceInstall({ installDirOnPath: false, bunBinOnPath: true });
+
+		expect(result.exitCode, result.stdout + result.stderr).toBe(0);
+		await expect(fs.lstat(path.join(result.installDir, "omp"))).rejects.toThrow();
+	});
+});
+
 describe.skipIf(process.platform === "win32")("install.sh binary mode", () => {
 	test("installs the host target's build, verified against the answer's file sha256", async () => {
 		const service = startService(sha256(BINARY));

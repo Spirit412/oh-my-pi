@@ -24,6 +24,10 @@
 
 - Approval prompts and the approval dialog, tooltips, and footer hints now render through the i18n translator. English output is unchanged; `--lang ru` (or `OMP_LANG=ru`) renders the approval flow in Russian.
 
+### Fixed
+
+- Source installs now leave a runnable `omp` on `PATH` even when bun's global bin directory is not on it (the command is linked into `~/.local/bin`, `PI_INSTALL_DIR`), replacing a prebuilt binary that otherwise shadowed the new install.
+
 ## [18.14.3] - 2026-10-31
 
 ### Fixed

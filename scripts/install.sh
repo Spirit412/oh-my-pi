@@ -184,6 +184,67 @@ has_git_lfs() {
     command -v git-lfs >/dev/null 2>&1
 }
 
+# Directory where `bun link` writes the global `omp` shim. Bun's own installer
+# adds it to PATH through the shell profile; a bun installed by npm or a distro
+# package reports the same location but leaves it off PATH.
+bun_global_bin_dir() {
+    global_bin="$(bun pm bin -g 2>/dev/null | head -n 1 || true)"
+    if [ -n "$global_bin" ]; then
+        printf '%s\n' "$global_bin"
+        return
+    fi
+    printf '%s\n' "${BUN_INSTALL:-$HOME/.bun}/bin"
+}
+
+# Make the freshly linked `omp` reachable from PATH and report how to run it.
+# `bun link` only writes its shim into bun's global bin directory, so a source
+# install used to end with "Run 'omp'" while the command was missing (bun from
+# npm/apt) or while an older prebuilt omp earlier in PATH shadowed the new link
+# (a previous --binary install in INSTALL_DIR). INSTALL_DIR is where --binary
+# puts omp, so pointing its entry at the new shim both publishes the command and
+# replaces a stale binary that would otherwise win the PATH lookup.
+link_omp_command() {
+    bun_bin="$(bun_global_bin_dir)"
+    linked="${bun_bin}/omp"
+    if [ ! -x "$linked" ]; then
+        echo "bun link did not create an executable ${linked}"
+        exit 1
+    fi
+
+    # `command -v` consults the shell's command hash first; drop it before each
+    # lookup so the check sees the shim we just installed or linked.
+    hash -r 2>/dev/null || true
+    resolved="$(command -v omp 2>/dev/null || true)"
+    if [ "$resolved" != "$linked" ]; then
+        if mkdir -p "$INSTALL_DIR" 2>/dev/null && ln -sfn "$linked" "${INSTALL_DIR}/omp" 2>/dev/null; then
+            hash -r 2>/dev/null || true
+            resolved="$(command -v omp 2>/dev/null || true)"
+        fi
+    fi
+
+    case "$resolved" in
+        "$linked"|"${INSTALL_DIR}/omp")
+            # Verify the command starts before claiming success, matching the
+            # binary installer. A source checkout can link fine while failing to
+            # run (missing bun on PATH, broken native addon, unwritable HOME).
+            if ! version_output="$("$resolved" --version 2>&1)"; then
+                echo "✗ omp was linked at ${linked} but cannot start:"
+                echo "$version_output" | sed 's/^/    /'
+                exit 1
+            fi
+            echo "Run 'omp' to get started!"
+            ;;
+        "")
+            echo "omp is installed at ${linked}"
+            echo "Add ${INSTALL_DIR} (or ${bun_bin}) to your PATH, then run 'omp'"
+            ;;
+        *)
+            echo "omp is installed at ${linked}, but ${resolved} comes first in PATH"
+            echo "Remove the older omp or run '${linked}' directly"
+            ;;
+    esac
+}
+
 # Install from source: clone the fork, install the workspace, build the native
 # addon, and link the coding-agent package. The checkout is kept under
 # SOURCE_DIR because `bun link` points the global `omp` binary at its source.
@@ -297,7 +358,7 @@ install_via_bun() {
 
     echo ""
     echo "✓ Installed omp from ${REPO} via bun"
-    echo "Run 'omp' to get started!"
+    link_omp_command
 }
 
 # The string value of field "$1" in the one-line JSON on stdin (last

@@ -42,7 +42,7 @@ These commands install **this fork** (`Spirit412/oh-my-pi`). Source installs clo
 curl -fsSL https://raw.githubusercontent.com/Spirit412/oh-my-pi/main/scripts/install.sh | sh
 ```
 
-The installer installs [bun](https://bun.sh) if needed, clones the repository to `~/.omp/source`, runs `bun install --frozen-lockfile`, builds the native addon, and links `omp`. Source builds need `git` and a Rust toolchain — install Rust from https://rustup.rs before running the installer.
+The installer installs [bun](https://bun.sh) if needed, clones the repository to `~/.omp/source`, runs `bun install --frozen-lockfile`, builds the native addon, and links `omp`. When bun's global bin directory is not on `PATH` (a bun installed by npm or a distro package), the installer also links the command into `~/.local/bin` (`PI_INSTALL_DIR`), replacing a prebuilt `omp` that would otherwise shadow the new install. Source builds need `git` and a Rust toolchain — install Rust from https://rustup.rs before running the installer.
 
 `omp update` follows the installed checkout's own repository and branch: it fetches `origin`, fast-forwards `~/.omp/source`, reinstalls dependencies, rebuilds the native addon when Rust sources changed, and refreshes the `omp` link. `omp update --check` reports the available commit without changing anything.
 
