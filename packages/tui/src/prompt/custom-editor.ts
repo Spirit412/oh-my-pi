@@ -1,5 +1,6 @@
 import * as url from "node:url";
 import type { ImageContent } from "@oh-my-pi/pi-ai";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 import { BracketedPasteHandler } from "../bracketed-paste";
 import { BRACKETED_PASTE_END, BRACKETED_PASTE_START } from "../stdin-buffer";
 import {
@@ -49,9 +50,6 @@ import { fgOrPlain, theme } from "../theme/theme";
 
 /** A shell-mode draft's sigil (`!`, `!!`, `$`, `$$`) with its surrounding blanks; the mode chip stands in for it natively. */
 const SHELL_SIGIL_RE = /^\s*(?:!!?|\$\$?)[ \t]?/;
-
-/** The untitled session's TSP placeholder; the rotating ANSI hints (thinking effort, …) move into control tooltips. */
-const NATIVE_COMPOSER_PLACEHOLDER = "What are we cooking?";
 
 /** Live composer state the TSP layout shows; the interactive host wires {@link CustomEditor.composerState}. */
 export interface ComposerNativeState {
@@ -899,7 +897,8 @@ export class CustomEditor extends Editor {
 					);
 					if (this.#queueShorthandActive && (value.startsWith("->") || value.startsWith("=>"))) {
 						const icon = typeof theme === "undefined" ? "➤" : theme.nav.selected;
-						return `${fgOrPlain("dim", `Queueing ${icon}`)}${highlighted.slice(2)}`;
+						const label = t("tui.prompt.composer.queueing", "Queueing {icon}", { icon });
+						return `${fgOrPlain("dim", label)}${highlighted.slice(2)}`;
 					}
 					if (this.#queueListActive) {
 						const markerMatch = QUEUE_LIST_MARKER_RE.exec(value);
@@ -1076,8 +1075,8 @@ export class CustomEditor extends Editor {
 	override describePlaceholder = (): TspText => {
 		const { viewing, title } = this.composerState();
 		const agent = viewing?.at(-1);
-		if (agent !== undefined) return `Message ${agent}`;
-		if (!title) return NATIVE_COMPOSER_PLACEHOLDER;
+		if (agent !== undefined) return t("tui.prompt.composer.messageAgent", "Message {agent}", { agent });
+		if (!title) return t("tui.prompt.composer.placeholder", "What are we cooking?");
 		if (this.#titlePlaceholder?.title !== title) {
 			this.#titlePlaceholder = { title, text: [{ t: `“${title}”`, s: "em" }] };
 		}
@@ -1164,7 +1163,12 @@ export class CustomEditor extends Editor {
 								rate !== undefined &&
 									node(
 										"rate",
-										{ value: rate, unit: "tok/s", role: "omp.composer.rate", title: "Generation rate" },
+										{
+											value: rate,
+											unit: "tok/s",
+											role: "omp.composer.rate",
+											title: t("tui.prompt.composer.generationRate", "Generation rate"),
+										},
 										undefined,
 										"rate",
 									),
@@ -1209,7 +1213,7 @@ export class CustomEditor extends Editor {
 					role: "omp.composer.crumb",
 					text: id,
 					wrap: "none",
-					title: `View ${id}`,
+					title: t("tui.prompt.composer.viewCrumb", "View {id}", { id }),
 					actions: { click: `${FOCUS_ACTION}${id}` },
 				},
 				undefined,
@@ -1220,7 +1224,7 @@ export class CustomEditor extends Editor {
 			row(
 				[
 					node("icon", { name: "eye" }, undefined, "icon"),
-					node("text", { text: "Viewing", wrap: "none" }, undefined, "label"),
+					node("text", { text: t("tui.prompt.composer.viewing", "Viewing"), wrap: "none" }, undefined, "label"),
 					...crumbs,
 					node("text", { role: "omp.composer.agent", text: agent, wrap: "none" }, undefined, "agent"),
 					node(
@@ -1229,12 +1233,17 @@ export class CustomEditor extends Editor {
 							role: "omp.composer.exit",
 							gap: "xs",
 							align: "center",
-							title: `Back to the main session  ${back}`,
+							title: t("tui.prompt.composer.backToMain", "Back to the main session  {key}", { key: back }),
 							actions: { click: `${FOCUS_ACTION}${MAIN_AGENT_ID}` },
 						},
 						[
 							node("kbd", { keys: [interruptKey] }, undefined, "key"),
-							node("text", { text: "main", wrap: "none" }, undefined, "label"),
+							node(
+								"text",
+								{ text: t("tui.prompt.composer.mainSession", "main"), wrap: "none" },
+								undefined,
+								"label",
+							),
 						],
 						"exit",
 					),
@@ -1243,7 +1252,9 @@ export class CustomEditor extends Editor {
 					role: "omp.composer.focus",
 					gap: "xs",
 					align: "center",
-					title: `Viewing subagent ${agent}: what you send goes to it`,
+					title: t("tui.prompt.composer.viewingSubagent", "Viewing subagent {agent}: what you send goes to it", {
+						agent,
+					}),
 				},
 			),
 			"focus",
@@ -1271,7 +1282,10 @@ export class CustomEditor extends Editor {
 						{
 							level: thinking,
 							role: "omp.composer.model.effort",
-							title: `Thinking effort: ${thinking}${thinkingHint}`,
+							title: t("tui.prompt.composer.thinkingEffortLevel", "Thinking effort: {level}{hint}", {
+								level: thinking,
+								hint: thinkingHint,
+							}),
 							actions: { click: "thinking.cycle" },
 						},
 						undefined,
@@ -1287,7 +1301,11 @@ export class CustomEditor extends Editor {
 					gap: "xs",
 					align: "center",
 					tone: facts.model.tone,
-					title: modelKey ? `Switch model  ${formatTooltipKey(modelKey)}` : "Switch model",
+					title: modelKey
+						? t("tui.prompt.composer.switchModelWithKey", "Switch model  {key}", {
+								key: formatTooltipKey(modelKey),
+							})
+						: t("tui.prompt.composer.switchModel", "Switch model"),
 					actions: { click: "status.model" },
 				},
 				[
@@ -1306,7 +1324,7 @@ export class CustomEditor extends Editor {
 							role: "omp.composer.effort",
 							gap: "xs",
 							align: "center",
-							title: `Thinking effort${thinkingHint}`,
+							title: t("tui.prompt.composer.thinkingEffort", "Thinking effort{hint}", { hint: thinkingHint }),
 							actions: { click: "thinking.cycle" },
 						},
 						[
@@ -1337,20 +1355,37 @@ export class CustomEditor extends Editor {
 							align: "center",
 							tone: recording ? "error" : starting || transcribing ? "pending" : undefined,
 							title: recording
-								? "Stop recording and transcribe"
+								? t("tui.prompt.composer.stopRecording", "Stop recording and transcribe")
 								: starting
-									? "Cancel dictation"
+									? t("tui.prompt.composer.cancelDictation", "Cancel dictation")
 									: transcribing
-										? "Transcribing dictation"
-										: "Start dictation",
+										? t("tui.prompt.composer.transcribingDictation", "Transcribing dictation")
+										: t("tui.prompt.composer.startDictation", "Start dictation"),
 							// The model can take a while to load on first use, so a start stays cancellable.
 							actions: transcribing ? undefined : { click: "dictation.toggle" },
 						},
 						starting || transcribing
-							? [node("spinner", { label: starting ? "Starting…" : "Transcribing…" }, undefined, "pending")]
+							? [
+									node(
+										"spinner",
+										{
+											label: starting
+												? t("tui.prompt.composer.starting", "Starting…")
+												: t("tui.prompt.composer.transcribing", "Transcribing…"),
+										},
+										undefined,
+										"pending",
+									),
+								]
 							: compact([
 									node("icon", { name: recording ? "stop" : "mic" }, undefined, "icon"),
-									recording && node("text", { text: "Recording · Stop", wrap: "none" }, undefined, "label"),
+									recording &&
+										node(
+											"text",
+											{ text: t("tui.prompt.composer.recordingStop", "Recording · Stop"), wrap: "none" },
+											undefined,
+											"label",
+										),
 								]),
 						"dictation",
 					);
@@ -1360,9 +1395,9 @@ export class CustomEditor extends Editor {
 					"text",
 					{
 						role: "omp.composer.stop",
-						text: "Stop",
+						text: t("tui.prompt.composer.stop", "Stop"),
 						tone: "error",
-						title: `Stop  ${formatTooltipKey(interruptKey)}`,
+						title: t("tui.prompt.composer.stopWithKey", "Stop  {key}", { key: formatTooltipKey(interruptKey) }),
 						actions: { click: "interrupt" },
 					},
 					undefined,
@@ -1373,7 +1408,9 @@ export class CustomEditor extends Editor {
 					{
 						role: "omp.composer.send",
 						keys: ["enter"],
-						title: dictating ? "Finish dictation before sending" : `Send  ${formatTooltipKey("enter")}`,
+						title: dictating
+							? t("tui.prompt.composer.finishDictation", "Finish dictation before sending")
+							: t("tui.prompt.composer.sendWithKey", "Send  {key}", { key: formatTooltipKey("enter") }),
 						tone: dictating ? "muted" : undefined,
 						actions: dictating ? undefined : { click: "submit" },
 					},
@@ -1381,12 +1418,20 @@ export class CustomEditor extends Editor {
 					"send",
 				);
 		if (!shell) return { focus, mode: undefined, model, effort, dictation, submit };
-		const runs = shell.kind === "bash" ? "Runs in your shell" : "Runs in Python";
+		const runs =
+			shell.kind === "bash"
+				? t("tui.prompt.composer.runsInShell", "Runs in your shell")
+				: t("tui.prompt.composer.runsInPython", "Runs in Python");
 		const mode = keyed(
 			row(
 				compact([
 					shell.excluded &&
-						node("icon", { name: "eye-off", title: "Not sent to the model" }, undefined, "excluded"),
+						node(
+							"icon",
+							{ name: "eye-off", title: t("tui.prompt.composer.notSentToModel", "Not sent to the model") },
+							undefined,
+							"excluded",
+						),
 					node(
 						"text",
 						{ spans: [span(shell.kind, shell.kind === "bash" ? "bashMode" : "pythonMode")], wrap: "none" },
@@ -1398,7 +1443,9 @@ export class CustomEditor extends Editor {
 					role: "omp.composer.mode",
 					gap: "xs",
 					align: "center",
-					title: shell.excluded ? `${runs} · not sent to the model` : runs,
+					title: shell.excluded
+						? t("tui.prompt.composer.modeExcluded", "{runs} · not sent to the model", { runs })
+						: runs,
 				},
 			),
 			"mode",

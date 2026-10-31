@@ -12,6 +12,7 @@ import { TERMINAL } from "../terminal-capabilities";
 import { theme } from "../theme/theme";
 import type { Component } from "../tui";
 import { padding, replaceTabs, visibleWidth, wrapTextWithAnsi } from "../utils";
+import { getLocale, t } from "@oh-my-pi/pi-utils/i18n";
 import tipsText from "./tips.txt" with { type: "text" };
 
 /** Leading marker for a tip that pitches Tern: shown only while no TSP surface
@@ -25,19 +26,10 @@ const TIP_LINES: readonly string[] = tipsText
 	.map(line => line.trim())
 	.filter(line => line.length > 0);
 
-/** Tips for the classic renderer: every tip, {@link NO_TERN_TIP_MARKER} stripped. */
-const TIPS: readonly string[] = TIP_LINES.map(line => line.replace(NO_TERN_TIP_MARKER, ""));
-
-/** Tips for a live TSP surface: those marked {@link NO_TERN_TIP_MARKER} dropped. */
-const TSP_TIPS: readonly string[] = TIP_LINES.filter(line => !NO_TERN_TIP_MARKER.test(line));
-
 /** Trailing marker that flags a tip as a "what's new" callout. Stripped before
- *  wrapping (with any preceding whitespace) and replaced by {@link NEW_TAG_TEXT}
- *  painted as a shimmering rainbow. Non-global so `.test` stays stateless. */
+ *  wrapping (with any preceding whitespace) and replaced by the rainbow tag.
+ *  Non-global so `.test` stays stateless. */
 const NEW_TIP_MARKER = /\s*\[NEW\]\s*$/;
-
-/** Visible text rendered in place of {@link NEW_TIP_MARKER}. */
-const NEW_TAG_TEXT = "NEW!";
 
 /** Milliseconds for one full hue rotation of the rainbow "NEW!" tag. */
 const NEW_GLOW_PERIOD_MS = 1500;
@@ -45,6 +37,29 @@ const NEW_GLOW_PERIOD_MS = 1500;
 /** Selection weight for "[NEW]" tips; ordinary tips weigh 1, so a freshly added
  *  affordance surfaces this many times as often. */
 const NEW_TIP_WEIGHT = 4;
+
+/** Tips localized for the active locale, rebuilt when it changes. */
+let localizedTips: { locale: string; classic: readonly string[]; tsp: readonly string[] } | undefined;
+
+/** Tips for the active locale: the classic list and the TSP one (Tern-only tips dropped). */
+function tipPools(): { classic: readonly string[]; tsp: readonly string[] } {
+	const locale = getLocale();
+	if (localizedTips?.locale !== locale) {
+		const classic: string[] = [];
+		const tsp: string[] = [];
+		TIP_LINES.forEach((line, index) => {
+			const ternOnly = NO_TERN_TIP_MARKER.test(line);
+			const body = line.replace(NO_TERN_TIP_MARKER, "");
+			const isNew = NEW_TIP_MARKER.test(body);
+			const translated = t(`tui.prompt.welcome.tip${index + 1}`, body.replace(NEW_TIP_MARKER, ""));
+			const tip = isNew ? `${translated} [NEW]` : translated;
+			classic.push(tip);
+			if (!ternOnly) tsp.push(tip);
+		});
+		localizedTips = { locale, classic, tsp };
+	}
+	return localizedTips;
+}
 
 /** Pick a tip from `tips`, biased toward "[NEW]" tips by {@link NEW_TIP_WEIGHT};
  *  `r` is a uniform sample in [0, 1). Returns "" when `tips` is empty.
@@ -63,14 +78,14 @@ export function pickWeightedTip(tips: readonly string[], r: number): string {
 
 type ColorEncoding = "ansi-16m" | "ansi-256";
 
-/** Paint each glyph of {@link NEW_TAG_TEXT} on a moving HSL rainbow. `phase`
+/** Paint each glyph of the localized "NEW!" tag on a moving HSL rainbow. `phase`
  *  rotates the hue offset cyclically; successive renders with increasing phase
  *  shimmer, while a fixed phase yields a still rainbow. */
 function renderNewTag(phase: number, encoding: ColorEncoding): string {
 	const bold = "\x1b[1m";
 	const reset = "\x1b[0m";
 	const wrapped = ((phase % 1) + 1) % 1;
-	const chars = [...NEW_TAG_TEXT];
+	const chars = [...t("tui.prompt.welcome.newTag", "NEW!")];
 	let out = bold;
 	let prev = "";
 	for (let i = 0; i < chars.length; i++) {
@@ -149,7 +164,7 @@ function tipSpans(tip: string): TspSpan[] {
  * `[]` when `width` leaves no room for a useful line.
  */
 export function renderWelcomeTip(tip: string, width: number, phase = 0): string[] {
-	const label = "Tip: ";
+	const label = t("tui.prompt.welcome.tipLabel", "Tip: ");
 	if (width - visibleWidth(label) < 8) return [];
 
 	const isNew = NEW_TIP_MARKER.test(tip);
@@ -176,7 +191,7 @@ export function renderWelcomeTip(tip: string, width: number, phase = 0): string[
 		// a line of its own so the styled glyphs never overflow the width.
 		const encoding: ColorEncoding = TERMINAL.trueColor ? "ansi-16m" : "ansi-256";
 		const tag = renderNewTag(phase, encoding);
-		const tagWidth = 1 + visibleWidth(NEW_TAG_TEXT); // 1 = space separator
+		const tagWidth = 1 + visibleWidth(t("tui.prompt.welcome.newTag", "NEW!")); // 1 = space separator
 		const lastLine = lines[lines.length - 1];
 		if (lastLine !== undefined && visibleWidth(lastLine) + tagWidth <= width) {
 			lines[lines.length - 1] = `${lastLine} ${tag}`;
@@ -218,9 +233,10 @@ export class WelcomeComponent implements Component {
 		this.#nagRoll ??= Math.random();
 		this.#tipRoll ??= Math.random();
 		if (theme.getSymbolPreset() === "unicode" && this.#nagRoll < 0.1) {
-			return "Please use nerdfont 😭.";
+			return t("tui.prompt.welcome.nerdfontNag", "Please use nerdfont 😭.");
 		}
-		return pickWeightedTip(isNativeRendering() ? TSP_TIPS : TIPS, this.#tipRoll) || undefined;
+		const pools = tipPools();
+		return pickWeightedTip(isNativeRendering() ? pools.tsp : pools.classic, this.#tipRoll) || undefined;
 	}
 
 	invalidate(): void {
@@ -247,7 +263,9 @@ export class WelcomeComponent implements Component {
 				node("icon", { name: "lightbulb", role: "omp.welcome.tip-icon" }),
 				text(tipText, { wrap: "word", role: "omp.welcome.tip-text" }),
 			];
-			if (isNew) tipRow.push(node("shimmer", { text: "New", role: "omp.welcome.new" }));
+			if (isNew) {
+				tipRow.push(node("shimmer", { text: t("tui.prompt.welcome.newBadge", "New"), role: "omp.welcome.new" }));
+			}
 			body.push(node("row", { gap: "sm", align: "start", role: "omp.welcome.tip" }, tipRow, "tip"));
 		}
 		// No head row or chevron: the card is the hero; the version sits under the wordmark.

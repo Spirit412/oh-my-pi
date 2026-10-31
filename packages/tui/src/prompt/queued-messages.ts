@@ -7,6 +7,7 @@ import { kbd, node, text } from "../native/describe";
 import type { NativeNode, NativeUiEvent } from "../native/node";
 import { replaceTabs } from "../utils";
 import { theme } from "../theme/theme";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 /** Queued messages under one heading ("Steering", "After yield"). */
 export interface QueuedMessageGroup {
@@ -40,9 +41,16 @@ export class QueuedMessagesBand extends Container {
 			}
 		}
 		this.addChild(
-			new TruncatedText(theme.fg("dim", `  ${theme.tree.hook} ${formatKeyHint(dequeueKey)} to edit`), 1, 0),
+			new TruncatedText(
+				theme.fg(
+					"dim",
+					`  ${theme.tree.hook} ${formatKeyHint(dequeueKey)} ${t("tui.prompt.queue.toEdit", "to edit")}`,
+				),
+				1,
+				0,
+			),
 		);
-		const editTitle = `Edit  ${formatTooltipKey(dequeueKey)}`;
+		const editTitle = t("tui.prompt.queue.editTooltip", "Edit  {key}", { key: formatTooltipKey(dequeueKey) });
 
 		const count = groups.reduce((sum, group) => sum + group.messages.length, 0);
 		const pills: NativeNode[] = [];
@@ -66,7 +74,11 @@ export class QueuedMessagesBand extends Container {
 					children.push(
 						node(
 							"badge",
-							{ text: `${count} queued`, title: `${count} messages queued`, role: "omp.queue.count" },
+							{
+								text: t("tui.prompt.queue.count", "{count} queued", { count }),
+								title: t("tui.prompt.queue.countTitle", "{count} messages queued", { count }),
+								role: "omp.queue.count",
+							},
 							undefined,
 							"count",
 						),
@@ -82,7 +94,7 @@ export class QueuedMessagesBand extends Container {
 							title: editTitle,
 							actions: { click: "queue.edit" },
 						},
-						[kbd(dequeueKey), text("Edit")],
+						[kbd(dequeueKey), text(t("tui.prompt.queue.edit", "Edit"))],
 						"edit",
 					),
 				);

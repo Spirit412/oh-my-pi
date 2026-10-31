@@ -14,12 +14,27 @@
  * keeps falling through to the existing prompt-action menu.
  */
 import type { AutocompleteItem } from "../index";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 /** Candidate kinds, in default display order. */
 const GITHUB_REF_KINDS = [
-	{ qualifier: "pr", scheme: "pr", label: "PR", description: "GitHub pull request" },
-	{ qualifier: "issue", scheme: "issue", label: "Issue", description: "GitHub issue" },
+	{ qualifier: "pr", scheme: "pr" },
+	{ qualifier: "issue", scheme: "issue" },
 ] as const;
+
+/** The badge word before a `#<number>` reference. */
+function refKindLabel(kind: "pr" | "issue"): string {
+	return kind === "pr"
+		? t("tui.prompt.githubRef.pullRequestBadge", "PR")
+		: t("tui.prompt.githubRef.issueBadge", "Issue");
+}
+
+/** One-line description of a reference kind. */
+function refKindDescription(kind: "pr" | "issue"): string {
+	return kind === "pr"
+		? t("tui.prompt.githubRef.pullRequest", "GitHub pull request")
+		: t("tui.prompt.githubRef.issue", "GitHub issue");
+}
 
 export interface GithubRefContext {
 	/** Text to replace on accept: `#3164`, or `pr #3164` when a qualifier precedes it. */
@@ -68,8 +83,8 @@ export function getGithubRefSuggestions(
 		: GITHUB_REF_KINDS;
 	const items: AutocompleteItem[] = kinds.map(kind => ({
 		value: `${kind.scheme}://${context.number}`,
-		label: `${kind.label} #${context.number}`,
-		description: kind.description,
+		label: `${refKindLabel(kind.qualifier)} #${context.number}`,
+		description: refKindDescription(kind.qualifier),
 	}));
 	return { items, prefix: context.prefix };
 }

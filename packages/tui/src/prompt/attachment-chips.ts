@@ -21,6 +21,7 @@ import { attachmentSgr } from "./composer-attachments";
 import { cachedImageDimensions, setCachedImageDimensions } from "./image-references";
 import { theme } from "../theme/theme";
 import type { ComposerChipDescriptor, CustomEditor, TextAttachment } from "./custom-editor";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 /** Chip card geometry (mirrors omp2): a 12x4 content area inside a 1-cell rounded border. */
 const INNER_COLS = 12;
@@ -36,6 +37,13 @@ const kImagePng = Symbol("omp.imagePng");
 
 interface ImageContentWithPng extends ImageContent {
 	[kImagePng]?: ImageContent | null;
+}
+
+/** A paste chip's bottom caption: its line count when it spans several, else its character count. */
+function pasteCaption(text: TextAttachment): string {
+	return text.lineCount > 1
+		? t("tui.prompt.chips.lines", "+{count} lines", { count: text.lineCount })
+		: t("tui.prompt.chips.chars", "{count} chars", { count: text.charCount });
 }
 
 /**
@@ -77,7 +85,7 @@ export class AttachmentChipsBand implements Component {
 			let content: NativeNode;
 			let caption: string;
 			if (chip.kind === "paste") {
-				caption = chip.text.lineCount > 1 ? `+${chip.text.lineCount} lines` : `${chip.text.charCount} chars`;
+				caption = pasteCaption(chip.text);
 				content = node("text", {
 					spans: [span(plainText(chip.text.content.split("\n", 4).join("\n")), "muted")],
 					wrap: "none",
@@ -140,7 +148,7 @@ export class AttachmentChipsBand implements Component {
 			bottomCaption = dims ? `${dims.width}x${dims.height}` : "";
 			interior = this.#imageInterior(chip.image, dims, chip.kind);
 		} else {
-			bottomCaption = chip.text.lineCount > 1 ? `+${chip.text.lineCount} lines` : `${chip.text.charCount} chars`;
+			bottomCaption = pasteCaption(chip.text);
 			interior = this.#textInterior(chip.text);
 		}
 		const vertical = `${sgr}${theme.symbol("boxRound.vertical")}${RESET_FG}`;

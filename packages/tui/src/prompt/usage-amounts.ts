@@ -1,4 +1,5 @@
 import { resolveUsedFraction, type UsageLimit } from "@oh-my-pi/pi-ai/usage";
+import { t } from "@oh-my-pi/pi-utils/i18n";
 
 /**
  * Formatting for usage limits that carry an absolute amount but no fraction,
@@ -37,10 +38,10 @@ export function isRemainingOnlyAbsoluteAmount(limit: UsageLimit): boolean {
 	);
 }
 
-function formatQuantity(value: number, unit: UsageLimit["amount"]["unit"], suffix: string): string {
-	if (unit === "usd") return `$${value.toFixed(2)} ${suffix}`;
+function formatQuantity(value: number, unit: UsageLimit["amount"]["unit"]): string {
+	if (unit === "usd") return `$${value.toFixed(2)}`;
 	const formatted = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(value);
-	return `${formatted} ${unit} ${suffix}`;
+	return `${formatted} ${unit}`;
 }
 
 /**
@@ -78,7 +79,9 @@ export function totalRemainingOnly(
 /** `"100 credits left"` for a bucket of remaining-only limits, else `undefined`. */
 export function formatRemainingOnlyTotal(limits: readonly UsageLimit[]): string | undefined {
 	const total = totalRemainingOnly(limits);
-	return total === undefined ? undefined : formatQuantity(total.value, total.unit, "left");
+	return total === undefined
+		? undefined
+		: t("tui.prompt.usage.remaining", "{amount} left", { amount: formatQuantity(total.value, total.unit) });
 }
 
 /**
@@ -93,7 +96,7 @@ export function formatAbsoluteOnlyAmount(limits: readonly UsageLimit[]): string 
 		const unit = first.amount.unit;
 		if (!limits.every(limit => limit.amount.unit === unit)) return undefined;
 		const used = limits.reduce((max, limit) => Math.max(max, limit.amount.used ?? 0), 0);
-		return formatQuantity(used, unit, "used");
+		return t("tui.prompt.usage.used", "{amount} used", { amount: formatQuantity(used, unit) });
 	}
 	return formatRemainingOnlyTotal(limits);
 }
