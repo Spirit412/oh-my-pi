@@ -105,6 +105,30 @@ interface MessageView {
 	responseBytes?: number;
 }
 
+/** UTF-8 bytes of a journal payload's serialized form (tool arguments, text content). */
+function payloadBytes(value: unknown): number | undefined {
+	if (value === undefined) return 0;
+	try {
+		const text = JSON.stringify(value);
+		return text === undefined ? 0 : Buffer.byteLength(text);
+	} catch {
+		return undefined;
+	}
+}
+
+/** UTF-8 bytes of a message content payload (string or text blocks). */
+function contentBytes(content: unknown): number | undefined {
+	if (typeof content === "string") return Buffer.byteLength(content);
+	if (!Array.isArray(content)) return undefined;
+	let bytes = 0;
+	for (const block of content) {
+		if (block && typeof block === "object" && "text" in block && typeof block.text === "string") {
+			bytes += Buffer.byteLength(block.text);
+		}
+	}
+	return bytes;
+}
+
 /** `tool_execution_start` marker facts joined to tool spans by call id. */
 interface ToolStartFact {
 	start: number;
@@ -116,6 +140,8 @@ interface PendingToolCall {
 	callId: string;
 	name: string;
 	argsPreview?: string;
+	/** UTF-8 bytes of the serialized tool-call arguments. */
+	argsBytes?: number;
 	assistantEntryId: string;
 	modelEnd: number;
 }
@@ -123,6 +149,10 @@ interface PendingToolCall {
 /** Background job opened by an async-running tool result. */
 interface PendingBackgroundJob {
 	jobId: string;
+	/** Tool call that started the job, for its request size. */
+	callId?: string;
+	/** Bytes of the async-result delivery that closed the job. */
+	responseBytes?: number;
 	start: number;
 	label: string;
 	entryId?: string;
@@ -294,7 +324,10 @@ function scanTranscript(
 	const markers: TraceMarker[] = [];
 	const pendingTools: PendingToolCall[] = [];
 	const toolStarts = new Map<string, ToolStartFact>();
-	const toolResults = new Map<string, { end: number; isError: boolean; entryId?: string; toolName: string }>();
+	const toolResults = new Map<
+		string,
+		{ end: number; isError: boolean; entryId?: string; toolName: string; resultBytes?: number }
+	>();
 	const backgroundJobs: PendingBackgroundJob[] = [];
 	const activeBackgroundJobs = new Map<string, PendingBackgroundJob>();
 	const turns: Array<{ time: number; label: string; entryId?: string }> = [];
@@ -453,10 +486,12 @@ function scanTranscript(
 					if (!block || typeof block !== "object" || !("type" in block) || block.type !== "toolCall") continue;
 					if (!("id" in block) || typeof block.id !== "string") continue;
 					if (!("name" in block) || typeof block.name !== "string") continue;
+					const args = "arguments" in block ? block.arguments : undefined;
 					pendingTools.push({
 						callId: block.id,
 						name: block.name,
-						argsPreview: argsPreview("arguments" in block ? block.arguments : undefined),
+						argsPreview: argsPreview(args),
+						argsBytes: payloadBytes(args),
 						assistantEntryId: entry.id ?? "",
 						modelEnd: end,
 					});
@@ -474,6 +509,7 @@ function scanTranscript(
 				isError: msg.isError === true,
 				entryId: entry.id,
 				toolName: msg.toolName ?? "tool",
+				resultBytes: contentBytes(msg.content),
 			});
 
 			const details = msg.details;
@@ -488,6 +524,7 @@ function scanTranscript(
 			) {
 				const job: PendingBackgroundJob = {
 					jobId: asyncInfo.jobId,
+					callId: msg.toolCallId,
 					start: end,
 					label: headText(`${msg.toolName ?? "tool"} job`, LABEL_MAX),
 					entryId: entry.id,
@@ -516,6 +553,7 @@ function scanTranscript(
 		if (msg.role === "custom" && msg.customType === "async-result") {
 			const closeAt =
 				typeof msg.timestamp === "number" && Number.isFinite(msg.timestamp) ? msg.timestamp : envelopeTs;
+			const deliveryBytes = contentBytes(msg.content);
 			const jobs = msg.details?.jobs;
 			if (closeAt !== undefined && Array.isArray(jobs)) {
 				for (const job of jobs) {
@@ -523,6 +561,7 @@ function scanTranscript(
 					const targetJob = activeBackgroundJobs.get(job.jobId);
 					if (!targetJob || targetJob.end !== undefined) continue;
 					targetJob.end = closeAt;
+					targetJob.responseBytes = deliveryBytes;
 					activeBackgroundJobs.delete(job.jobId);
 				}
 			}
@@ -570,6 +609,8 @@ function scanTranscript(
 		if (entryId) span.entryId = entryId;
 		if (result?.isError) span.isError = true;
 		if (unterminated) span.unterminated = true;
+		if (pending.argsBytes !== undefined) span.requestBytes = pending.argsBytes;
+		if (result?.resultBytes !== undefined) span.responseBytes = result.resultBytes;
 		spans.push(span);
 	}
 
@@ -584,6 +625,9 @@ function scanTranscript(
 			label: job.label,
 		};
 		if (job.entryId) span.entryId = job.entryId;
+		const startedBy = job.callId ? pendingTools.find(pending => pending.callId === job.callId) : undefined;
+		if (startedBy?.argsBytes !== undefined) span.requestBytes = startedBy.argsBytes;
+		if (job.responseBytes !== undefined) span.responseBytes = job.responseBytes;
 		if (job.end === undefined) span.unterminated = true;
 		spans.push(span);
 	}
@@ -602,6 +646,7 @@ function scanTranscript(
 		for (const span of spans) {
 			if (span.start < turn.time || span.start >= nextTime) continue;
 			if (span.end > end) end = span.end;
+			if (span.kind !== "model") continue;
 			if (span.requestBytes !== undefined) requestBytes = (requestBytes ?? 0) + span.requestBytes;
 			if (span.responseBytes !== undefined) responseBytes = (responseBytes ?? 0) + span.responseBytes;
 		}
@@ -717,6 +762,23 @@ async function buildTrackTree(
 	return scan;
 }
 
+/**
+ * Give a subagent span the child transcript's payload volume: the request and
+ * response bytes of every model call the child agent made. The task prompt is
+ * part of those request bodies, so it is not added separately.
+ */
+function applyChildPayload(span: TraceSpan, child: TrackScan): void {
+	let requestBytes: number | undefined;
+	let responseBytes: number | undefined;
+	for (const childSpan of child.track.spans) {
+		if (childSpan.kind !== "model") continue;
+		if (childSpan.requestBytes !== undefined) requestBytes = (requestBytes ?? 0) + childSpan.requestBytes;
+		if (childSpan.responseBytes !== undefined) responseBytes = (responseBytes ?? 0) + childSpan.responseBytes;
+	}
+	if (requestBytes !== undefined) span.requestBytes = requestBytes;
+	if (responseBytes !== undefined) span.responseBytes = responseBytes;
+}
+
 /** Place child activity and structured task-result spans on their parent track. */
 function linkChildTracks(scan: TrackScan, childrenById: ReadonlyMap<string, TrackScan>): void {
 	const trackId = scan.track.id;
@@ -748,6 +810,7 @@ function linkChildTracks(scan: TrackScan, childrenById: ReadonlyMap<string, Trac
 		if (child) {
 			span.childTrackId = child.track.id;
 			if (child.track.model) span.model = child.track.model;
+			applyChildPayload(span, child);
 		}
 		scan.track.spans.push(span);
 	}
@@ -766,6 +829,7 @@ function linkChildTracks(scan: TrackScan, childrenById: ReadonlyMap<string, Trac
 			childTrackId: child.track.id,
 		};
 		if (child.track.model) span.model = child.track.model;
+		applyChildPayload(span, child);
 		scan.track.spans.push(span);
 	}
 	scan.track.spans.sort((a, b) => a.start - b.start || a.end - b.end);

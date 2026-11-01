@@ -11,6 +11,15 @@ import { formatDurationMs, formatInteger, formatKb } from "../data/formatters";
 import type { TraceSpan, TraceTrack } from "../types";
 import { Badge, Drawer, type DrawerProps, ErrorState, JsonBlock, KeyValues, Skeleton } from "../ui";
 
+/** Tooltip wording for a span kind's request/response byte counts. */
+const PAYLOAD_SCOPE: Record<TraceSpan["kind"], { request: string; response: string }> = {
+	turn: { request: "bytes sent across the turn's model calls", response: "bytes received across the turn" },
+	model: { request: "bytes sent in the request body", response: "bytes received in the response body" },
+	tool: { request: "bytes of the tool-call arguments", response: "bytes of the tool result" },
+	subagent: { request: "bytes sent by the child agent", response: "bytes received by the child agent" },
+	background: { request: "bytes of the tool call that started the job", response: "bytes of the async delivery" },
+};
+
 export type TraceEntryLoader = (file: string, entryId: string, signal: AbortSignal) => Promise<{ entry: unknown }>;
 
 export interface SpanDrawerProps {
@@ -181,11 +190,12 @@ export function SpanDrawer({
 		if (msg?.stopReason)
 			metrics.push({ key: "stop", label: "Stop reason", value: <span className="mono">{msg.stopReason}</span> });
 	}
-	// Exact transport-measured payload sizes on both sides of the exchange: the
-	// model span is the response, the turn span is the request it belongs to.
-	// Older sessions carry none, so they read as "not measured".
-	if (span.kind === "model" || span.kind === "turn") {
-		const turnScope = span.kind === "turn" ? " during this turn" : "";
+	// Payload volume on both sides of the exchange for every span kind: model
+	// spans carry transport bytes, turns sum their model calls, tools their
+	// arguments and result, subagents their child transcript, background jobs
+	// their originating call and delivery. Older sessions read as "not measured".
+	{
+		const scope = PAYLOAD_SCOPE[span.kind];
 		metrics.push(
 			{
 				key: "requestSize",
@@ -196,7 +206,7 @@ export function SpanDrawer({
 						title={
 							span.requestBytes === undefined
 								? "not measured"
-								: `${formatInteger(span.requestBytes)} bytes sent${turnScope}`
+								: `${formatInteger(span.requestBytes)} ${scope.request}`
 						}
 					>
 						{formatKb(span.requestBytes === undefined ? null : span.requestBytes / 1024)}
@@ -212,7 +222,7 @@ export function SpanDrawer({
 						title={
 							span.responseBytes === undefined
 								? "not measured"
-								: `${formatInteger(span.responseBytes)} bytes received${turnScope}`
+								: `${formatInteger(span.responseBytes)} ${scope.response}`
 						}
 					>
 						{formatKb(span.responseBytes === undefined ? null : span.responseBytes / 1024)}

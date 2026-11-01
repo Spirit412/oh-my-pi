@@ -302,6 +302,8 @@ const CHILD_ENTRIES: unknown[] = [
 			duration: 12_000,
 			completedAt: T + 30_000,
 			usage: usage(500, 0.05),
+			requestBytes: 10_000,
+			responseBytes: 2_000,
 			stopReason: "stop",
 			content: [{ type: "text", text: "done" }],
 		},
@@ -334,6 +336,8 @@ const ORPHAN_ENTRIES: unknown[] = [
 			duration: 4500,
 			completedAt: T + 25_000,
 			usage: usage(40, 0.004),
+			requestBytes: 5_000,
+			responseBytes: 1_000,
 			stopReason: "stop",
 			content: [{ type: "text", text: "orphan done" }],
 		},
@@ -382,16 +386,34 @@ describe("buildSessionTrace", () => {
 
 		// Tool span joined via tool_execution_start marker; end from the toolResult.
 		const bash1 = main.spans.find(span => span.toolCallId === "call1");
-		expect(bash1).toMatchObject({ kind: "tool", start: T + 11_100, end: T + 15_000, label: "bash", detail: "ls" });
+		expect(bash1).toMatchObject({
+			kind: "tool",
+			start: T + 11_100,
+			end: T + 15_000,
+			label: "bash",
+			detail: "ls",
+			// Serialized tool-call arguments and the `ok` result text.
+			requestBytes: Buffer.byteLength(JSON.stringify({ command: "ls" })),
+			responseBytes: Buffer.byteLength("ok"),
+		});
 		expect(bash1?.unterminated).toBeUndefined();
 
 		// No marker + no result but listed in session_exit → model-end start, recordedAt end, unterminated.
 		const pendingEdit = main.spans.find(span => span.toolCallId === "call4");
 		expect(pendingEdit).toMatchObject({ start: T + 62_000, end: T + 64_000, unterminated: true });
+		// Arguments are known even without a result; the response side is not.
+		expect(typeof pendingEdit?.requestBytes).toBe("number");
+		expect(pendingEdit?.responseBytes).toBeUndefined();
 
 		// Background job opens at the async-running result, closes at the async-result delivery.
 		const bg = main.spans.find(span => span.kind === "background");
-		expect(bg).toMatchObject({ start: T + 41_500, end: T + 50_000 });
+		expect(bg).toMatchObject({
+			start: T + 41_500,
+			end: T + 50_000,
+			// The originating call's arguments and the `job done` delivery text.
+			requestBytes: Buffer.byteLength(JSON.stringify({ command: "sleep 5" })),
+			responseBytes: Buffer.byteLength("job done"),
+		});
 
 		// Two non-synthetic user turns; the synthetic message opens none.
 		const turns = main.spans.filter(span => span.kind === "turn");
@@ -406,7 +428,14 @@ describe("buildSessionTrace", () => {
 
 		// Subagent linkage: existing child → child activity bounds + track; missing child → durationMs fallback.
 		const scout = main.spans.find(span => span.kind === "subagent" && span.childTrackId === "Scout1");
-		expect(scout).toMatchObject({ start: T + 17_100, end: T + 30_000, label: "scout" });
+		expect(scout).toMatchObject({
+			start: T + 17_100,
+			end: T + 30_000,
+			label: "scout",
+			// Aggregated over the child transcript's model calls.
+			requestBytes: 10_000,
+			responseBytes: 2_000,
+		});
 		const ghost = main.spans.find(span => span.kind === "subagent" && span.label === "scout" && !span.childTrackId);
 		expect(ghost).toMatchObject({ start: T + 35_000, end: T + 40_000 });
 		const childTrack = trace.tracks.find(track => track.id === "Scout1");
