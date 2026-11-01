@@ -594,8 +594,16 @@ function scanTranscript(
 		const turn = turns[i];
 		const nextTime = i + 1 < turns.length ? turns[i + 1].time : Number.POSITIVE_INFINITY;
 		let end = turn.time;
+		// Payload volume of the turn: the request bodies its model calls sent and
+		// the responses they read. A tool loop sends the context again on every
+		// call, so this is the turn's transferred volume, not one request's size.
+		let requestBytes: number | undefined;
+		let responseBytes: number | undefined;
 		for (const span of spans) {
-			if (span.start >= turn.time && span.start < nextTime && span.end > end) end = span.end;
+			if (span.start < turn.time || span.start >= nextTime) continue;
+			if (span.end > end) end = span.end;
+			if (span.requestBytes !== undefined) requestBytes = (requestBytes ?? 0) + span.requestBytes;
+			if (span.responseBytes !== undefined) responseBytes = (responseBytes ?? 0) + span.responseBytes;
 		}
 		const span: TraceSpan = {
 			id: `${trackId}:${turn.entryId ?? `turn${i}`}`,
@@ -605,6 +613,8 @@ function scanTranscript(
 			label: turn.label,
 		};
 		if (turn.entryId) span.entryId = turn.entryId;
+		if (requestBytes !== undefined) span.requestBytes = requestBytes;
+		if (responseBytes !== undefined) span.responseBytes = responseBytes;
 		spans.push(span);
 	}
 

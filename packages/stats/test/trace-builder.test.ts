@@ -398,6 +398,11 @@ describe("buildSessionTrace", () => {
 		expect(turns.length).toBe(2);
 		expect(turns[0].start).toBe(T + 1000);
 		expect(turns[1].start).toBe(T + 60_000);
+		// The request side carries the payload volume of its model calls; the
+		// second turn's legacy assistant has none, so it stays unmeasured.
+		expect(turns[0]).toMatchObject({ requestBytes: 290_482, responseBytes: 1_815 });
+		expect(turns[1].requestBytes).toBeUndefined();
+		expect(turns[1].responseBytes).toBeUndefined();
 
 		// Subagent linkage: existing child → child activity bounds + track; missing child → durationMs fallback.
 		const scout = main.spans.find(span => span.kind === "subagent" && span.childTrackId === "Scout1");

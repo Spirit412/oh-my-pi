@@ -176,7 +176,16 @@ export function SpanDrawer({
 					</span>
 				),
 			});
-		// Exact transport-measured payload sizes; older sessions carry none.
+		if (msg?.provider)
+			metrics.push({ key: "provider", label: "Provider", value: <span className="mono">{msg.provider}</span> });
+		if (msg?.stopReason)
+			metrics.push({ key: "stop", label: "Stop reason", value: <span className="mono">{msg.stopReason}</span> });
+	}
+	// Exact transport-measured payload sizes on both sides of the exchange: the
+	// model span is the response, the turn span is the request it belongs to.
+	// Older sessions carry none, so they read as "not measured".
+	if (span.kind === "model" || span.kind === "turn") {
+		const turnScope = span.kind === "turn" ? " during this turn" : "";
 		metrics.push(
 			{
 				key: "requestSize",
@@ -184,7 +193,11 @@ export function SpanDrawer({
 				value: (
 					<span
 						className="num"
-						title={span.requestBytes === undefined ? "not measured" : `${formatInteger(span.requestBytes)} bytes`}
+						title={
+							span.requestBytes === undefined
+								? "not measured"
+								: `${formatInteger(span.requestBytes)} bytes sent${turnScope}`
+						}
 					>
 						{formatKb(span.requestBytes === undefined ? null : span.requestBytes / 1024)}
 					</span>
@@ -197,7 +210,9 @@ export function SpanDrawer({
 					<span
 						className="num"
 						title={
-							span.responseBytes === undefined ? "not measured" : `${formatInteger(span.responseBytes)} bytes`
+							span.responseBytes === undefined
+								? "not measured"
+								: `${formatInteger(span.responseBytes)} bytes received${turnScope}`
 						}
 					>
 						{formatKb(span.responseBytes === undefined ? null : span.responseBytes / 1024)}
@@ -205,10 +220,6 @@ export function SpanDrawer({
 				),
 			},
 		);
-		if (msg?.provider)
-			metrics.push({ key: "provider", label: "Provider", value: <span className="mono">{msg.provider}</span> });
-		if (msg?.stopReason)
-			metrics.push({ key: "stop", label: "Stop reason", value: <span className="mono">{msg.stopReason}</span> });
 	}
 
 	const DetailShell = inline ? InlineSpanDetail : Drawer;
