@@ -29,6 +29,7 @@
 
 ### Fixed
 
+- `omp update` now restores generated build artifacts before the local-changes check and after relinking, so `bun link` regenerating `viewer.generated.json` no longer blocks the next source update.
 - Source installs now leave a runnable `omp` on `PATH` even when bun's global bin directory is not on it (the command is linked into `~/.local/bin`, `PI_INSTALL_DIR`), replacing a prebuilt binary that otherwise shadowed the new install.
 
 ## [18.14.3] - 2026-10-31

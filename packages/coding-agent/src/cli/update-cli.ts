@@ -11,6 +11,7 @@ import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { applyBinaryPatch } from "@oh-my-pi/pi-natives";
 import * as vcs from "@oh-my-pi/pi-natives/vcs";
+import type { VcsGitRepo } from "@oh-my-pi/pi-natives";
 import {
 	$which,
 	APP_NAME,
@@ -419,6 +420,33 @@ export function resolveInstallerCheckout(startDir: string): string | undefined {
 }
 
 /**
+ * Tracked build outputs that `bun link` (through the package's `prepack`)
+ * regenerates in the installer checkout. They are not user work: restoring
+ * them before the dirty check and after the relink keeps `omp update` usable
+ * instead of refusing every subsequent run on a generated-file delta.
+ */
+const SOURCE_BUILD_ARTIFACTS: readonly string[] = ["packages/coding-agent/src/export/html/viewer.generated.json"];
+
+/** Restore tracked build artifacts; returns whether anything was restored. */
+export async function restoreSourceBuildArtifacts(repo: VcsGitRepo): Promise<boolean> {
+	try {
+		const dirty = await repo.statusPorcelain({ pathspecs: [...SOURCE_BUILD_ARTIFACTS] });
+		if (!dirty.trim()) return false;
+		await repo.restore({
+			source: "HEAD",
+			staged: true,
+			worktree: true,
+			files: [...SOURCE_BUILD_ARTIFACTS],
+		});
+		return true;
+	} catch {
+		// A failed restore leaves the checkout dirty, and the dirty check below
+		// still refuses without --force.
+		return false;
+	}
+}
+
+/**
  * Update a source install from the repository and branch its checkout tracks:
  * fetch `origin <branch>` into `refs/omp-update`, fast-forward the checkout,
  * reinstall dependencies, rebuild the native addon when Rust sources changed,
@@ -440,7 +468,11 @@ async function runSourceUpdate(root: string, opts: { force: boolean; check: bool
 	}
 	console.log(chalk.dim(`Source checkout: ${remoteUrl} (${branch})`));
 
-	const dirty = await repo.isDirty();
+	let dirty = await repo.isDirty();
+	if (dirty && !opts.check && !opts.force && (await restoreSourceBuildArtifacts(repo))) {
+		console.log(chalk.dim("Restored generated build artifacts."));
+		dirty = await repo.isDirty();
+	}
 	if (dirty && !opts.check && !opts.force) {
 		console.log(chalk.yellow("The installed checkout has local changes; re-run with --force to discard them."));
 		return;
@@ -501,6 +533,11 @@ async function runSourceUpdate(root: string, opts: { force: boolean; check: bool
 		console.error(link.stderr.toString().trim());
 		process.exitCode = 1;
 		return;
+	}
+	// `bun link` runs prepack, which regenerates tracked viewer assets. Leave
+	// the installer checkout clean so the next update does not refuse it.
+	if (await restoreSourceBuildArtifacts(repo)) {
+		console.log(chalk.dim("Restored generated build artifacts."));
 	}
 	let version = VERSION;
 	try {
@@ -2485,6 +2522,8 @@ ${chalk.bold("Options:")}
 Source installs update from the repository and branch the checkout tracks:
 origin <branch> is fetched, the checkout fast-forwards, dependencies and the
 native addon (when Rust sources changed) rebuild, and the omp link refreshes.
+Generated build artifacts are restored automatically; --force discards other
+local changes.
 
 ${chalk.bold("Examples:")}
   ${APP_NAME} update              Update to latest version
