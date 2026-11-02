@@ -32,6 +32,12 @@
 - `omp update` now restores generated build artifacts before the local-changes check and after relinking, so `bun link` regenerating `viewer.generated.json` no longer blocks the next source update.
 - Source installs now leave a runnable `omp` on `PATH` even when bun's global bin directory is not on it (the command is linked into `~/.local/bin`, `PI_INSTALL_DIR`), replacing a prebuilt binary that otherwise shadowed the new install.
 
+## [18.15.1] - 2026-11-02
+
+### Added
+
+- Added `/localization` (alias `/locale`) to switch the UI language without restarting. The bare command opens a picker over `Auto (system)`, English, and every locale with a mounted catalog (bundled Russian plus user, project, and plugin catalogs); `/localization <tag>` applies a covered locale directly, `ru-RU` uses the Russian catalog, and `auto` returns to the system locale. The choice persists as the `language` setting, unknown tags are rejected with the available values instead of rendering English silently, and the confirmation is printed in the localization just selected.
+
 ## [18.14.3] - 2026-10-31
 
 ### Fixed

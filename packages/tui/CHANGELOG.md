@@ -10,6 +10,12 @@
 - Tool renderers, interactive overlays, chat rows, the prompt composer and welcome tips, the setup wizard, app panes, and shared components now resolve operator-facing copy through `@oh-my-pi/pi-utils/i18n`, including plural messages. English output is unchanged when no catalog is active.
 - The plugin picker resolves each row's description through `plugin.<package-name>.description`, so installed plugins can localize their listing; the manifest description remains the fallback.
 
+## [18.15.1] - 2026-11-02
+
+### Added
+
+- Added `LocalizationSelectorComponent` (`packages/tui/src/overlays/localization-selector.ts`), the overlay behind `/localization`: a searchable picker over caller-supplied locale choices that marks the active value and renders through `tui.overlays.localization.*` copy.
+
 ## [18.14.1] - 2026-10-31
 
 ### Added

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [18.15.1] - 2026-11-02
+
+### Added
+
+- Added the `kimi-code-ai` login entry: the same Kimi Code device grant and client id, signed in against `https://auth.kimi.ai` (the international `.ai` deployment) and stored under `kimi-code` through `store-as`, so its models, discovery, usage, and web search stay on the existing Kimi Code provider.
+
 ## [18.14.1] - 2026-10-31
 
 ### Changed
