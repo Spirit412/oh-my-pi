@@ -38,6 +38,7 @@ import { resolveAdvisorRoleSelection, resolveModelRoleValue } from "../../config
 import { formatModelSelectorValue } from "@oh-my-pi/pi-tui/overlays/model-selector";
 import { getRoleInfo } from "../../config/model-roles";
 import { settings } from "../../config/settings";
+import { applyLocalization, currentLocalizationChoice, localizationChoices } from "../../i18n/localization";
 import { createSettingsHost } from "../../config/settings-ui";
 import { createPluginSettingsHost } from "../../extensibility/plugins/settings-host";
 import { clearPluginRootsAndCaches, resolveActiveProjectRegistryPath } from "../../discovery/helpers";
@@ -127,6 +128,7 @@ import { SettingsSelectorComponent } from "@oh-my-pi/pi-tui/overlays/settings-se
 import { TranscriptBlock } from "@oh-my-pi/pi-tui/chrome/transcript-container";
 import { TreeSelectorComponent } from "@oh-my-pi/pi-tui/overlays/tree-selector";
 import { ThinkingSelectorComponent } from "@oh-my-pi/pi-tui/overlays/thinking-selector";
+import { LocalizationSelectorComponent } from "@oh-my-pi/pi-tui/overlays/localization-selector";
 import { UsageDashboardComponent } from "@oh-my-pi/pi-tui/overlays/usage-dashboard";
 import { renderUsageReports } from "./command-controller";
 import type { SessionObserverRegistry } from "@oh-my-pi/pi-tui/overlays/session-observer-registry";
@@ -2506,6 +2508,28 @@ export class SelectorController {
 					done();
 					// thinking_level_changed refreshes the status line and editor border.
 					this.ctx.viewSession.setThinkingLevel(level);
+					this.ctx.ui.requestRender();
+				},
+				() => {
+					done();
+					this.ctx.ui.requestRender();
+				},
+			);
+			return { component: selector, focus: selector.getSelectList() };
+		});
+	}
+
+	/** Open the `/localization` picker over `auto`, English, and installed catalogs. */
+	showLocalizationSelector(): void {
+		const choices = localizationChoices();
+		const current = currentLocalizationChoice(this.ctx.settings);
+		this.showSelector(done => {
+			const selector = new LocalizationSelectorComponent(
+				choices,
+				current,
+				value => {
+					done();
+					this.ctx.showStatus(applyLocalization(this.ctx.settings, value));
 					this.ctx.ui.requestRender();
 				},
 				() => {

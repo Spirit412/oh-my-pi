@@ -14,6 +14,7 @@ import {
 	buildSubcommandInlineHint,
 } from "./builtin-completions";
 import { localizeSubcommands, resolveCommandDescription } from "./i18n";
+import { localizationChoices } from "../i18n/localization";
 import { BUILTIN_CONTROL_SLASH_COMMANDS } from "./builtin-control";
 import { BUILTIN_LIFECYCLE_SLASH_COMMANDS } from "./builtin-lifecycle";
 import { BUILTIN_MARKETPLACE_SLASH_COMMANDS, reloadTuiPluginState } from "./builtin-marketplace";
@@ -100,6 +101,13 @@ function materializeTuiBuiltinSlashCommand(
 		} else if (runtime && cmd.name === "effort") {
 			materialized.getArgumentCompletions = buildEffortArgumentCompletions(runtime);
 			materialized.getInlineHint = buildEffortInlineHint(runtime);
+		} else if (runtime && cmd.name === "localization") {
+			// Options follow the catalogs installed in this process, including
+			// user and plugin locales loaded after the registry was built.
+			materialized.getArgumentCompletions = buildArgumentCompletions(
+				localizationChoices().map(choice => ({ name: choice.value, description: choice.description ?? "" })),
+			);
+			if (cmd.inlineHint) materialized.getInlineHint = buildStaticInlineHint(cmd.inlineHint);
 		} else {
 			const options = { optional: cmd.subcommandOptional };
 			materialized.getArgumentCompletions = buildArgumentCompletions(subcommands, options);

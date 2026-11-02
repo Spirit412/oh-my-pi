@@ -118,6 +118,10 @@ OMP_LANG=ru omp
 language: ru
 ```
 
+Switch a running session with `/localization` (alias `/locale`): the bare
+command opens a picker over the installed catalogs, `/localization ru` applies a
+tag directly, and `/localization auto` returns to the system locale.
+
 `auto` (default) follows `LC_ALL`/`LC_MESSAGES`/`LANG`. English and Russian
 catalogs are bundled. Model-facing prompts, tool schemas, command names, and
 flag names stay English.

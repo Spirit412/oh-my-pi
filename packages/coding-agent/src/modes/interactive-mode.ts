@@ -9129,6 +9129,10 @@ export class InteractiveMode implements InteractiveModeContext {
 		this.#selectorController.showUsageDashboard(reports);
 	}
 
+	showLocalizationSelector(): void {
+		this.#selectorController.showLocalizationSelector();
+	}
+
 	showAdvisorConfigure(): void {
 		this.#selectorController.showAdvisorConfigure();
 	}

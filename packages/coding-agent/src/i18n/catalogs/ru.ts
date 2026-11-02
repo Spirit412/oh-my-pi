@@ -72,6 +72,17 @@ export const ru: TranslationCatalog = {
 	"omp.slash.security.description":
 		"Планировать, запускать, просматривать, импортировать и сравнивать собственные проверки безопасности OMP",
 	"omp.slash.settings.description": "Открыть меню настроек",
+	"omp.slash.localization.description": "Выбрать локализацию интерфейса (язык)",
+	"omp.slash.localization.acpDescription": "Выбрать или показать локализацию интерфейса",
+	"omp.slash.localization.tui": "Локализация: {locale}",
+	"omp.slash.localization.current": "Локализация: {locale}",
+	"omp.slash.localization.available": "Доступно: {locales}",
+	"omp.slash.localization.applied": "Локализация переключена на {locale}.",
+	"omp.slash.localization.unknown": "Неизвестная локализация «{locale}». Доступно: {locales}",
+	"omp.slash.localization.usage": "Использование: /localization [auto|en|<локаль>]",
+	"omp.slash.localization.option.auto.label": "Авто (системная)",
+	"omp.slash.localization.option.auto.description": "Следовать системной локали",
+	"omp.slash.localization.option.en.description": "Английский интерфейс",
 	"omp.slash.setup.description": "Открыть настройку провайдеров",
 	"omp.slash.plan.description": "Переключить режим планирования (агент сначала составляет план)",
 	"omp.slash.plan-review.description":

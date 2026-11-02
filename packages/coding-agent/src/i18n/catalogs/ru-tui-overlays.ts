@@ -1076,6 +1076,8 @@ export const ruTuiOverlays: TranslationCatalog = {
 		"Не удалось распознать код. Вставьте код авторизации или полный URL перенаправления.",
 	"tui.overlays.login.sheetTitle": "Вход в {provider}",
 	"tui.overlays.login.title": "Вход в {provider}",
+	"tui.overlays.localization.noun": "локализации",
+	"tui.overlays.localization.title": "Локализация",
 	"tui.overlays.logout.accountsNoun": "аккаунты",
 	"tui.overlays.logout.active": " (активен)",
 	"tui.overlays.logout.apiKeyBadge": "API-ключ",

@@ -1,5 +1,11 @@
 import { clearSubmittedText, runWithDetachedDraft } from "./helpers/draft";
 import { t } from "../i18n";
+import {
+	applyLocalization,
+	currentLocalizationLabel,
+	localizationSummary,
+	resolveLocalizationArgument,
+} from "../i18n/localization";
 import { stateLabel } from "./i18n";
 import * as path from "node:path";
 import { AgentBusyError } from "@oh-my-pi/pi-agent-core";
@@ -263,6 +269,46 @@ export const BUILTIN_MODE_SLASH_COMMANDS: ReadonlyArray<SlashCommandSpec> = [
 		handleTui: (_command, runtime) => {
 			runtime.ctx.showSettingsSelector();
 			clearSubmittedText(runtime);
+		},
+	},
+	{
+		name: "localization",
+		aliases: ["locale"],
+		icon: "globe",
+		description: "Select the UI localization (language)",
+		acpDescription: "Select or show the UI localization",
+		inlineHint: "[auto|en|ru]",
+		allowArgs: true,
+		getTuiAutocompleteDescription: runtime =>
+			t("omp.slash.localization.tui", "Localization: {locale}", {
+				locale: currentLocalizationLabel(runtime.ctx.settings),
+			}),
+		handle: async (command, runtime) => {
+			const arg = command.args.trim();
+			if (!arg) {
+				await runtime.output(localizationSummary(runtime.settings));
+				return commandConsumed();
+			}
+			const resolved = resolveLocalizationArgument(arg);
+			if ("error" in resolved) return usage(resolved.error, runtime);
+			await runtime.output(applyLocalization(runtime.settings, resolved.value));
+			await runtime.notifyConfigChanged?.();
+			return commandConsumed();
+		},
+		handleTui: (command, runtime) => {
+			clearSubmittedText(runtime);
+			const arg = command.args.trim();
+			if (!arg) {
+				runtime.ctx.showLocalizationSelector();
+				return;
+			}
+			const resolved = resolveLocalizationArgument(arg);
+			if ("error" in resolved) {
+				runtime.ctx.showError(resolved.error);
+				return;
+			}
+			runtime.ctx.showStatus(applyLocalization(runtime.ctx.settings, resolved.value));
+			runtime.ctx.ui.requestRender();
 		},
 	},
 	{
