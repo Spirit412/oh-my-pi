@@ -1,4 +1,4 @@
-import "./models.css";
+import { theme } from "antd";
 import { ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
 import { getModelDashboardStats } from "../api";
@@ -17,13 +17,14 @@ import {
 	formatTokensPerSecond,
 } from "../data/formatters";
 import { useQuery } from "../data/query";
-import { bucketAxis, rangeMeta } from "../data/range";
+import { bucketAxis, rangeMeta, rangeWindowLabel } from "../data/range";
 import { densify, pivotSeries } from "../data/series";
 import {
 	buildModelPerformanceLookup,
 	type ModelPerformanceDataPoint,
 	sumConversationTokens,
 } from "../data/view-models";
+import { useT } from "../i18n";
 import type { ModelDashboardStats, ModelStats, TimeRange } from "../types";
 import {
 	Badge,
@@ -51,17 +52,16 @@ export interface ModelsRouteProps {
 	range: TimeRange;
 }
 
-type ShareMode = "share" | "requests";
+/** The `t` translator from ../i18n; structural so column builders stay pure. */
+type Translate = (key: string, params?: Record<string, string | number>) => string;
 
-const SHARE_OPTIONS = [
-	{ value: "share" as const, label: "Share" },
-	{ value: "requests" as const, label: "Requests" },
-];
+type ShareMode = "share" | "requests";
 
 /** Models plotted individually in the share chart; the rest fold into "Other". */
 const SHARE_LIMIT = 6;
 
 export function ModelsRoute({ active, range }: ModelsRouteProps) {
+	const t = useT();
 	const query = useQuery(["models", range], ({ signal }) => getModelDashboardStats(range, signal), {
 		enabled: active,
 	});
@@ -70,20 +70,27 @@ export function ModelsRoute({ active, range }: ModelsRouteProps) {
 	const [hidden, toggleSeries] = useHiddenSeries();
 	const [expandedKey, setExpandedKey] = useState<string | null>(null);
 	const view = useMemo(() => (query.data ? buildModelsView(query.data, range) : null), [query.data, range]);
-	const bucketWord = bucketName(meta.bucketMs);
+	const bucketWord = bucketName(t, meta.bucketMs);
 	// Stable columns: a fresh array would make Table re-sort on every render.
 	const columns = useMemo(
-		() => (view ? buildModelColumns(view, expandedKey, bucketWord) : []),
-		[view, expandedKey, bucketWord],
+		() => (view ? buildModelColumns(t, view, expandedKey, bucketWord) : []),
+		[t, view, expandedKey, bucketWord],
+	);
+	const shareOptions = useMemo(
+		() => [
+			{ value: "share" as const, label: t("models.share.modeShare") },
+			{ value: "requests" as const, label: t("models.share.modeRequests") },
+		],
+		[t],
 	);
 	const isEmpty = (data: ModelDashboardStats) => data.byModel.length === 0;
-	const empty = <EmptyState title="No model usage in this range" hint="Pick a wider range in the top bar." />;
+	const empty = <EmptyState title={t("models.empty")} hint={t("models.emptyHint")} />;
 
 	return (
 		<div className="page">
 			<PageHeader
-				title="Models"
-				description={`Which models did the work in ${meta.windowLabel}, and how fast they answered.`}
+				title={t("nav.models")}
+				description={t("models.header", { range: rangeWindowLabel(range) })}
 			/>
 
 			<QueryView
@@ -97,32 +104,37 @@ export function ModelsRoute({ active, range }: ModelsRouteProps) {
 						<div data-stale={query.stale}>
 							<StatGrid min={200}>
 								<Stat
-									label="Models used"
+									label={t("models.stat.used")}
 									value={formatInteger(view.models.length)}
-									hint={`across ${formatInteger(view.providerCount)} provider${view.providerCount === 1 ? "" : "s"}`}
+									hint={t("models.stat.acrossProviders", { count: view.providerCount })}
 								/>
 								<Stat
-									label="Most used"
+									label={t("models.stat.mostUsed")}
 									title={view.top ? `${view.top.model} (${view.top.provider})` : undefined}
 									value={view.top ? view.top.model : "–"}
 									hint={
 										view.top
-											? `${formatPercent(view.top.totalRequests / Math.max(1, view.totalRequests))} of requests · ${view.top.provider}`
+											? t("models.stat.mostUsedHint", {
+													share: formatPercent(view.top.totalRequests / Math.max(1, view.totalRequests)),
+													provider: view.top.provider,
+												})
 											: undefined
 									}
 								/>
 								<Stat
-									label="Requests"
+									label={t("models.stat.requests")}
 									value={formatInteger(view.totalRequests)}
-									hint={`${formatInteger(view.failedRequests)} failed`}
+									hint={t("models.stat.failed", { count: view.failedRequests })}
 									spark={view.requestTotals}
 								/>
 								<Stat
-									label="API-equivalent cost"
-									title="What this usage would cost at public API rates"
+									label={t("models.stat.cost")}
+									title={t("models.stat.costTitle")}
 									value={formatEstimatedCost(view.totalCost, view.unpricedRequests)}
 									hint={
-										view.unpricedRequests > 0 ? `${formatInteger(view.unpricedRequests)} unpriced` : undefined
+										view.unpricedRequests > 0
+											? t("models.stat.unpriced", { count: view.unpricedRequests })
+											: undefined
 									}
 								/>
 							</StatGrid>
@@ -133,19 +145,19 @@ export function ModelsRoute({ active, range }: ModelsRouteProps) {
 
 			<Card
 				index={1}
-				title="Request share"
+				title={t("models.share.title")}
 				description={
 					mode === "share"
-						? `Each model's share of requests per ${bucketWord}`
-						: `Requests per ${bucketWord}, stacked by model`
+						? t("models.share.descShare", { bucket: bucketWord })
+						: t("models.share.descRequests", { bucket: bucketWord })
 				}
 				actions={
 					<Segmented
 						size="sm"
-						options={SHARE_OPTIONS}
+						options={shareOptions}
 						value={mode}
 						onChange={setMode}
-						aria-label="Share chart mode"
+						aria-label={t("models.share.aria")}
 					/>
 				}
 				stale={query.stale}
@@ -183,8 +195,8 @@ export function ModelsRoute({ active, range }: ModelsRouteProps) {
 
 			<Card
 				index={2}
-				title="All models"
-				description="Click a row for latency and throughput over time"
+				title={t("models.table.title")}
+				description={t("models.table.desc")}
 				stale={query.stale}
 				flush
 			>
@@ -318,21 +330,17 @@ function modelLabels(models: readonly ModelStats[]): Map<string, string> {
 	);
 }
 
-function buildModelColumns(view: ModelsView, expandedKey: string | null, bucketWord: string): Column<ModelStats>[] {
+function buildModelColumns(t: Translate, view: ModelsView, expandedKey: string | null, bucketWord: string): Column<ModelStats>[] {
 	return [
 		{
 			key: "expand",
 			header: "",
 			width: 28,
-			render: row => (
-				<span className="models-chevron" data-open={modelKey(row.model, row.provider) === expandedKey}>
-					<ChevronRight size={14} />
-				</span>
-			),
+			render: row => <ExpandChevron open={modelKey(row.model, row.provider) === expandedKey} />,
 		},
 		{
 			key: "model",
-			header: "Model",
+			header: t("models.col.model"),
 			sort: row => row.model,
 			render: row => (
 				<LabelCell
@@ -344,7 +352,7 @@ function buildModelColumns(view: ModelsView, expandedKey: string | null, bucketW
 		},
 		{
 			key: "requests",
-			header: "Requests",
+			header: t("models.col.requests"),
 			align: "right",
 			sort: row => row.totalRequests,
 			render: row => (
@@ -358,16 +366,16 @@ function buildModelColumns(view: ModelsView, expandedKey: string | null, bucketW
 		},
 		{
 			key: "cost",
-			header: "Cost",
-			title: "API-equivalent estimate at public rates",
+			header: t("models.col.cost"),
+			title: t("models.col.costTitle"),
 			align: "right",
 			sort: row => row.totalCost,
 			render: row => <span className="num">{formatEstimatedCost(row.totalCost, row.unpricedRequests)}</span>,
 		},
 		{
 			key: "tokens",
-			header: "Tokens",
-			title: "Uncached input + cache reads + cache writes + output",
+			header: t("models.col.tokens"),
+			title: t("models.tokensTitle"),
 			align: "right",
 			sort: row => sumConversationTokens(row),
 			render: row => {
@@ -381,14 +389,17 @@ function buildModelColumns(view: ModelsView, expandedKey: string | null, bucketW
 		},
 		{
 			key: "payload",
-			header: "Payload",
-			title: "Exact request / response bytes",
+			header: t("models.col.payload"),
+			title: t("models.col.payloadTitle"),
 			align: "right",
 			sort: row => row.totalRequestKb + row.totalResponseKb,
 			render: row => (
 				<span
 					className="num muted"
-					title={`Request ${formatKb(row.totalRequestKb)} · Response ${formatKb(row.totalResponseKb)}`}
+					title={t("models.cell.payloadTitle", {
+						request: formatKb(row.totalRequestKb),
+						response: formatKb(row.totalResponseKb),
+					})}
 				>
 					{formatPayloadKb(row.totalRequestKb)} / {formatPayloadKb(row.totalResponseKb)}
 				</span>
@@ -396,22 +407,22 @@ function buildModelColumns(view: ModelsView, expandedKey: string | null, bucketW
 		},
 		{
 			key: "cache",
-			header: "Cache rate",
-			title: "Cache reads ÷ (uncached input + cache reads)",
+			header: t("models.col.cacheRate"),
+			title: t("models.col.cacheRateTitle"),
 			align: "right",
 			sort: row => row.cacheRate,
 			render: row => <span className="num">{formatPercent(row.cacheRate)}</span>,
 		},
 		{
 			key: "errors",
-			header: "Errors",
+			header: t("models.col.errors"),
 			align: "right",
 			sort: row => row.errorRate,
 			render: row =>
 				row.failedRequests === 0 ? (
-					<span className="num dim">0%</span>
+					<span className="num dim">{t("models.cell.noErrors")}</span>
 				) : (
-					<span title={`${formatInteger(row.failedRequests)} failed`}>
+					<span title={t("models.cell.failed", { count: row.failedRequests })}>
 						<Badge tone={errorRateTone(row.errorRate)} mono>
 							{formatErrorRate(row.errorRate)}
 						</Badge>
@@ -420,24 +431,24 @@ function buildModelColumns(view: ModelsView, expandedKey: string | null, bucketW
 		},
 		{
 			key: "tps",
-			header: "Tokens/s",
-			title: "Average output tokens per second",
+			header: t("models.col.tps"),
+			title: t("models.col.tpsTitle"),
 			align: "right",
 			sort: row => row.avgTokensPerSecond ?? -1,
 			render: row => <span className="num">{formatTokensPerSecond(row.avgTokensPerSecond)}</span>,
 		},
 		{
 			key: "ttft",
-			header: "TTFT",
-			title: "Average time to first token",
+			header: t("models.col.ttft"),
+			title: t("models.col.ttftTitle"),
 			align: "right",
 			sort: row => row.avgTtft ?? -1,
 			render: row => <span className="num">{formatDurationMs(row.avgTtft)}</span>,
 		},
 		{
 			key: "trend",
-			header: "Trend",
-			title: `Requests per ${bucketWord}`,
+			header: t("models.col.trend"),
+			title: t("models.col.trendTitle", { bucket: bucketWord }),
 			width: 112,
 			render: row => {
 				const key = modelKey(row.model, row.provider);
@@ -457,6 +468,23 @@ function buildModelColumns(view: ModelsView, expandedKey: string | null, bucketW
 	];
 }
 
+/** Rotating expand affordance for a model row. */
+function ExpandChevron({ open }: { open: boolean }) {
+	const { token } = theme.useToken();
+	return (
+		<span
+			style={{
+				display: "inline-flex",
+				color: open ? token.colorText : token.colorTextTertiary,
+				transform: open ? "rotate(90deg)" : undefined,
+				transition: `transform 200ms ${token.motionEaseInOut}`,
+			}}
+		>
+			<ChevronRight size={14} />
+		</span>
+	);
+}
+
 function ModelDetail({
 	model,
 	color,
@@ -470,18 +498,20 @@ function ModelDetail({
 	bucketMs: number;
 	bucketWord: string;
 }) {
+	const t = useT();
+	const { token } = theme.useToken();
 	const [hidden, toggle] = useHiddenSeries();
 	const series: ChartSeries[] = [
 		{
 			key: "tps",
-			label: "Tokens/s",
+			label: t("models.detail.seriesTps"),
 			color,
 			kind: points.length > 1 ? "line" : "bars",
 			values: points.map(p => p.avgTokensPerSecond),
 		},
 		{
 			key: "ttft",
-			label: "TTFT",
+			label: t("models.detail.seriesTtft"),
 			color: OTHER_COLOR,
 			kind: points.length > 1 ? "line" : "bars",
 			axis: "right",
@@ -491,26 +521,38 @@ function ModelDetail({
 	];
 
 	return (
-		<div className="models-detail">
-			<div className="models-detail-facts">
+		<div
+			className="rise"
+			style={{
+				display: "grid",
+				gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+				gap: 24,
+				padding: "16px 16px 18px 44px",
+				background: token.colorFillTertiary,
+				borderBottom: `1px solid ${token.colorBorderSecondary}`,
+			}}
+		>
+			<div className="stack" style={{ gap: 16 }}>
 				<div>
-					<div className="section-label">Efficiency</div>
+					<div className="section-label">{t("models.detail.efficiency")}</div>
 					<KeyValues
 						items={[
 							{
 								key: "err",
-								label: "Error rate",
+								label: t("models.detail.errorRate"),
 								value: (
 									<span className={`tone-${errorRateTone(model.errorRate)}`}>
 										{formatErrorRate(model.errorRate)}{" "}
-										<span className="dim">({formatInteger(model.failedRequests)} failed)</span>
+										<span className="dim">
+											{t("models.detail.failed", { count: model.failedRequests })}
+										</span>
 									</span>
 								),
 							},
-							{ key: "cache", label: "Cache rate", value: formatPercent(model.cacheRate) },
+							{ key: "cache", label: t("models.detail.cacheRate"), value: formatPercent(model.cacheRate) },
 							{
 								key: "savings",
-								label: "Cache savings",
+								label: t("models.detail.cacheSavings"),
 								value: (
 									<span className={model.cacheSavings < 0 ? "tone-bad" : undefined}>
 										{formatPercent(model.cacheSavings)}
@@ -519,42 +561,44 @@ function ModelDetail({
 							},
 							{
 								key: "premium",
-								label: "Premium requests",
+								label: t("models.detail.premiumRequests"),
 								value: formatInteger(Math.round(model.totalPremiumRequests * 100) / 100),
 							},
 						]}
 					/>
 				</div>
 				<div>
-					<div className="section-label">Latency</div>
+					<div className="section-label">{t("models.detail.latency")}</div>
 					<KeyValues
 						items={[
-							{ key: "dur", label: "Avg duration", value: formatDurationMs(model.avgDuration) },
-							{ key: "ttft", label: "Avg TTFT", value: formatDurationMs(model.avgTtft) },
-							{ key: "tps", label: "Tokens/s", value: formatTokensPerSecond(model.avgTokensPerSecond) },
+							{ key: "dur", label: t("models.detail.avgDuration"), value: formatDurationMs(model.avgDuration) },
+							{ key: "ttft", label: t("models.detail.avgTtft"), value: formatDurationMs(model.avgTtft) },
+							{ key: "tps", label: t("models.detail.tps"), value: formatTokensPerSecond(model.avgTokensPerSecond) },
 						]}
 					/>
 				</div>
 				<div>
-					<div className="section-label">Tokens</div>
+					<div className="section-label">{t("models.detail.tokens")}</div>
 					<KeyValues
 						items={[
-							{ key: "in", label: "Uncached input", value: formatCompact(model.totalInputTokens) },
-							{ key: "cr", label: "Cache read", value: formatCompact(model.totalCacheReadTokens) },
-							{ key: "cw", label: "Cache write", value: formatCompact(model.totalCacheWriteTokens) },
-							{ key: "out", label: "Output", value: formatCompact(model.totalOutputTokens) },
+							{ key: "in", label: t("models.detail.input"), value: formatCompact(model.totalInputTokens) },
+							{ key: "cr", label: t("models.detail.cacheRead"), value: formatCompact(model.totalCacheReadTokens) },
+							{ key: "cw", label: t("models.detail.cacheWrite"), value: formatCompact(model.totalCacheWriteTokens) },
+							{ key: "out", label: t("models.detail.output"), value: formatCompact(model.totalOutputTokens) },
 						]}
 					/>
 				</div>
 				<div className="micro dim">
-					First seen {formatRelativeTime(model.firstTimestamp)} · last seen{" "}
-					{formatRelativeTime(model.lastTimestamp)}
+					{t("models.detail.seen", {
+						first: formatRelativeTime(model.firstTimestamp),
+						last: formatRelativeTime(model.lastTimestamp),
+					})}
 				</div>
 			</div>
-			<div className="models-detail-chart">
+			<div className="stack" style={{ gap: 10 }}>
 				<div className="row" style={{ justifyContent: "space-between" }}>
 					<div className="section-label" style={{ marginBottom: 0 }}>
-						Performance per active {bucketWord}
+						{t("models.detail.chartTitle", { bucket: bucketWord })}
 					</div>
 					<Legend
 						items={series.map(s => ({ key: s.key, label: s.label, color: s.color }))}
@@ -563,7 +607,7 @@ function ModelDetail({
 					/>
 				</div>
 				{points.length === 0 ? (
-					<EmptyState title="No performance samples" hint="Timing is recorded for streamed responses." />
+					<EmptyState title={t("models.detail.empty")} hint={t("models.detail.emptyHint")} />
 				) : (
 					<TimeChart
 						buckets={points.map(p => p.timestamp)}
@@ -573,11 +617,11 @@ function ModelDetail({
 						stacked={false}
 						height={240}
 						format={formatCompact}
-						formatTooltip={v => `${formatTokensPerSecond(v)} tok/s`}
-						formatRight={v => `${Number(v.toFixed(2))}s`}
+						formatTooltip={v => `${formatTokensPerSecond(v)} ${t("models.detail.tpsUnit")}`}
+						formatRight={v => t("format.secondsSuffix", { value: Number(v.toFixed(2)) })}
 						tooltipExtra={i => (
 							<div className="chart-tooltip-row chart-tooltip-total">
-								<span className="chart-tooltip-label">Requests</span>
+								<span className="chart-tooltip-label">{t("models.detail.tooltipRequests")}</span>
 								<span className="chart-tooltip-value">{formatInteger(points[i].requests)}</span>
 							</div>
 						)}
@@ -588,10 +632,10 @@ function ModelDetail({
 	);
 }
 
-function bucketName(bucketMs: number): string {
-	if (bucketMs < 3_600_000) return "5 minutes";
-	if (bucketMs < 86_400_000) return "hour";
-	return "day";
+function bucketName(t: Translate, bucketMs: number): string {
+	if (bucketMs < 3_600_000) return t("models.bucket.minutes");
+	if (bucketMs < 86_400_000) return t("models.bucket.hour");
+	return t("models.bucket.day");
 }
 
 function sumValues(values: readonly (number | null)[]): number {

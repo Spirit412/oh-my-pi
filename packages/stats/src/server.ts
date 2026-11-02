@@ -30,6 +30,7 @@ import {
 	startFrustrationRun,
 } from "./frustration";
 import { getGainDashboardStats } from "./gain-aggregator";
+import { resolveDashboardLocale, type DashboardLocale } from "./locale";
 import { statsLive } from "./live";
 import {
 	prepareStatsPort,
@@ -342,13 +343,33 @@ export async function handleApi(req: Request): Promise<Response> {
 }
 
 /**
+ * Patch the served index.html with the dashboard locale resolved at server
+ * start: `<html lang>` for correctness/accessibility and a boot config script
+ * the client reads before first render (the dictionaries are bundled, so no
+ * extra request is needed).
+ */
+async function indexHtmlResponse(read: () => Promise<string>, locale: DashboardLocale): Promise<Response> {
+	const html = (await read())
+		.replace("<html lang=\"en\">", `<html lang="${locale}">`)
+		.replace(
+			"<head>",
+			`<head>\n    <script>window.__OMP_DASHBOARD_CONFIG__ = ${JSON.stringify({ locale })};</script>`,
+		);
+	return new Response(html, { headers: { "Content-Type": "text/html" } });
+}
+
+/**
  * Handle static file requests.
  */
-async function handleStatic(requestPath: string): Promise<Response> {
+async function handleStatic(requestPath: string, locale: DashboardLocale): Promise<Response> {
 	if (USE_EMBEDDED_CLIENT) {
 		const files = await getEmbeddedClientFiles();
 		const file = files.get(requestPath.slice(1)) ?? files.get("index.html");
-		return file ? new Response(file) : new Response("Not Found", { status: 404 });
+		if (!file) return new Response("Not Found", { status: 404 });
+		if (files.get(requestPath.slice(1)) === undefined) {
+			return indexHtmlResponse(() => file.text(), locale);
+		}
+		return new Response(file);
 	}
 
 	const filePath = requestPath === "/" ? "/index.html" : requestPath;
@@ -356,13 +377,16 @@ async function handleStatic(requestPath: string): Promise<Response> {
 
 	const file = Bun.file(fullPath);
 	if (await file.exists()) {
+		if (filePath === "/index.html") {
+			return indexHtmlResponse(() => file.text(), locale);
+		}
 		return new Response(file);
 	}
 
 	// SPA fallback
 	const index = Bun.file(path.join(STATIC_DIR, "index.html"));
 	if (await index.exists()) {
-		return new Response(index);
+		return indexHtmlResponse(() => index.text(), locale);
 	}
 
 	return new Response("Not Found", { status: 404 });
@@ -374,7 +398,7 @@ export function formatStatsDashboardUrl(hostname: string, port: number): string 
 	return `http://${urlHostname}:${port}`;
 }
 
-function createDashboardServer(port: number, hostname: string): Server<undefined> {
+function createDashboardServer(port: number, hostname: string, locale: DashboardLocale): Server<undefined> {
 	const server = Bun.serve({
 		port,
 		hostname,
@@ -405,7 +429,7 @@ function createDashboardServer(port: number, hostname: string): Server<undefined
 				if (path.startsWith("/api/")) {
 					response = await handleApi(req);
 				} else {
-					response = await handleStatic(path);
+					response = await handleStatic(path, locale);
 				}
 
 				// Add the dashboard identity header to all responses.
@@ -500,6 +524,12 @@ let liveServers = 0;
 export interface StartServerOptions {
 	/** Host judge for the Frustration dashboard's judge runs; replaces any previously registered one. */
 	judge?: StatsJudgeProvider;
+	/**
+	 * UI locale served to the dashboard client. Callers that own omp's layered
+	 * settings (the `omp stats` CLI, which also honors `--lang`) pass the fully
+	 * resolved locale; standalone use resolves it from the user-level config.
+	 */
+	locale?: DashboardLocale;
 }
 
 /**
@@ -514,6 +544,9 @@ export async function startServer(
 	options: StartServerOptions = {},
 ): Promise<StatsServerHandle> {
 	if (options.judge) setStatsJudgeProvider(options.judge);
+	// The client bundles both dictionaries, so one resolution at startup is
+	// enough; a reused dashboard keeps the locale it was started with.
+	const locale = options.locale ?? (await resolveDashboardLocale());
 	const requestedKey = `${hostname}:${port}`;
 	if (port !== 0) {
 		const active = activeServers.get(requestedKey);
@@ -543,23 +576,23 @@ export async function startServer(
 
 	let claim = await prepareStatsPort(port, hostname);
 	if (claim === "bind") {
-		const server = bindDashboardServer(port, hostname);
+		const server = bindDashboardServer(port, hostname, locale);
 		if (server) return register(server);
 		claim = await recoverStatsPort(port, hostname);
 	}
 	if (claim === "reuse") return { hostname, port, stop: () => {} };
 	if (claim === "bind") {
-		const server = bindDashboardServer(port, hostname);
+		const server = bindDashboardServer(port, hostname, locale);
 		if (server) return register(server);
 	}
 	logger.warn("Stats dashboard port is held by another process; serving on an ephemeral port", { hostname, port });
-	return register(createDashboardServer(0, hostname));
+	return register(createDashboardServer(0, hostname, locale));
 }
 
 /** {@link createDashboardServer}, or null when the port is already in use. */
-function bindDashboardServer(port: number, hostname: string): Server<undefined> | null {
+function bindDashboardServer(port: number, hostname: string, locale: DashboardLocale): Server<undefined> | null {
 	try {
-		return createDashboardServer(port, hostname);
+		return createDashboardServer(port, hostname, locale);
 	} catch (error) {
 		if (error instanceof Error && "code" in error && error.code === "EADDRINUSE") return null;
 		throw error;

@@ -3,7 +3,8 @@
  * flamegraph trace viewer for a selected session.
  */
 
-import { useMemo, useState } from "react";
+import { theme } from "antd";
+import { type ReactNode, useMemo, useState } from "react";
 import { getSessions } from "../api";
 import {
 	formatCompact,
@@ -13,9 +14,11 @@ import {
 	formatRelativeTime,
 } from "../data/formatters";
 import { useQuery } from "../data/query";
+import { useT } from "../i18n";
 import { TraceView } from "../traces/TraceView";
 import type { SessionSummary } from "../types";
 import {
+	Badge,
 	Card,
 	type Column,
 	EmptyState,
@@ -27,7 +30,6 @@ import {
 	Table,
 	TableSkeleton,
 } from "../ui";
-import "../traces/traces.css";
 
 export interface TracesRouteProps {
 	active: boolean;
@@ -38,16 +40,35 @@ export interface TracesRouteProps {
 const SESSION_LIMIT = 200;
 
 function ModelList({ models }: { models: string[] }) {
-	if (models.length === 0) return <span className="dim">-</span>;
+	const { token } = theme.useToken();
+	const t = useT();
+	if (models.length === 0) {
+		return <span style={{ color: token.colorTextTertiary }}>-</span>;
+	}
 	return (
-		<span className="traces-models" title={models.join("\n")}>
-			<span className="mono truncate">{models[0]}</span>
-			{models.length > 1 && <span className="badge">+{models.length - 1}</span>}
+		<span
+			title={models.join("\n")}
+			style={{ display: "inline-flex", alignItems: "center", gap: 6, maxWidth: 220, minWidth: 0 }}
+		>
+			<span
+				style={{
+					fontFamily: token.fontFamilyCode,
+					fontSize: 12,
+					overflow: "hidden",
+					textOverflow: "ellipsis",
+					whiteSpace: "nowrap",
+				}}
+			>
+				{models[0]}
+			</span>
+			{models.length > 1 && <Badge mono>{t("tracesRoute.moreModels", { count: models.length - 1 })}</Badge>}
 		</span>
 	);
 }
 
 export function TracesRoute({ active, session, onOpenSession }: TracesRouteProps) {
+	const { token } = theme.useToken();
+	const t = useT();
 	const [filter, setFilter] = useState("");
 	const sessions = useQuery(
 		["sessions", SESSION_LIMIT],
@@ -69,27 +90,35 @@ export function TracesRoute({ active, session, onOpenSession }: TracesRouteProps
 
 	const maxCost = useMemo(() => Math.max(0, ...filtered.map(row => row.costTotal)), [filtered]);
 
+	const num = (value: number): ReactNode => (
+		<span style={{ fontVariantNumeric: "tabular-nums" }}>{formatInteger(value)}</span>
+	);
+
 	const columns = useMemo<Column<SessionSummary>[]>(
 		() => [
 			{
 				key: "title",
-				header: "Session",
+				header: t("tracesRoute.col.session"),
 				width: "32%",
 				render: row => (
 					<LabelCell
 						primary={row.title ?? row.file.split("/").pop()}
-						secondary={<span className="mono">{row.folder.split("/").slice(-2).join("/")}</span>}
+						secondary={
+							<span style={{ fontFamily: token.fontFamilyCode, fontSize: 12 }}>
+								{row.folder.split("/").slice(-2).join("/")}
+							</span>
+						}
 					/>
 				),
 				sort: row => (row.title ?? row.file).toLowerCase(),
 			},
-			{ key: "models", header: "Models", render: row => <ModelList models={row.models} /> },
+			{ key: "models", header: t("tracesRoute.col.models"), render: row => <ModelList models={row.models} /> },
 			{
 				key: "started",
-				header: "Started",
+				header: t("tracesRoute.col.started"),
 				align: "right",
 				render: row => (
-					<span className="muted" title={new Date(row.startedAt).toLocaleString()}>
+					<span style={{ color: token.colorTextTertiary }} title={new Date(row.startedAt).toLocaleString()}>
 						{formatRelativeTime(row.startedAt)}
 					</span>
 				),
@@ -97,47 +126,54 @@ export function TracesRoute({ active, session, onOpenSession }: TracesRouteProps
 			},
 			{
 				key: "duration",
-				header: "Duration",
+				header: t("tracesRoute.col.duration"),
 				align: "right",
-				render: row => <span className="num">{formatElapsed(row.endedAt - row.startedAt)}</span>,
+				render: row => <span style={{ fontVariantNumeric: "tabular-nums" }}>{formatElapsed(row.endedAt - row.startedAt)}</span>,
 				sort: row => row.endedAt - row.startedAt,
 			},
 			{
 				key: "requests",
-				header: "Requests",
+				header: t("tracesRoute.col.requests"),
 				align: "right",
-				render: row => <span className="num">{formatInteger(row.requests)}</span>,
+				render: row => num(row.requests),
 				sort: row => row.requests,
 			},
 			{
 				key: "toolCalls",
-				header: "Tools",
+				header: t("tracesRoute.col.tools"),
 				align: "right",
-				render: row => <span className="num">{formatInteger(row.toolCalls)}</span>,
+				render: row => num(row.toolCalls),
 				sort: row => row.toolCalls,
 			},
 			{
 				key: "subagents",
-				header: "Agents",
+				header: t("tracesRoute.col.agents"),
 				align: "right",
-				render: row =>
-					row.subagents > 0 ? (
-						<span className="num">{formatInteger(row.subagents)}</span>
-					) : (
-						<span className="num dim">0</span>
-					),
+				render: row => (
+					<span
+						style={
+							row.subagents > 0
+								? { fontVariantNumeric: "tabular-nums" }
+								: { fontVariantNumeric: "tabular-nums", color: token.colorTextTertiary }
+						}
+					>
+						{formatInteger(row.subagents)}
+					</span>
+				),
 				sort: row => row.subagents,
 			},
 			{
 				key: "tokens",
-				header: "Tokens",
+				header: t("tracesRoute.col.tokens"),
 				align: "right",
-				render: row => <span className="num">{formatCompact(row.totalTokens)}</span>,
+				render: row => (
+					<span style={{ fontVariantNumeric: "tabular-nums" }}>{formatCompact(row.totalTokens)}</span>
+				),
 				sort: row => row.totalTokens,
 			},
 			{
 				key: "cost",
-				header: "Cost",
+				header: t("tracesRoute.col.cost"),
 				align: "right",
 				width: 150,
 				render: row => (
@@ -150,7 +186,7 @@ export function TracesRoute({ active, session, onOpenSession }: TracesRouteProps
 				sort: row => row.costTotal,
 			},
 		],
-		[maxCost],
+		[maxCost, t, token],
 	);
 
 	if (session !== null) {
@@ -158,26 +194,27 @@ export function TracesRoute({ active, session, onOpenSession }: TracesRouteProps
 	}
 
 	const total = sessions.data?.length ?? 0;
+	const hasFilter = Boolean(filter.trim());
 	return (
-		<div className="stack traces-page">
-			<PageHeader
-				title="Traces"
-				description="Recent sessions with subagent activity folded in. Open one to inspect its timeline."
-			/>
+		<div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+			<PageHeader title={t("nav.traces")} description={t("tracesRoute.description")} />
 			<Card
-				title="Sessions"
+				title={t("tracesRoute.cardTitle")}
 				description={
 					sessions.data
-						? filter.trim()
-							? `${formatInteger(filtered.length)} of ${formatInteger(total)} most recent`
-							: `${formatInteger(total)} most recent`
+						? hasFilter
+							? t("tracesRoute.cardDescription.filtered", {
+									shown: formatInteger(filtered.length),
+									total: formatInteger(total),
+								})
+							: t("tracesRoute.cardDescription.all", { total: formatInteger(total) })
 						: undefined
 				}
 				actions={
 					<SearchInput
 						value={filter}
 						onChange={setFilter}
-						placeholder="Filter by title, project, model…"
+						placeholder={t("tracesRoute.searchPlaceholder")}
 						width={260}
 					/>
 				}
@@ -189,7 +226,7 @@ export function TracesRoute({ active, session, onOpenSession }: TracesRouteProps
 					query={sessions}
 					skeleton={<TableSkeleton rows={10} />}
 					isEmpty={rows => rows.length === 0}
-					empty={<EmptyState title="No sessions found" hint="Run a sync to index recent activity." />}
+					empty={<EmptyState title={t("tracesRoute.empty")} hint={t("tracesRoute.emptyHint")} />}
 				>
 					{() => (
 						<Table
@@ -198,8 +235,6 @@ export function TracesRoute({ active, session, onOpenSession }: TracesRouteProps
 							rowKey={row => row.file}
 							onRowClick={row => onOpenSession(row.file)}
 							initialSort={{ key: "started", dir: "desc" }}
-							limit={50}
-							empty={<EmptyState title="No matching sessions" hint="Try a different filter." />}
 						/>
 					)}
 				</QueryView>

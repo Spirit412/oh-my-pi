@@ -1,9 +1,11 @@
-import { Menu } from "lucide-react";
+import { Button, Drawer, Layout, Menu, Segmented, theme as antdTheme, type MenuProps } from "antd";
+import { Menu as MenuIcon } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
-import { rangeMeta, TIME_RANGES } from "../data/range";
 import { useLiveStatus } from "../data/live";
+import { rangeLabel, rangeWindowLabel, TIME_RANGES } from "../data/range";
+import { useT } from "../i18n";
 import type { TimeRange } from "../types";
-import { Segmented } from "../ui";
+import { useSystemTheme } from "../useSystemTheme";
 import { LiveChip } from "./LiveChip";
 import { type DashboardSection, NAV } from "./nav";
 import { ThemeToggle } from "./ThemeToggle";
@@ -16,20 +18,31 @@ export interface ShellProps {
 	children: ReactNode;
 }
 
+const SIDER_WIDTH = 224;
+
+/** Below this the sidebar collapses into a drawer opened from the header. */
+const NARROW_QUERY = "(max-width: 900px)";
+
 const RANGE_OPTIONS = TIME_RANGES.map((range, i) => ({
 	value: range,
-	label: rangeMeta(range).label,
-	title: `${rangeMeta(range).windowLabel} (${i + 1})`,
+	label: rangeLabel(range),
+	title: `${rangeWindowLabel(range)} (${i + 1})`,
 }));
 
+const PROGRESS_KEYFRAMES = "@keyframes omp-sync-slide { 0% { margin-left: -40%; } 100% { margin-left: 100%; } }";
+
 /**
- * Fixed glass topbar + naked sidebar framing one inset content panel. Owns
- * the global keyboard shortcuts: `1`–`6` pick a range, `g` then a letter jumps
- * to a page.
+ * AntD Layout frame: inline-menu sidebar, sticky header with brand, live chip,
+ * range segmented, and theme toggle. Owns the global keyboard shortcuts: `1`–`6`
+ * pick a range, `g` then a letter jumps to a page.
  */
 export function Shell({ section, onSectionChange, range, onRangeChange, children }: ShellProps) {
+	const t = useT();
 	const [menuOpen, setMenuOpen] = useState(false);
 	const scrolled = useScrolled();
+	const narrow = useMediaQuery(NARROW_QUERY);
+	const { token } = antdTheme.useToken();
+	const resolvedTheme = useSystemTheme();
 	const { sync } = useLiveStatus();
 	useShortcuts(onSectionChange, onRangeChange);
 
@@ -41,89 +54,149 @@ export function Shell({ section, onSectionChange, range, onRangeChange, children
 
 	const progress = sync.phase === "syncing" ? (sync.total > 0 ? sync.current / sync.total : null) : undefined;
 
-	return (
+	const menuItems: NonNullable<MenuProps["items"]> = NAV.map(group => ({
+		type: "group" as const,
+		key: group.headingKey,
+		label: t(group.headingKey),
+		children: group.items.map(item => ({
+			key: item.id,
+			icon: <item.icon size={15} />,
+			label: (
+				<span style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
+					<span style={{ flex: 1 }}>{t(item.labelKey)}</span>
+					<span style={{ fontSize: 11, opacity: 0.45, fontFamily: "ui-monospace, SFMono-Regular, monospace" }}>
+						G {item.hotkey.toUpperCase()}
+					</span>
+				</span>
+			),
+		})),
+	}));
+
+	const menu = (
+		<Menu
+			mode="inline"
+			theme={resolvedTheme}
+			selectedKeys={[section]}
+			items={menuItems}
+			onClick={info => go(info.key as DashboardSection)}
+			style={{ borderInlineEnd: "none", flex: 1 }}
+		/>
+	);
+
+	const sidebarBody = (
 		<>
-			<div className="shell-ambient" />
-			<header className="topbar" data-scrolled={scrolled}>
-				<button
-					type="button"
-					className="btn topbar-menu"
-					data-variant="ghost"
-					data-icon="true"
-					onClick={() => setMenuOpen(true)}
-					aria-label="Open navigation"
-				>
-					<Menu size={16} />
-				</button>
-				<div className="topbar-brand">
-					<svg className="topbar-mark" viewBox="0 0 64 64" width="22" height="22" aria-hidden="true">
-						<defs>
-							<linearGradient id="omp-mark-grad" x1="0" y1="0" x2="1" y2="1">
-								<stop offset="0" stopColor="oklch(0.7 0.24 340)" />
-								<stop offset=".5" stopColor="oklch(0.62 0.21 295)" />
-								<stop offset="1" stopColor="oklch(0.81 0.14 200)" />
-							</linearGradient>
-						</defs>
-						<path fill="url(#omp-mark-grad)" d="M10 14h44v9H43v33h-9V23h-9v22h-9V23H10z" />
-					</svg>
-					<span>omp</span>
-					<span className="topbar-slash">/</span>
-					<span className="topbar-title">stats</span>
-				</div>
-				<div className="topbar-spacer" />
-				<div className="topbar-actions">
-					<span className="topbar-hide-narrow">
-						<LiveChip />
-					</span>
-					<Segmented options={RANGE_OPTIONS} value={range} onChange={onRangeChange} aria-label="Time range" />
-					<ThemeToggle />
-				</div>
-				{progress !== undefined && (
-					<div className="topbar-progress">
-						<div
-							className="topbar-progress-fill"
-							data-indeterminate={progress === null}
-							style={{ width: `${(progress ?? 0) * 100}%` }}
-						/>
-					</div>
-				)}
-			</header>
-
-			{menuOpen && <div className="drawer-scrim" onClick={() => setMenuOpen(false)} role="presentation" />}
-			<nav className="sidebar" data-open={menuOpen} aria-label="Pages">
-				{NAV.map(group => (
-					<div key={group.heading} className="nav-group">
-						<div className="nav-heading">{group.heading}</div>
-						{group.items.map(item => (
-							<button
-								key={item.id}
-								type="button"
-								className="nav-row"
-								data-active={item.id === section}
-								aria-current={item.id === section ? "page" : undefined}
-								onClick={() => go(item.id)}
-							>
-								<item.icon size={15} />
-								<span className="nav-row-label">{item.label}</span>
-								<kbd>G {item.hotkey.toUpperCase()}</kbd>
-							</button>
-						))}
-					</div>
-				))}
-				<div className="sidebar-foot micro">
-					<span>
-						<span className="kbd">1</span>–<span className="kbd">6</span> range
-					</span>
-					<span>
-						<span className="kbd">G</span> then letter to jump
-					</span>
-				</div>
-			</nav>
-
-			<main className="shell-panel">
-				<div className="shell-content">{children}</div>
-			</main>
+			{menu}
+			<div
+				style={{
+					padding: "12px 16px",
+					display: "flex",
+					flexDirection: "column",
+					gap: 4,
+					fontSize: 12,
+					opacity: 0.55,
+				}}
+			>
+				<span>{t("shell.hintRanges")}</span>
+				<span>{t("shell.hintJump")}</span>
+			</div>
 		</>
+	);
+
+	const sidebar = (
+		<nav aria-label={t("shell.navAria")} style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+			{sidebarBody}
+		</nav>
+	);
+
+	return (
+		<Layout style={{ minHeight: "100vh" }}>
+			{narrow ? (
+				<Drawer
+					placement="left"
+					open={menuOpen}
+					onClose={() => setMenuOpen(false)}
+					width={SIDER_WIDTH}
+					aria-label={t("shell.openNav")}
+					styles={{ body: { padding: 0, display: "flex", flexDirection: "column" } }}
+				>
+					{sidebar}
+				</Drawer>
+			) : (
+				<Layout.Sider
+					width={SIDER_WIDTH}
+					theme={resolvedTheme}
+					style={{ position: "sticky", top: 0, height: "100vh", overflowY: "auto" }}
+				>
+					{sidebar}
+				</Layout.Sider>
+			)}
+			<Layout>
+				<Layout.Header
+					data-scrolled={scrolled}
+					style={{
+						position: "sticky",
+						top: 0,
+						zIndex: 20,
+						display: "flex",
+						alignItems: "center",
+						gap: 12,
+						paddingInline: 16,
+						boxShadow: scrolled ? `inset 0 -1px 0 0 ${token.colorBorderSecondary}` : undefined,
+					}}
+				>
+					{narrow && (
+						<Button
+							type="text"
+							icon={<MenuIcon size={16} />}
+							onClick={() => setMenuOpen(true)}
+							aria-label={t("shell.openNav")}
+						/>
+					)}
+					<div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 600 }}>
+						<svg viewBox="0 0 64 64" width="22" height="22" aria-hidden="true">
+							<defs>
+								<linearGradient id="omp-mark-grad" x1="0" y1="0" x2="1" y2="1">
+									<stop offset="0" stopColor="oklch(0.7 0.24 340)" />
+									<stop offset=".5" stopColor="oklch(0.62 0.21 295)" />
+									<stop offset="1" stopColor="oklch(0.81 0.14 200)" />
+								</linearGradient>
+							</defs>
+							<path fill="url(#omp-mark-grad)" d="M10 14h44v9H43v33h-9V23h-9v22h-9V23H10z" />
+						</svg>
+						<span>omp</span>
+						<span style={{ opacity: 0.4 }}>/</span>
+						<span style={{ fontWeight: 400, opacity: 0.75 }}>stats</span>
+					</div>
+					<div style={{ flex: 1 }} />
+					{!narrow && <LiveChip />}
+					<Segmented
+						options={RANGE_OPTIONS}
+						value={range}
+						onChange={value => onRangeChange(value as TimeRange)}
+						aria-label={t("shell.rangeAria")}
+					/>
+					<ThemeToggle />
+					{progress !== undefined && (
+						<div
+							aria-hidden="true"
+							style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 2, overflow: "hidden" }}
+						>
+							<style>{PROGRESS_KEYFRAMES}</style>
+							<div
+								style={{
+									height: "100%",
+									background: token.colorPrimary,
+									width: progress === null ? "40%" : `${progress * 100}%`,
+									transition: progress === null ? undefined : "width 0.2s ease",
+									animation: progress === null ? "omp-sync-slide 1.1s ease-in-out infinite" : undefined,
+								}}
+							/>
+						</div>
+					)}
+				</Layout.Header>
+				<Layout.Content style={{ padding: 16 }}>{children}</Layout.Content>
+			</Layout>
+		</Layout>
 	);
 }
 
@@ -136,6 +209,18 @@ function useScrolled(): boolean {
 		return () => window.removeEventListener("scroll", onScroll);
 	}, []);
 	return scrolled;
+}
+
+function useMediaQuery(query: string): boolean {
+	const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
+	useEffect(() => {
+		const mq = window.matchMedia(query);
+		const update = () => setMatches(mq.matches);
+		update();
+		mq.addEventListener("change", update);
+		return () => mq.removeEventListener("change", update);
+	}, [query]);
+	return matches;
 }
 
 function useShortcuts(onSection: (section: DashboardSection) => void, onRange: (range: TimeRange) => void): void {

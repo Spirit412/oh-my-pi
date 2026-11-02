@@ -1,6 +1,10 @@
+import { Button, Table as AntdTable, theme } from "antd";
 import { ArrowDown, ArrowUp } from "lucide-react";
-import { Fragment, type ReactNode, useMemo, useState } from "react";
+import type { ColumnsType } from "antd/es/table";
+import type { ReactNode } from "react";
+import { useMemo, useState } from "react";
 import { formatInteger } from "../data/formatters";
+import { useT } from "../i18n";
 import { EmptyState } from "./States";
 
 export interface Column<T> {
@@ -48,6 +52,8 @@ export function Table<T>({
 	empty,
 	expanded,
 }: TableProps<T>) {
+	const t = useT();
+	const { token } = theme.useToken();
 	const [sort, setSort] = useState(initialSort ?? null);
 	const [shown, setShown] = useState(limit ?? Number.POSITIVE_INFINITY);
 
@@ -77,108 +83,100 @@ export function Table<T>({
 		);
 	};
 
+	const antdColumns: ColumnsType<T> = columns.map(column => {
+		const sortedDir = sort?.key === column.key ? sort.dir : undefined;
+		return {
+			key: column.key,
+			title: (
+				<span
+					style={{ cursor: column.sort !== undefined ? "pointer" : undefined, whiteSpace: "nowrap" }}
+					onClick={() => toggleSort(column)}
+				>
+					{column.header}
+					{sortedDir && (
+						<span style={{ marginLeft: 4, fontSize: 10 }}>
+							{sortedDir === "asc" ? <ArrowUp size={11} /> : <ArrowDown size={11} />}
+						</span>
+					)}
+				</span>
+			),
+			align: column.align,
+			width: column.width,
+			onHeaderCell: () => ({ title: column.title }),
+			onCell: column.wrap ? () => ({ style: { whiteSpace: "normal" } }) : undefined,
+			render: (_: unknown, row: T) => column.render(row),
+		};
+	});
+
 	return (
 		<>
-			<div className="table-wrap">
-				<table className="table" data-dense={dense ?? false}>
-					<thead>
-						<tr>
-							{columns.map(column => {
-								const sorted = sort?.key === column.key ? sort.dir : undefined;
-								return (
-									<th
-										key={column.key}
-										data-align={column.align ?? "left"}
-										data-sortable={column.sort !== undefined}
-										data-sorted={sorted}
-										style={column.width !== undefined ? { width: column.width } : undefined}
-										title={column.title}
-										onClick={() => toggleSort(column)}
-										aria-sort={sorted === "asc" ? "ascending" : sorted === "desc" ? "descending" : undefined}
-									>
-										{column.header}
-										{sorted && (
-											<span className="sort-arrow">
-												{sorted === "asc" ? <ArrowUp size={11} /> : <ArrowDown size={11} />}
-											</span>
-										)}
-									</th>
-								);
-							})}
-						</tr>
-					</thead>
-					<tbody>
-						{visible.map(row => {
-							const key = rowKey(row);
-							const detail = expanded?.(row) ?? null;
-							return (
-								<Fragment key={key}>
-									<tr
-										data-clickable={onRowClick !== undefined}
-										data-selected={selectedKey === key}
-										onClick={onRowClick ? () => onRowClick(row) : undefined}
-										onKeyDown={
-											onRowClick
-												? e => {
-														if (e.key === "Enter" || e.key === " ") {
-															e.preventDefault();
-															onRowClick(row);
-														}
-													}
-												: undefined
-										}
-										tabIndex={onRowClick ? 0 : undefined}
-									>
-										{columns.map(column => (
-											<td
-												key={column.key}
-												data-align={column.align ?? "left"}
-												data-wrap={column.wrap ?? false}
-											>
-												{column.render(row)}
-											</td>
-										))}
-									</tr>
-									{detail !== null && (
-										<tr>
-											<td colSpan={columns.length} data-wrap="true" style={{ padding: 0 }}>
-												{detail}
-											</td>
-										</tr>
-									)}
-								</Fragment>
-							);
-						})}
-					</tbody>
-				</table>
-			</div>
+			<AntdTable<T>
+				columns={antdColumns}
+				dataSource={visible as T[]}
+				rowKey={rowKey as (row: T) => string}
+				pagination={false}
+				size={dense ? "small" : "middle"}
+				showSorterTooltip={false}
+				rowClassName={row =>
+					selectedKey === rowKey(row)
+						? "ui-table-row-selected"
+						: onRowClick !== undefined
+							? "ui-table-row-clickable"
+							: ""
+				}
+				onRow={
+					onRowClick !== undefined
+						? row => ({
+								onClick: () => onRowClick(row),
+								onKeyDown: (e: React.KeyboardEvent) => {
+									if (e.key === "Enter" || e.key === " ") {
+										e.preventDefault();
+										onRowClick(row);
+									}
+								},
+								tabIndex: 0,
+							})
+						: undefined
+				}
+				expandable={
+					expanded !== undefined
+						? {
+								expandedRowRender: row => expanded(row),
+								rowExpandable: row => expanded(row) !== null,
+							}
+						: undefined
+				}
+				locale={{ emptyText: empty ?? <EmptyState /> }}
+			/>
+			<style>{`
+.ui-table-row-clickable { cursor: pointer; }
+.ui-table-row-selected > td { background: color-mix(in srgb, ${token.colorPrimary} 8%, transparent) !important; }
+`}</style>
 			{limit !== undefined && sorted.length > limit && (
-				<div className="table-more">
-					<span className="micro">
-						{formatInteger(visible.length)} of {formatInteger(sorted.length)}
+				<div
+					style={{
+						display: "flex",
+						alignItems: "center",
+						justifyContent: "space-between",
+						gap: 8,
+						padding: "8px 16px",
+					}}
+				>
+					<span style={{ fontSize: 12, color: token.colorTextTertiary }}>
+						{t("ui.table.shownOf", { shown: formatInteger(visible.length), total: formatInteger(sorted.length) })}
 					</span>
-					{sorted.length > shown && (
-						<button
-							type="button"
-							className="btn"
-							data-size="sm"
-							data-variant="ghost"
-							onClick={() => setShown(n => n + limit * 4)}
-						>
-							Show more
-						</button>
-					)}
-					{shown > limit && (
-						<button
-							type="button"
-							className="btn"
-							data-size="sm"
-							data-variant="ghost"
-							onClick={() => setShown(limit)}
-						>
-							Show fewer
-						</button>
-					)}
+					<span style={{ display: "flex", gap: 8 }}>
+						{sorted.length > shown && (
+							<Button type="link" size="small" onClick={() => setShown(n => n + limit * 4)}>
+								{t("ui.table.showMore")}
+							</Button>
+						)}
+						{shown > limit && (
+							<Button type="link" size="small" onClick={() => setShown(limit)}>
+								{t("ui.table.showFewer")}
+							</Button>
+						)}
+					</span>
 				</div>
 			)}
 		</>
@@ -197,12 +195,22 @@ export function MeterCell({
 	display: ReactNode;
 	color?: string;
 }) {
+	const { token } = theme.useToken();
 	const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
+	const fill = color ?? token.colorInfo;
 	return (
-		<div className="meter-cell">
-			<span className="num">{display}</span>
-			<div className="meter">
-				<div className="meter-fill" style={{ width: `${pct}%`, background: color }} />
+		<div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, minWidth: 90 }}>
+			<span>{display}</span>
+			<div
+				style={{
+					width: 64,
+					height: 4,
+					borderRadius: 2,
+					background: token.colorFillTertiary,
+					overflow: "hidden",
+				}}
+			>
+				<div style={{ width: `${pct}%`, height: "100%", background: fill, borderRadius: 2 }} />
 			</div>
 		</div>
 	);
@@ -218,12 +226,17 @@ export function LabelCell({
 	secondary?: ReactNode;
 	lead?: ReactNode;
 }) {
+	const { token } = theme.useToken();
 	return (
-		<div className="row" style={{ gap: 10 }}>
+		<div style={{ display: "flex", gap: 10, alignItems: "center", minWidth: 0 }}>
 			{lead}
-			<div className="stack" style={{ gap: 0 }}>
-				<span className="cell-primary truncate">{primary}</span>
-				{secondary !== undefined && <span className="cell-secondary truncate">{secondary}</span>}
+			<div style={{ display: "flex", flexDirection: "column", gap: 0, minWidth: 0 }}>
+				<span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{primary}</span>
+				{secondary !== undefined && (
+					<span style={{ fontSize: 12, color: token.colorTextSecondary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+						{secondary}
+					</span>
+				)}
 			</div>
 		</div>
 	);

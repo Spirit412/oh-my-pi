@@ -7,8 +7,23 @@
 import { formatKeyHint } from "@oh-my-pi/pi-tui/key-hint-format";
 import { truncateToWidth } from "@oh-my-pi/pi-tui/utils";
 import chalk from "@oh-my-pi/pi-utils/chalk";
+import { settings } from "../config/settings";
+import { resolveLocale } from "../i18n/locale";
+import { cfgLanguage } from "../i18n/settings";
 import { openStandaloneJudge } from "../judgment/standalone";
 import { openPath } from "../utils/open";
+
+/**
+ * Extract an inline `--lang=<tag>` / `--lang <tag>` value from raw argv, the
+ * same scan `prepareHelpLocale` performs; the stats command parser does not
+ * own this global flag.
+ */
+function langFromArgv(argv: readonly string[]): string | undefined {
+	const inline = argv.find(arg => arg.startsWith("--lang="));
+	if (inline) return inline.slice("--lang=".length);
+	const index = argv.indexOf("--lang");
+	return index >= 0 ? argv[index + 1] : undefined;
+}
 
 /**
  * Single-line TTY progress bar. On a non-TTY stream we just stay quiet -
@@ -100,9 +115,15 @@ export async function runStatsCommand(cmd: StatsCommandArgs): Promise<void> {
 	// The dashboard starts immediately and ingests sessions in the background,
 	// streaming progress to the page. The judge (settings, auth, registry)
 	// resolves on the first Frustration estimate/run and lives until exit.
+	// The UI locale follows omp's own resolution (layered settings, `--lang`,
+	// `OMP_LANG`); the stats server falls back to reading the user-level config
+	// only for standalone `omp-stats` runs.
 	const cwd = process.cwd();
+	const resolvedLocale = resolveLocale({ cli: langFromArgv(process.argv), configured: cfgLanguage.get(settings) });
+	const locale = resolvedLocale.split("-")[0]?.toLowerCase() === "ru" ? "ru" : "en";
 	const { hostname, port } = await startServer(cmd.port, cmd.host, {
 		judge: async () => (await openStandaloneJudge(cwd, "stats_frustration")).judge,
+		locale,
 	});
 	const url = formatStatsDashboardUrl(hostname, port);
 	console.log(chalk.green(`Dashboard available at: ${url}`));

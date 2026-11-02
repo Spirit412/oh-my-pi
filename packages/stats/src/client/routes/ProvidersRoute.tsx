@@ -1,4 +1,4 @@
-import { format } from "@oh-my-pi/pi-utils/dates";
+import { Select, theme } from "antd";
 import { type ReactNode, useMemo, useState } from "react";
 import { getProviderDashboardStats, getProviderWindowStats } from "../api";
 import { Chart, type ChartSeries, Legend, ShareBar, TimeChart, useHiddenSeries } from "../charts";
@@ -16,8 +16,10 @@ import {
 	formatTokensPerSecond,
 } from "../data/formatters";
 import { type QueryResult, useQuery } from "../data/query";
-import { bucketAxis, formatBucket, formatTick, rangeMeta } from "../data/range";
+import { bucketAxis, formatBucket, formatTick, rangeMeta, rangeWindowLabel } from "../data/range";
 import { densify, pivotSeries } from "../data/series";
+import { useT } from "../i18n";
+import { formatDate } from "../i18n/dates";
 import type {
 	ProviderAggregate,
 	ProviderHourlyPoint,
@@ -44,32 +46,19 @@ import {
 	Table,
 	TableSkeleton,
 } from "../ui";
-import "./providers.css";
 
 export interface ProvidersRouteProps {
 	active: boolean;
 	range: TimeRange;
 }
 
-type BurnMetric = "tokens" | "cost" | "requests";
+/** The `t` translator from ../i18n; structural so column builders stay pure. */
+type Translate = (key: string, params?: Record<string, string | number>) => string;
 
-const BURN_OPTIONS = [
-	{ value: "tokens" as const, label: "Tokens" },
-	{ value: "cost" as const, label: "Cost", title: "API-equivalent estimate" },
-	{ value: "requests" as const, label: "Requests" },
-];
+type BurnMetric = "tokens" | "cost" | "requests";
 
 /** Providers stacked individually in the burn chart; the rest fold into "Other". */
 const TOP_PROVIDERS = 6;
-
-const TOKEN_MIX = [
-	{ key: "input", label: "Uncached input", color: "#5b8cff" },
-	{ key: "cacheRead", label: "Cache read", color: "var(--chart-primary)" },
-	{ key: "cacheWrite", label: "Cache write", color: "#f5b54a" },
-	{ key: "output", label: "Output", color: "var(--chart-secondary)" },
-] as const;
-
-const SNAPSHOT_HINT = "Usage snapshots accumulate whenever usage limits are fetched (TUI footer, /usage, omp usage).";
 
 interface WindowRef {
 	provider: string;
@@ -77,6 +66,7 @@ interface WindowRef {
 }
 
 export function ProvidersRoute({ active, range }: ProvidersRouteProps) {
+	const t = useT();
 	const stats = useQuery(["providers", range], ({ signal }) => getProviderDashboardStats(range, signal), {
 		enabled: active,
 	});
@@ -143,13 +133,26 @@ export function ProvidersRoute({ active, range }: ProvidersRouteProps) {
 
 	const burnSeries = view.burn[metric];
 	const burnFormat = metric === "cost" ? (v: number) => formatCost(v) : formatCompact;
-	const t = view.totals;
+	const t2 = view.totals;
+	const burnOptions = useMemo(
+		() => [
+			{ value: "tokens" as const, label: t("providers.burn.metricTokens") },
+			{
+				value: "cost" as const,
+				label: t("providers.burn.metricCost"),
+				title: t("providers.burn.metricCostTitle"),
+			},
+			{ value: "requests" as const, label: t("providers.burn.metricRequests") },
+		],
+		[t],
+	);
+	const burnBucket = bucketWord(t, meta.bucketMs);
 
 	return (
 		<div className="page">
 			<PageHeader
-				title="Providers"
-				description={`Burn, reliability and subscription headroom per provider over ${meta.windowLabel}.`}
+				title={t("nav.providers")}
+				description={t("providers.header", { range: rangeWindowLabel(range) })}
 			/>
 
 			<QueryView query={stats} skeleton={<ChartSkeleton height={112} />}>
@@ -157,34 +160,34 @@ export function ProvidersRoute({ active, range }: ProvidersRouteProps) {
 					<div data-stale={stats.stale}>
 						<StatGrid min={190}>
 							<Stat
-								label="Providers"
+								label={t("providers.stat.providers")}
 								value={formatInteger(providers.length)}
-								hint={view.topProvider ? `Most tokens: ${view.topProvider.provider}` : undefined}
+								hint={view.topProvider ? t("providers.stat.mostTokens", { name: view.topProvider.provider }) : undefined}
 							/>
 							<Stat
-								label="Requests"
-								value={formatInteger(t.requests)}
-								hint={`${formatInteger(t.failed)} failed`}
+								label={t("providers.stat.requests")}
+								value={formatInteger(t2.requests)}
+								hint={t("providers.stat.failed", { count: t2.failed })}
 								spark={view.spark.requests}
 							/>
 							<Stat
-								label="Tokens"
-								title="Uncached input + cache reads + cache writes + output"
-								value={formatCompact(t.tokens)}
+								label={t("providers.stat.tokens")}
+								title={t("providers.tokensTitle")}
+								value={formatCompact(t2.tokens)}
 								spark={view.spark.tokens}
 							/>
 							<Stat
-								label="API-equivalent cost"
-								title="What this usage would cost at public API rates"
-								value={formatEstimatedCost(t.cost, t.unpriced)}
-								hint={t.unpriced > 0 ? `${formatInteger(t.unpriced)} unpriced` : undefined}
+								label={t("providers.stat.cost")}
+								title={t("providers.stat.costTitle")}
+								value={formatEstimatedCost(t2.cost, t2.unpriced)}
+								hint={t2.unpriced > 0 ? t("providers.stat.unpriced", { count: t2.unpriced }) : undefined}
 								spark={view.spark.cost}
 								sparkColor="var(--chart-secondary)"
 							/>
 							<Stat
-								label="Error rate"
-								value={formatErrorRate(t.requests > 0 ? t.failed / t.requests : 0)}
-								hint={`${formatInteger(t.requests - t.failed)} succeeded`}
+								label={t("providers.stat.errorRate")}
+								value={formatErrorRate(t2.requests > 0 ? t2.failed / t2.requests : 0)}
+								hint={t("providers.stat.succeeded", { count: t2.requests - t2.failed })}
 							/>
 						</StatGrid>
 					</div>
@@ -193,30 +196,30 @@ export function ProvidersRoute({ active, range }: ProvidersRouteProps) {
 
 			<Card
 				index={1}
-				title="Provider totals"
+				title={t("providers.totals.title")}
 				description={
-					t.unpriced > 0
-						? `Cost is an API-equivalent estimate and excludes ${formatInteger(t.unpriced)} unpriced subscription request${t.unpriced === 1 ? "" : "s"}. Select a row for its token mix.`
-						: "Cost is an API-equivalent estimate. Select a row for its token mix."
+					t2.unpriced > 0
+						? t("providers.totals.descUnpriced", { count: t2.unpriced })
+						: t("providers.totals.desc")
 				}
 				flush
 				stale={stats.stale}
 			>
 				<QueryView query={stats} skeleton={<TableSkeleton rows={6} />}>
-					{({ providers }) => <ProviderTotalsTable providers={providers} colors={view.colors} />}
+					{({ providers }) => <ProviderTotalsTable t={t} providers={providers} colors={view.colors} />}
 				</QueryView>
 			</Card>
 
 			<div className="grid grid-main-side">
 				<Card
 					index={2}
-					title="Burn by provider"
+					title={t("providers.burn.title")}
 					description={
-						metric === "cost" && t.unpriced > 0
-							? `API-equivalent estimate per ${meta.bucketMs < 86_400_000 ? "hour" : "day"}; excludes unpriced subscription requests`
-							: `Per ${meta.bucketMs < 3_600_000 ? "5 minutes" : meta.bucketMs < 86_400_000 ? "hour" : "day"}, top ${TOP_PROVIDERS} providers stacked`
+						metric === "cost" && t2.unpriced > 0
+							? t("providers.burn.descUnpriced", { bucket: burnBucket })
+							: t("providers.burn.desc", { bucket: burnBucket, count: TOP_PROVIDERS })
 					}
-					actions={<Segmented size="sm" options={BURN_OPTIONS} value={metric} onChange={setMetric} />}
+					actions={<Segmented size="sm" options={burnOptions} value={metric} onChange={setMetric} />}
 					stale={stats.stale}
 				>
 					<QueryView query={stats} skeleton={<ChartSkeleton height={260} />}>
@@ -230,7 +233,7 @@ export function ProvidersRoute({ active, range }: ProvidersRouteProps) {
 									height={260}
 									format={burnFormat}
 									formatTooltip={metric === "cost" ? v => formatCost(v) : formatInteger}
-									emptyLabel="No provider activity in this range"
+									emptyLabel={t("providers.burn.empty")}
 								/>
 								<Legend
 									items={burnSeries.map(s => ({
@@ -254,8 +257,8 @@ export function ProvidersRoute({ active, range }: ProvidersRouteProps) {
 
 			<Card
 				index={4}
-				title="Subscription windows"
-				description="What one usage window buys you and how many accounts peak demand needs. Select a row to chart it."
+				title={t("providers.windows.title")}
+				description={t("providers.windows.desc")}
 				flush
 				stale={windows.stale}
 			>
@@ -290,151 +293,162 @@ function resolveWindow(insights: readonly ProviderWindowInsight[], picked: Windo
 	return fallback ? { provider: fallback.provider, windowKey: fallback.windowKey } : null;
 }
 
+function bucketWord(t: Translate, bucketMs: number): string {
+	if (bucketMs < 3_600_000) return t("providers.bucket.minutes");
+	if (bucketMs < 86_400_000) return t("providers.bucket.hour");
+	return t("providers.bucket.day");
+}
+
 // ---------------------------------------------------------------------------
 // Provider totals
 // ---------------------------------------------------------------------------
 
+function buildTotalsColumns(
+	t: Translate,
+	providers: readonly ProviderAggregate[],
+	colors: ReadonlyMap<string, string>,
+): Column<ProviderAggregate>[] {
+	let maxRequests = 0;
+	let maxTokens = 0;
+	let grandTokens = 0;
+	for (const p of providers) {
+		maxRequests = Math.max(maxRequests, p.totalRequests);
+		maxTokens = Math.max(maxTokens, p.totalTokens);
+		grandTokens += p.totalTokens;
+	}
+	return [
+		{
+			key: "provider",
+			header: t("providers.col.provider"),
+			sort: p => p.provider,
+			render: p => (
+				<span className="row" style={{ gap: 8 }}>
+					<Swatch color={colors.get(p.provider) ?? OTHER_COLOR} />
+					<span className="mono cell-primary">{p.provider}</span>
+				</span>
+			),
+		},
+		{
+			key: "requests",
+			header: t("providers.col.requests"),
+			align: "right",
+			sort: p => p.totalRequests,
+			render: p => <MeterCell value={p.totalRequests} max={maxRequests} display={formatInteger(p.totalRequests)} />,
+		},
+		{
+			key: "errors",
+			header: t("providers.col.errorRate"),
+			align: "right",
+			sort: p => (p.totalRequests > 0 ? p.failedRequests / p.totalRequests : 0),
+			render: p => {
+				const rate = p.totalRequests > 0 ? p.failedRequests / p.totalRequests : 0;
+				return (
+					<span className="row" style={{ gap: 8, justifyContent: "flex-end" }}>
+						<span className="num dim">{formatInteger(p.failedRequests)}</span>
+						<Badge tone={p.failedRequests > 0 ? errorRateTone(rate) : "neutral"} mono>
+							{formatErrorRate(rate)}
+						</Badge>
+					</span>
+				);
+			},
+		},
+		{
+			key: "models",
+			header: t("providers.col.models"),
+			title: t("providers.col.modelsTitle"),
+			align: "right",
+			sort: p => p.models,
+			render: p => <span className="num">{formatInteger(p.models)}</span>,
+		},
+		{
+			key: "tokens",
+			header: t("providers.col.tokens"),
+			title: t("providers.tokensTitle"),
+			align: "right",
+			sort: p => p.totalTokens,
+			render: p => (
+				<MeterCell
+					value={p.totalTokens}
+					max={maxTokens}
+					display={formatCompact(p.totalTokens)}
+					color={colors.get(p.provider)}
+				/>
+			),
+		},
+		{
+			key: "payload",
+			header: t("providers.col.payload"),
+			title: t("providers.col.payloadTitle"),
+			align: "right",
+			sort: p => p.totalRequestKb + p.totalResponseKb,
+			render: p => (
+				<span
+					className="num muted"
+					title={t("providers.cell.payloadTitle", {
+						request: formatKb(p.totalRequestKb),
+						response: formatKb(p.totalResponseKb),
+					})}
+				>
+					{formatPayloadKb(p.totalRequestKb)} / {formatPayloadKb(p.totalResponseKb)}
+				</span>
+			),
+		},
+		{
+			key: "share",
+			header: t("providers.col.share"),
+			title: t("providers.col.shareTitle"),
+			align: "right",
+			sort: p => p.totalTokens,
+			render: p => (
+				<span className="num muted">{formatPercent(grandTokens > 0 ? p.totalTokens / grandTokens : 0)}</span>
+			),
+		},
+		{
+			key: "cost",
+			header: t("providers.col.cost"),
+			title: t("providers.col.costTitle"),
+			align: "right",
+			sort: p => p.totalCost,
+			render: p => (
+				<span className="num" title={p.unpricedRequests > 0 ? t("providers.cell.unpriced", { count: p.unpricedRequests }) : undefined}>
+					{formatEstimatedCost(p.totalCost, p.unpricedRequests)}
+				</span>
+			),
+		},
+		{
+			key: "tps",
+			header: t("providers.col.tps"),
+			title: t("providers.col.tpsTitle"),
+			align: "right",
+			sort: p => p.avgTokensPerSecond ?? -1,
+			render: p => <span className="num">{formatTokensPerSecond(p.avgTokensPerSecond)}</span>,
+		},
+		{
+			key: "premium",
+			header: t("providers.col.premium"),
+			title: t("providers.col.premiumTitle"),
+			align: "right",
+			sort: p => p.totalPremiumRequests,
+			render: p => (
+				<span className={p.totalPremiumRequests > 0 ? "num" : "num dim"}>
+					{formatInteger(Math.round(p.totalPremiumRequests * 100) / 100)}
+				</span>
+			),
+		},
+	];
+}
+
 function ProviderTotalsTable({
+	t,
 	providers,
 	colors,
 }: {
+	t: Translate;
 	providers: ProviderAggregate[];
 	colors: ReadonlyMap<string, string>;
 }) {
 	const [open, setOpen] = useState<string | null>(null);
-	const columns = useMemo<Column<ProviderAggregate>[]>(() => {
-		let maxRequests = 0;
-		let maxTokens = 0;
-		let grandTokens = 0;
-		for (const p of providers) {
-			maxRequests = Math.max(maxRequests, p.totalRequests);
-			maxTokens = Math.max(maxTokens, p.totalTokens);
-			grandTokens += p.totalTokens;
-		}
-		return [
-			{
-				key: "provider",
-				header: "Provider",
-				sort: p => p.provider,
-				render: p => (
-					<span className="row" style={{ gap: 8 }}>
-						<Swatch color={colors.get(p.provider) ?? OTHER_COLOR} />
-						<span className="mono cell-primary">{p.provider}</span>
-					</span>
-				),
-			},
-			{
-				key: "requests",
-				header: "Requests",
-				align: "right",
-				sort: p => p.totalRequests,
-				render: p => (
-					<MeterCell value={p.totalRequests} max={maxRequests} display={formatInteger(p.totalRequests)} />
-				),
-			},
-			{
-				key: "errors",
-				header: "Error rate",
-				align: "right",
-				sort: p => (p.totalRequests > 0 ? p.failedRequests / p.totalRequests : 0),
-				render: p => {
-					const rate = p.totalRequests > 0 ? p.failedRequests / p.totalRequests : 0;
-					return (
-						<span className="row" style={{ gap: 8, justifyContent: "flex-end" }}>
-							<span className="num dim">{formatInteger(p.failedRequests)}</span>
-							<Badge tone={p.failedRequests > 0 ? errorRateTone(rate) : "neutral"} mono>
-								{formatErrorRate(rate)}
-							</Badge>
-						</span>
-					);
-				},
-			},
-			{
-				key: "models",
-				header: "Models",
-				title: "Distinct models used through this provider",
-				align: "right",
-				sort: p => p.models,
-				render: p => <span className="num">{formatInteger(p.models)}</span>,
-			},
-			{
-				key: "tokens",
-				header: "Tokens",
-				title: "Uncached input + cache reads + cache writes + output",
-				align: "right",
-				sort: p => p.totalTokens,
-				render: p => (
-					<MeterCell
-						value={p.totalTokens}
-						max={maxTokens}
-						display={formatCompact(p.totalTokens)}
-						color={colors.get(p.provider)}
-					/>
-				),
-			},
-			{
-				key: "payload",
-				header: "Payload",
-				title: "Exact request / response bytes",
-				align: "right",
-				sort: p => p.totalRequestKb + p.totalResponseKb,
-				render: p => (
-					<span
-						className="num muted"
-						title={`Request ${formatKb(p.totalRequestKb)} · Response ${formatKb(p.totalResponseKb)}`}
-					>
-						{formatPayloadKb(p.totalRequestKb)} / {formatPayloadKb(p.totalResponseKb)}
-					</span>
-				),
-			},
-			{
-				key: "share",
-				header: "Share",
-				title: "Fraction of all tokens in range",
-				align: "right",
-				sort: p => p.totalTokens,
-				render: p => (
-					<span className="num muted">{formatPercent(grandTokens > 0 ? p.totalTokens / grandTokens : 0)}</span>
-				),
-			},
-			{
-				key: "cost",
-				header: "Cost",
-				title: "API-equivalent estimate",
-				align: "right",
-				sort: p => p.totalCost,
-				render: p => (
-					<span
-						className="num"
-						title={p.unpricedRequests > 0 ? `${formatInteger(p.unpricedRequests)} unpriced` : undefined}
-					>
-						{formatEstimatedCost(p.totalCost, p.unpricedRequests)}
-					</span>
-				),
-			},
-			{
-				key: "tps",
-				header: "Tokens/s",
-				title: "Average output throughput",
-				align: "right",
-				sort: p => p.avgTokensPerSecond ?? -1,
-				render: p => <span className="num">{formatTokensPerSecond(p.avgTokensPerSecond)}</span>,
-			},
-			{
-				key: "premium",
-				header: "Premium",
-				title: "Premium requests (subscription multiplier units)",
-				align: "right",
-				sort: p => p.totalPremiumRequests,
-				render: p => (
-					<span className={p.totalPremiumRequests > 0 ? "num" : "num dim"}>
-						{formatInteger(Math.round(p.totalPremiumRequests * 100) / 100)}
-					</span>
-				),
-			},
-		];
-	}, [providers, colors]);
-
+	const columns = useMemo(() => buildTotalsColumns(t, providers, colors), [t, providers, colors]);
 	return (
 		<Table
 			rows={providers}
@@ -444,13 +458,21 @@ function ProviderTotalsTable({
 			limit={12}
 			selectedKey={open}
 			onRowClick={p => setOpen(prev => (prev === p.provider ? null : p.provider))}
-			expanded={p => (p.provider === open ? <TokenMix provider={p} /> : null)}
-			empty={<EmptyState title="No requests in this range" />}
+			expanded={p => (p.provider === open ? <TokenMix t={t} provider={p} /> : null)}
+			empty={<EmptyState title={t("providers.totals.empty")} />}
 		/>
 	);
 }
 
-function TokenMix({ provider }: { provider: ProviderAggregate }) {
+const TOKEN_MIX_KEYS = [
+	{ key: "input", color: "#5b8cff" },
+	{ key: "cacheRead", color: "var(--chart-primary)" },
+	{ key: "cacheWrite", color: "#f5b54a" },
+	{ key: "output", color: "var(--chart-secondary)" },
+] as const;
+
+function TokenMix({ t, provider }: { t: Translate; provider: ProviderAggregate }) {
+	const { token } = theme.useToken();
 	const mix = {
 		input: provider.totalInputTokens,
 		cacheRead: provider.totalCacheReadTokens,
@@ -458,14 +480,33 @@ function TokenMix({ provider }: { provider: ProviderAggregate }) {
 		output: provider.totalOutputTokens,
 	};
 	return (
-		<div className="providers-mix">
-			<ShareBar segments={TOKEN_MIX.map(m => ({ key: m.key, label: m.label, value: mix[m.key], color: m.color }))} />
-			<Legend
-				items={TOKEN_MIX.map(m => ({
+		<div
+			className="stack"
+			style={{
+				gap: 10,
+				padding: "12px 16px 14px",
+				background: token.colorFillTertiary,
+				borderTop: `1px solid ${token.colorBorderSecondary}`,
+			}}
+		>
+			<ShareBar
+				segments={TOKEN_MIX_KEYS.map(m => ({
 					key: m.key,
-					label: m.label,
+					label: t(`providers.mix.${m.key}`),
+					value: mix[m.key],
 					color: m.color,
-					value: `${formatCompact(mix[m.key])} · ${provider.totalTokens > 0 ? formatPercent(mix[m.key] / provider.totalTokens, 0) : "–"}`,
+				}))}
+			/>
+			<Legend
+				items={TOKEN_MIX_KEYS.map(m => ({
+					key: m.key,
+					label: t(`providers.mix.${m.key}`),
+					color: m.color,
+					value: t("providers.mix.legendValue", {
+						value: formatCompact(mix[m.key]),
+						share:
+							provider.totalTokens > 0 ? formatPercent(mix[m.key] / provider.totalTokens, 0) : "–",
+					}),
 				}))}
 			/>
 		</div>
@@ -487,6 +528,7 @@ function PeakHoursCard({
 	providers: ProviderAggregate[];
 	stale: boolean;
 }) {
+	const t = useT();
 	const [provider, setProvider] = useState(ALL_PROVIDERS);
 	const current =
 		provider === ALL_PROVIDERS || providers.some(p => p.provider === provider) ? provider : ALL_PROVIDERS;
@@ -507,45 +549,43 @@ function PeakHoursCard({
 		const series: ChartSeries[] = [
 			{
 				key: "tokens",
-				label: "Tokens",
+				label: t("providers.peak.seriesTokens"),
 				color: "var(--chart-primary)",
 				values: tokens.map((v, hour) => (hasData && hour === peak ? null : v)),
 			},
 			{
 				key: "peak",
-				label: "Tokens (peak hour)",
+				label: t("providers.peak.seriesPeak"),
 				color: "var(--chart-secondary)",
 				values: tokens.map((v, hour) => (hasData && hour === peak ? v : null)),
 			},
 		];
 		return { series, output, requests, peak, hasData };
-	}, [hourly, current]);
+	}, [hourly, current, t]);
 
 	const hourLabel = (hour: number) => `${String(hour).padStart(2, "0")}:00`;
 
 	return (
 		<Card
 			index={3}
-			title="Peak burn hours"
+			title={t("providers.peak.title")}
 			description={
 				hours.hasData
-					? `Tokens by local hour of day; peak at ${hourLabel(hours.peak)}`
-					: "Tokens by local hour of day"
+					? t("providers.peak.descPeak", { time: hourLabel(hours.peak) })
+					: t("providers.peak.desc")
 			}
 			actions={
-				<select
-					className="input providers-select"
+				<Select
+					size="small"
+					style={{ maxWidth: 220 }}
 					value={current}
-					onChange={e => setProvider(e.target.value)}
-					aria-label="Provider"
-				>
-					<option value={ALL_PROVIDERS}>All providers</option>
-					{providers.map(p => (
-						<option key={p.provider} value={p.provider}>
-							{p.provider}
-						</option>
-					))}
-				</select>
+					onChange={setProvider}
+					aria-label={t("providers.peak.providerAria")}
+					options={[
+						{ value: ALL_PROVIDERS, label: t("providers.peak.allProviders") },
+						...providers.map(p => ({ value: p.provider, label: p.provider })),
+					]}
+				/>
 			}
 			stale={stale}
 		>
@@ -557,15 +597,15 @@ function PeakHoursCard({
 				height={260}
 				showTotal={false}
 				formatTooltip={formatInteger}
-				emptyLabel="No activity in this range"
+				emptyLabel={t("providers.peak.empty")}
 				tooltipExtra={hour => (
 					<>
 						<div className="chart-tooltip-row">
-							<span className="chart-tooltip-label">Output</span>
+							<span className="chart-tooltip-label">{t("providers.peak.tooltipOutput")}</span>
 							<span className="chart-tooltip-value">{formatInteger(hours.output[hour])}</span>
 						</div>
 						<div className="chart-tooltip-row">
-							<span className="chart-tooltip-label">Requests</span>
+							<span className="chart-tooltip-label">{t("providers.peak.tooltipRequests")}</span>
 							<span className="chart-tooltip-value">{formatInteger(hours.requests[hour])}</span>
 						</div>
 					</>
@@ -588,115 +628,118 @@ function WindowInsightsTable({
 	selected: WindowRef | null;
 	onSelect: (ref: WindowRef) => void;
 }) {
+	const t = useT();
 	return (
 		<Table
 			rows={insights}
 			rowKey={i => `${i.provider}::${i.windowKey}`}
-			columns={INSIGHT_COLUMNS}
+			columns={insightColumns(t)}
 			initialSort={{ key: "consumed", dir: "desc" }}
 			limit={12}
 			selectedKey={selected ? `${selected.provider}::${selected.windowKey}` : null}
 			onRowClick={i => onSelect({ provider: i.provider, windowKey: i.windowKey })}
-			empty={<EmptyState title="No usage snapshots in this range" hint={SNAPSHOT_HINT} />}
+			empty={<EmptyState title={t("providers.windows.empty")} hint={t("providers.windows.hint")} />}
 		/>
 	);
 }
 
-const INSIGHT_COLUMNS: Column<ProviderWindowInsight>[] = [
-	{
-		key: "window",
-		header: "Window",
-		sort: i => `${i.provider} ${i.windowLabel}`,
-		render: i => <LabelCell primary={i.windowLabel} secondary={<span className="mono">{i.provider}</span>} />,
-	},
-	{
-		key: "accounts",
-		header: "Accounts",
-		title: "Accounts with at least one snapshot for this window in range",
-		align: "right",
-		sort: i => i.accounts,
-		render: i => <span className="num">{formatInteger(i.accounts)}</span>,
-	},
-	{
-		key: "cycles",
-		header: "Resets",
-		title: "Window resets observed (drops in used fraction)",
-		align: "right",
-		sort: i => i.cycles,
-		render: i => <span className="num muted">{formatInteger(i.cycles)}</span>,
-	},
-	{
-		key: "consumed",
-		header: "Windows burned",
-		title: "Subscription-window equivalents consumed in range (sum of used-fraction increases across accounts)",
-		align: "right",
-		sort: i => i.fractionConsumed,
-		render: i => <span className="num">{i.fractionConsumed.toFixed(2)}</span>,
-	},
-	{
-		key: "capacity",
-		header: "Tokens / window",
-		title: "Provider tokens burned in range ÷ windows burned — what one full window is worth",
-		align: "right",
-		sort: i => i.estTokensPerWindow ?? -1,
-		render: i =>
-			i.estTokensPerWindow !== null ? (
-				<span className="num">{formatCompact(i.estTokensPerWindow)}</span>
-			) : (
-				<span className="dim" title="Too little of the window was consumed to extrapolate">
-					–
-				</span>
-			),
-	},
-	{
-		key: "peak",
-		header: "Peak utilization",
-		title: "Peak of summed used fraction across accounts at any sampled instant; the bar is relative to fleet capacity",
-		align: "right",
-		sort: i => i.peakConcurrentFraction,
-		render: i => {
-			const load = i.accounts > 0 ? i.peakConcurrentFraction / i.accounts : 0;
-			return (
-				<MeterCell
-					value={i.peakConcurrentFraction}
-					max={i.accounts}
-					display={formatPercent(i.peakConcurrentFraction, 0)}
-					color={load >= 0.9 ? "var(--warn)" : undefined}
-				/>
-			);
+function insightColumns(t: Translate): Column<ProviderWindowInsight>[] {
+	return [
+		{
+			key: "window",
+			header: t("providers.windows.col.window"),
+			sort: i => `${i.provider} ${i.windowLabel}`,
+			render: i => <LabelCell primary={i.windowLabel} secondary={<span className="mono">{i.provider}</span>} />,
 		},
-	},
-	{
-		key: "ideal",
-		header: "Accounts needed",
-		title: "Accounts needed to keep peak demand under 90% of fleet capacity",
-		align: "right",
-		sort: i => i.idealAccounts - i.accounts,
-		render: i =>
-			i.idealAccounts > i.accounts ? (
-				<Badge tone="warn" mono>
-					{formatInteger(i.idealAccounts)} · have {formatInteger(i.accounts)}
-				</Badge>
-			) : (
-				<span className="num">{formatInteger(i.idealAccounts)}</span>
-			),
-	},
-	{
-		key: "exhausted",
-		header: "Exhaustions",
-		title: "Transitions into an exhausted state observed in range",
-		align: "right",
-		sort: i => i.exhaustedEvents,
-		render: i =>
-			i.exhaustedEvents > 0 ? (
-				<Badge tone="warn" mono>
-					{formatInteger(i.exhaustedEvents)} exhausted
-				</Badge>
-			) : (
-				<span className="num dim">0</span>
-			),
-	},
-];
+		{
+			key: "accounts",
+			header: t("providers.windows.col.accounts"),
+			title: t("providers.windows.col.accountsTitle"),
+			align: "right",
+			sort: i => i.accounts,
+			render: i => <span className="num">{formatInteger(i.accounts)}</span>,
+		},
+		{
+			key: "cycles",
+			header: t("providers.windows.col.resets"),
+			title: t("providers.windows.col.resetsTitle"),
+			align: "right",
+			sort: i => i.cycles,
+			render: i => <span className="num muted">{formatInteger(i.cycles)}</span>,
+		},
+		{
+			key: "consumed",
+			header: t("providers.windows.col.consumed"),
+			title: t("providers.windows.col.consumedTitle"),
+			align: "right",
+			sort: i => i.fractionConsumed,
+			render: i => <span className="num">{i.fractionConsumed.toFixed(2)}</span>,
+		},
+		{
+			key: "capacity",
+			header: t("providers.windows.col.capacity"),
+			title: t("providers.windows.col.capacityTitle"),
+			align: "right",
+			sort: i => i.estTokensPerWindow ?? -1,
+			render: i =>
+				i.estTokensPerWindow !== null ? (
+					<span className="num">{formatCompact(i.estTokensPerWindow)}</span>
+				) : (
+					<span className="dim" title={t("providers.windows.tooLittle")}>
+						–
+					</span>
+				),
+		},
+		{
+			key: "peak",
+			header: t("providers.windows.col.peak"),
+			title: t("providers.windows.col.peakTitle"),
+			align: "right",
+			sort: i => i.peakConcurrentFraction,
+			render: i => {
+				const load = i.accounts > 0 ? i.peakConcurrentFraction / i.accounts : 0;
+				return (
+					<MeterCell
+						value={i.peakConcurrentFraction}
+						max={i.accounts}
+						display={formatPercent(i.peakConcurrentFraction, 0)}
+						color={load >= 0.9 ? "var(--warn)" : undefined}
+					/>
+				);
+			},
+		},
+		{
+			key: "ideal",
+			header: t("providers.windows.col.ideal"),
+			title: t("providers.windows.col.idealTitle"),
+			align: "right",
+			sort: i => i.idealAccounts - i.accounts,
+			render: i =>
+				i.idealAccounts > i.accounts ? (
+					<Badge tone="warn" mono>
+						{t("providers.windows.needHave", { need: formatInteger(i.idealAccounts), count: formatInteger(i.accounts) })}
+					</Badge>
+				) : (
+					<span className="num">{formatInteger(i.idealAccounts)}</span>
+				),
+		},
+		{
+			key: "exhausted",
+			header: t("providers.windows.col.exhausted"),
+			title: t("providers.windows.col.exhaustedTitle"),
+			align: "right",
+			sort: i => i.exhaustedEvents,
+			render: i =>
+				i.exhaustedEvents > 0 ? (
+					<Badge tone="warn" mono>
+						{t("providers.windows.exhaustedCount", { count: i.exhaustedEvents })}
+					</Badge>
+				) : (
+					<span className="num dim">0</span>
+				),
+		},
+	];
+}
 
 // ---------------------------------------------------------------------------
 // Window utilization
@@ -748,6 +791,8 @@ function WindowUtilizationCard({
 	selected: WindowRef | null;
 	onSelect: (ref: WindowRef) => void;
 }) {
+	const t = useT();
+	const { token } = theme.useToken();
 	const [hidden, toggleHidden] = useHiddenSeries();
 
 	const providers = useMemo(() => [...new Set((insights ?? []).map(i => i.provider))], [insights]);
@@ -776,10 +821,12 @@ function WindowUtilizationCard({
 		const out = new Map<string, string>();
 		for (const [label, keys] of keysByLabel) {
 			keys.sort();
-			keys.forEach((key, i) => out.set(key, keys.length > 1 ? `${label} #${i + 1}` : label));
+			keys.forEach((key, i) =>
+				out.set(key, keys.length > 1 ? t("providers.accounts.numbered", { label, count: i + 1 }) : label),
+			);
 		}
 		return out;
-	}, [providerSeries]);
+	}, [providerSeries, t]);
 
 	const chart = useMemo(
 		() =>
@@ -819,43 +866,38 @@ function WindowUtilizationCard({
 	return (
 		<Card
 			index={5}
-			title="Window utilization"
+			title={t("providers.util.title")}
 			description={
 				chart.buckets.length > 0
-					? `${windowLabel ?? "Window"} used fraction per account, ${format(new Date(chart.first), "MMM d HH:mm")} – ${format(new Date(chart.last), "MMM d HH:mm")}`
-					: "Recorded limit utilization per account"
+					? t("providers.util.descRange", {
+							window: windowLabel ?? t("providers.windows.col.window"),
+							from: formatDate(chart.first, "MMM d HH:mm"),
+							to: formatDate(chart.last, "MMM d HH:mm"),
+						})
+					: t("providers.util.desc")
 			}
 			actions={
 				selected && (
 					<div className="row" style={{ gap: 6 }}>
-						<select
-							className="input providers-select"
+						<Select
+							size="small"
+							style={{ maxWidth: 220 }}
 							value={selected.provider}
-							onChange={e => {
-								const next = e.target.value;
+							onChange={next => {
 								const first = insights?.find(i => i.provider === next);
 								if (first) onSelect({ provider: next, windowKey: first.windowKey });
 							}}
-							aria-label="Provider"
-						>
-							{providers.map(p => (
-								<option key={p} value={p}>
-									{p}
-								</option>
-							))}
-						</select>
-						<select
-							className="input providers-select"
+							aria-label={t("providers.util.providerAria")}
+							options={providers.map(p => ({ value: p, label: p }))}
+						/>
+						<Select
+							size="small"
+							style={{ maxWidth: 220 }}
 							value={selected.windowKey}
-							onChange={e => onSelect({ provider: selected.provider, windowKey: e.target.value })}
-							aria-label="Window"
-						>
-							{windows.map(w => (
-								<option key={w.key} value={w.key}>
-									{w.label}
-								</option>
-							))}
-						</select>
+							onChange={windowKey => onSelect({ provider: selected.provider, windowKey })}
+							aria-label={t("providers.util.windowAria")}
+							options={windows.map(w => ({ value: w.key, label: w.label }))}
+						/>
 					</div>
 				)
 			}
@@ -864,7 +906,7 @@ function WindowUtilizationCard({
 			{insights === null ? (
 				<ChartSkeleton height={260} />
 			) : selected === null ? (
-				<EmptyState title="No usage snapshots in this range" hint={SNAPSHOT_HINT} />
+				<EmptyState title={t("providers.windows.empty")} hint={t("providers.windows.hint")} />
 			) : (
 				<QueryView query={accounts} skeleton={<ChartSkeleton height={260} />}>
 					{() =>
@@ -891,12 +933,14 @@ function WindowUtilizationCard({
 										format={v => formatPercent(v, 0)}
 										formatTooltip={v => formatPercent(v, 1)}
 										references={[{ value: 1, label: "100%" }]}
-										emptyLabel="No utilization readings for this window"
+										emptyLabel={t("providers.util.empty")}
 										tooltipExtra={i => {
 											const exhausted = chart.exhausted[i];
 											return exhausted.length > 0 ? (
 												<div className="chart-tooltip-row">
-													<span className="chart-tooltip-label tone-bad">Exhausted</span>
+													<span className="chart-tooltip-label tone-bad">
+														{t("providers.util.tooltipExhausted")}
+													</span>
 													<span className="chart-tooltip-value">{exhausted.join(", ")}</span>
 												</div>
 											) : null;
@@ -910,11 +954,11 @@ function WindowUtilizationCard({
 										/>
 									)}
 								</div>
-								<div className="providers-accounts">
+								<div style={{ margin: "0 -16px -16px", borderTop: `1px solid ${token.colorBorderSecondary}` }}>
 									<Table
 										rows={rows}
 										rowKey={r => `${r.series.windowKey}::${r.series.accountKey}`}
-										columns={ACCOUNT_COLUMNS}
+										columns={accountColumns(t)}
 										limit={16}
 										onRowClick={r => onSelect({ provider: r.series.provider, windowKey: r.series.windowKey })}
 										dense
@@ -996,75 +1040,79 @@ function buildUtilization(accounts: UsageWindowSeries[], names: ReadonlyMap<stri
 	return { buckets, bucketMs, first, last, max, series, exhausted };
 }
 
-function statusBadge(latest: AccountRow["latest"]): ReactNode {
-	if (!latest) return <span className="dim">No reading</span>;
-	if (latest.exhausted) return <Badge tone="bad">Exhausted</Badge>;
-	if (latest.fraction >= 0.8) return <Badge tone="warn">High</Badge>;
-	return <Badge tone="ok">OK</Badge>;
+function statusBadge(t: Translate, latest: AccountRow["latest"]): ReactNode {
+	if (!latest) return <span className="dim">{t("providers.accounts.noReading")}</span>;
+	if (latest.exhausted) return <Badge tone="bad">{t("providers.accounts.exhausted")}</Badge>;
+	if (latest.fraction >= 0.8) return <Badge tone="warn">{t("providers.accounts.high")}</Badge>;
+	return <Badge tone="ok">{t("providers.accounts.ok")}</Badge>;
 }
 
-const ACCOUNT_COLUMNS: Column<AccountRow>[] = [
-	{
-		key: "account",
-		header: "Account",
-		sort: r => r.name,
-		render: r => (
-			<span className="row" style={{ gap: 8 }}>
-				<span className="providers-swatch-slot">{r.color && <Swatch color={r.color} />}</span>
-				<span className="truncate providers-account" title={r.series.accountKey}>
-					{r.name}
+function accountColumns(t: Translate): Column<AccountRow>[] {
+	return [
+		{
+			key: "account",
+			header: t("providers.accounts.col.account"),
+			sort: r => r.name,
+			render: r => (
+				<span className="row" style={{ gap: 8 }}>
+					<span style={{ display: "inline-flex", width: 10, flex: "none" }}>
+						{r.color && <Swatch color={r.color} />}
+					</span>
+					<span className="truncate" style={{ maxWidth: 280 }} title={r.series.accountKey}>
+						{r.name}
+					</span>
 				</span>
-			</span>
-		),
-	},
-	{
-		key: "window",
-		header: "Window",
-		sort: r => r.series.windowLabel,
-		render: r => <span className={r.color ? undefined : "muted"}>{r.series.windowLabel}</span>,
-	},
-	{
-		key: "latest",
-		header: "Latest used",
-		align: "right",
-		sort: r => r.latest?.fraction ?? -1,
-		render: r =>
-			r.latest ? (
-				<MeterCell
-					value={r.latest.fraction}
-					max={1}
-					display={formatPercent(r.latest.fraction, 0)}
-					color={r.latest.exhausted ? "var(--bad)" : r.latest.fraction >= 0.8 ? "var(--warn)" : "var(--ok)"}
-				/>
-			) : (
-				<span className="dim">–</span>
 			),
-	},
-	{
-		key: "status",
-		header: "Status",
-		sort: r => (r.latest?.exhausted ? 2 : (r.latest?.fraction ?? 0) >= 0.8 ? 1 : 0),
-		render: r => statusBadge(r.latest),
-	},
-	{
-		key: "peak",
-		header: "Peak in range",
-		align: "right",
-		sort: r => r.peak ?? -1,
-		render: r => <span className="num">{r.peak === null ? "–" : formatPercent(r.peak, 0)}</span>,
-	},
-	{
-		key: "samples",
-		header: "Snapshots",
-		align: "right",
-		sort: r => r.samples,
-		render: r => <span className="num muted">{formatInteger(r.samples)}</span>,
-	},
-	{
-		key: "recorded",
-		header: "Recorded",
-		align: "right",
-		sort: r => r.latest?.timestamp ?? 0,
-		render: r => <span className="muted">{r.latest ? formatRelativeTime(r.latest.timestamp) : "–"}</span>,
-	},
-];
+		},
+		{
+			key: "window",
+			header: t("providers.windows.col.window"),
+			sort: r => r.series.windowLabel,
+			render: r => <span className={r.color ? undefined : "muted"}>{r.series.windowLabel}</span>,
+		},
+		{
+			key: "latest",
+			header: t("providers.accounts.col.latest"),
+			align: "right",
+			sort: r => r.latest?.fraction ?? -1,
+			render: r =>
+				r.latest ? (
+					<MeterCell
+						value={r.latest.fraction}
+						max={1}
+						display={formatPercent(r.latest.fraction, 0)}
+						color={r.latest.exhausted ? "var(--bad)" : r.latest.fraction >= 0.8 ? "var(--warn)" : "var(--ok)"}
+					/>
+				) : (
+					<span className="dim">–</span>
+				),
+		},
+		{
+			key: "status",
+			header: t("providers.accounts.col.status"),
+			sort: r => (r.latest?.exhausted ? 2 : (r.latest?.fraction ?? 0) >= 0.8 ? 1 : 0),
+			render: r => statusBadge(t, r.latest),
+		},
+		{
+			key: "peak",
+			header: t("providers.accounts.col.peak"),
+			align: "right",
+			sort: r => r.peak ?? -1,
+			render: r => <span className="num">{r.peak === null ? "–" : formatPercent(r.peak, 0)}</span>,
+		},
+		{
+			key: "samples",
+			header: t("providers.accounts.col.snapshots"),
+			align: "right",
+			sort: r => r.samples,
+			render: r => <span className="num muted">{formatInteger(r.samples)}</span>,
+		},
+		{
+			key: "recorded",
+			header: t("providers.accounts.col.recorded"),
+			align: "right",
+			sort: r => r.latest?.timestamp ?? 0,
+			render: r => <span className="muted">{r.latest ? formatRelativeTime(r.latest.timestamp) : "–"}</span>,
+		},
+	];
+}

@@ -1,11 +1,19 @@
+import { Button, theme as antdTheme } from "antd";
 import { RefreshCw } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { formatInteger } from "../data/formatters";
 import { useLiveStatus } from "../data/live";
-import { Dot } from "../ui";
+import { t, useT } from "../i18n";
+
+const CHIP_KEYFRAMES = `@keyframes omp-chip-spin { to { transform: rotate(360deg); } }
+@keyframes omp-chip-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }`;
+
+const COUNT_STYLE = { fontSize: 11, opacity: 0.6, fontVariantNumeric: "tabular-nums" } as const;
 
 /** Topbar ingest status; click to sync now. */
 export function LiveChip() {
+	const translate = useT();
+	const { token } = antdTheme.useToken();
 	const { sync, indexingHours, connected, requestSync } = useLiveStatus();
 	const now = useNow(sync.phase === "idle" ? 15_000 : null);
 
@@ -14,67 +22,85 @@ export function LiveChip() {
 	if (!connected) {
 		body = (
 			<>
-				<Dot tone="warn" />
-				<span>Reconnecting</span>
+				<StatusDot color={token.colorWarning} />
+				<span>{translate("live.reconnecting")}</span>
 			</>
 		);
-		title = "Lost the live connection to the stats server; retrying";
+		title = translate("live.reconnectingTitle");
 	} else if (sync.phase === "syncing") {
 		body = (
 			<>
-				<RefreshCw size={13} className="spin" />
-				<span>Syncing</span>
+				<RefreshCw size={13} style={{ animation: "omp-chip-spin 1s linear infinite" }} />
+				<span>{translate("live.syncing")}</span>
 				{sync.total > 0 && (
-					<span className="live-chip-count">
+					<span style={COUNT_STYLE}>
 						{formatInteger(sync.current)}/{formatInteger(sync.total)}
 					</span>
 				)}
 			</>
 		);
-		title = "Ingesting session files";
+		title = translate("live.syncingTitle");
 	} else if (sync.phase === "error") {
 		body = (
 			<>
-				<Dot tone="bad" />
-				<span>Sync failed</span>
+				<StatusDot color={token.colorError} />
+				<span>{translate("live.syncFailed")}</span>
 			</>
 		);
-		title = `${sync.error ?? "Sync failed"} — click to retry`;
+		title = sync.error ?? translate("live.syncFailed");
 	} else if (indexingHours > INDEXING_VISIBLE_HOURS) {
 		body = (
 			<>
-				<RefreshCw size={13} className="spin" />
-				<span>Indexing</span>
-				<span className="live-chip-count">{formatInteger(indexingHours)}h left</span>
+				<RefreshCw size={13} style={{ animation: "omp-chip-spin 1s linear infinite" }} />
+				<span>{translate("live.indexing")}</span>
+				<span style={COUNT_STYLE}>{translate("live.hoursLeft", { count: formatInteger(indexingHours) })}</span>
 			</>
 		);
-		title = "Building hourly rollups; older ranges fill in as it goes";
+		title = translate("live.indexingTitle");
 	} else {
 		body = (
 			<>
-				<Dot tone="live" pulse />
-				<span>Live</span>
-				{sync.lastSyncedAt !== null && <span className="live-chip-count">{ago(now - sync.lastSyncedAt)}</span>}
+				<StatusDot color={token.colorSuccess} pulse />
+				<span>{translate("live.live")}</span>
+				{sync.lastSyncedAt !== null && <span style={COUNT_STYLE}>{ago(now - sync.lastSyncedAt)}</span>}
 			</>
 		);
-		title = "Click to sync session files now";
+		title = translate("live.liveTitle");
 	}
 
 	return (
-		<button
-			type="button"
-			className="live-chip"
+		<Button
+			type="text"
+			size="small"
 			onClick={requestSync}
 			disabled={sync.phase === "syncing"}
 			title={title}
+			style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
 		>
+			<style>{CHIP_KEYFRAMES}</style>
 			{body}
-		</button>
+		</Button>
 	);
 }
 
 /** A handful of dirty hours is normal live churn; only a real backlog is worth showing. */
 const INDEXING_VISIBLE_HOURS = 24;
+
+function StatusDot({ color, pulse }: { color: string; pulse?: boolean }) {
+	return (
+		<span
+			aria-hidden="true"
+			style={{
+				width: 8,
+				height: 8,
+				borderRadius: "50%",
+				background: color,
+				flexShrink: 0,
+				animation: pulse ? "omp-chip-pulse 2s ease-in-out infinite" : undefined,
+			}}
+		/>
+	);
+}
 
 function useNow(intervalMs: number | null): number {
 	const [now, setNow] = useState(Date.now);
@@ -89,9 +115,10 @@ function useNow(intervalMs: number | null): number {
 
 function ago(ms: number): string {
 	const s = Math.max(0, Math.round(ms / 1000));
-	if (s < 45) return "just now";
+	if (s < 45) return t("live.justNow");
 	const m = Math.round(s / 60);
-	if (m < 60) return `${m}m ago`;
+	if (m < 60) return t("live.minutesAgo", { count: m });
 	const h = Math.round(m / 60);
-	return h < 24 ? `${h}h ago` : `${Math.round(h / 24)}d ago`;
+	if (h < 24) return t("live.hoursAgo", { count: h });
+	return t("live.daysAgo", { count: Math.round(h / 24) });
 }

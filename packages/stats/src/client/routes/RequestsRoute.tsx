@@ -1,3 +1,4 @@
+import { Button, theme } from "antd";
 import { useMemo, useState } from "react";
 import { getRecentRequests } from "../api";
 import {
@@ -14,8 +15,9 @@ import {
 	formatTimestamp,
 } from "../data/formatters";
 import { useQuery } from "../data/query";
-import { rangeMeta } from "../data/range";
+import { rangeMeta, rangeWindowLabel } from "../data/range";
 import { type RequestStatus, requestStatus, summarizeRequests } from "../data/view-models";
+import { useT } from "../i18n";
 import { REQUEST_STATUS } from "../ui/RequestDrawer";
 import type { MessageStats, TimeRange } from "../types";
 import {
@@ -47,16 +49,19 @@ const LOAD_STEPS = [500, 2_000, 10_000] as const;
 type StatusFilter = "all" | RequestStatus;
 
 export function RequestsRoute({ active, range, onRequestClick }: RequestsRouteProps) {
+	const t = useT();
+	const { token } = theme.useToken();
 	const [step, setStep] = useState(0);
 	const limit = LOAD_STEPS[step];
 	const log = useQuery(["requests-log", limit], ({ signal }) => getRecentRequests(limit, signal), { enabled: active });
 	const [search, setSearch] = useState("");
 	const [status, setStatus] = useState<StatusFilter>("all");
-	const meta = rangeMeta(range);
+	const spanMs = rangeMeta(range).spanMs;
+	const windowLabel = rangeWindowLabel(range);
 
 	const view = useMemo(() => {
 		const rows = log.data ?? [];
-		const cutoff = meta.spanMs === null ? null : Date.now() - meta.spanMs;
+		const cutoff = spanMs === null ? null : Date.now() - spanMs;
 		const inRange = cutoff === null ? rows : rows.filter(row => row.timestamp >= cutoff);
 		// The loaded window covers the whole range when the server ran out of rows
 		// or the oldest loaded row is already older than the range start. Stale
@@ -65,7 +70,7 @@ export function RequestsRoute({ active, range, onRequestClick }: RequestsRoutePr
 		const counts: Record<StatusFilter, number> = { all: inRange.length, ok: 0, aborted: 0, failed: 0 };
 		for (const row of inRange) counts[requestStatus(row)]++;
 		return { loaded: rows.length, inRange, complete, counts, summary: summarizeRequests(inRange) };
-	}, [log.data, log.stale, limit, meta.spanMs]);
+	}, [log.data, log.stale, limit, spanMs]);
 
 	const filtered = useMemo(() => {
 		const needle = search.trim().toLowerCase();
@@ -79,36 +84,41 @@ export function RequestsRoute({ active, range, onRequestClick }: RequestsRoutePr
 		);
 	}, [view.inRange, search, status]);
 
+	const columns = useMemo(() => buildColumns(t, token.fontFamilyCode, token.colorTextTertiary), [t, token]);
+
 	const { summary, counts, complete } = view;
 	const nextStep = step + 1 < LOAD_STEPS.length ? LOAD_STEPS[step + 1] : null;
 	const loadMore =
 		nextStep !== null ? (
-			<button
-				type="button"
-				className="btn"
-				data-size="sm"
+			<Button
+				type="default"
+				size="small"
 				disabled={log.refreshing}
 				onClick={() => setStep(step + 1)}
 			>
-				{log.refreshing && log.stale ? "Loading…" : `Load latest ${formatInteger(nextStep)}`}
-			</button>
+				{log.refreshing && log.stale
+					? t("requests.log.loadingMore")
+					: t("requests.log.loadMore", { count: nextStep })}
+			</Button>
 		) : undefined;
 
 	const statusOptions = (["all", "ok", "aborted", "failed"] as const).map(value => ({
 		value,
 		label: (
 			<>
-				{value === "all" ? "All" : REQUEST_STATUS[value].label}{" "}
-				<span className="dim num">{formatCompact(counts[value])}</span>
+				{value === "all" ? t("requests.filter.all") : REQUEST_STATUS[value].label}{" "}
+				<span style={{ color: token.colorTextTertiary, fontVariantNumeric: "tabular-nums" }}>
+					{formatCompact(counts[value])}
+				</span>
 			</>
 		),
 	}));
 
 	return (
-		<div className="page">
+		<div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 			<PageHeader
-				title="Requests"
-				description={`Every model call omp made in ${meta.windowLabel}, newest first. Open a row for its full payload.`}
+				title={t("requests.title")}
+				description={t("requests.description", { window: windowLabel })}
 			/>
 
 			<QueryView query={log} skeleton={<Skeleton height={96} style={{ borderRadius: 12 }} />}>
@@ -116,56 +126,71 @@ export function RequestsRoute({ active, range, onRequestClick }: RequestsRoutePr
 					<div data-stale={log.stale}>
 						<StatGrid min={160}>
 							<Stat
-								label="Requests"
+								label={t("requests.stat.requests")}
 								value={formatInteger(summary.requests)}
 								hint={
 									summary.oldest === null
-										? `none in ${meta.windowLabel}`
-										: `since ${formatRelativeTime(summary.oldest)}`
+										? t("requests.stat.requests.noneIn", { window: windowLabel })
+										: t("requests.stat.requests.since", { when: formatRelativeTime(summary.oldest) })
 								}
 							/>
 							<Stat
-								label="Failed"
+								label={t("requests.stat.failed")}
 								value={formatInteger(summary.failed)}
-								hint={`${summary.requests > 0 ? formatErrorRate(summary.failed / summary.requests) : "–"} · ${formatInteger(summary.aborted)} aborted`}
+								hint={t("requests.stat.failed.hint", {
+									rate:
+										summary.requests > 0 ? formatErrorRate(summary.failed / summary.requests) : "–",
+									count: summary.aborted,
+								})}
 							/>
 							<Stat
-								label="Tokens"
-								title="Total tokens across these requests"
+								label={t("requests.stat.tokens")}
+								title={t("requests.stat.tokens.title")}
 								value={formatCompact(summary.tokens)}
 							/>
 							<Stat
-								label="API-equivalent cost"
-								title="What these requests would cost at public API rates"
+								label={t("requests.stat.cost")}
+								title={t("requests.stat.cost.title")}
 								value={formatEstimatedCost(summary.cost, summary.unpriced)}
-								hint={summary.unpriced > 0 ? `${formatInteger(summary.unpriced)} unpriced` : undefined}
-							/>
-							<Stat
-								label="Median duration"
-								value={formatDurationMs(summary.medianDuration)}
-								hint={`p95 ${formatDurationMs(summary.p95Duration)}`}
-							/>
-							<Stat
-								label="Median TTFT"
-								title="Time to first token"
-								value={formatDurationMs(summary.medianTtft)}
-							/>
-							<Stat
-								label="Request payload"
-								title="Exact request-body bytes measured by the transport; sessions recorded before that measurement are excluded"
-								value={formatPayloadKb(summary.requestKb)}
 								hint={
-									summary.payloadRequests > 0
-										? `${formatKb(summary.requestKb / summary.payloadRequests)} avg · ${formatInteger(summary.payloadRequests)} measured`
-										: "not measured"
+									summary.unpriced > 0
+										? t("requests.stat.cost.unpriced", { count: summary.unpriced })
+										: undefined
 								}
 							/>
 							<Stat
-								label="Response payload"
-								title="Recorded assistant responses, including thinking and tool calls"
+								label={t("requests.stat.duration")}
+								value={formatDurationMs(summary.medianDuration)}
+								hint={t("requests.stat.duration.p95", { value: formatDurationMs(summary.p95Duration) })}
+							/>
+							<Stat
+								label={t("requests.stat.ttft")}
+								title={t("requests.stat.ttft.title")}
+								value={formatDurationMs(summary.medianTtft)}
+							/>
+							<Stat
+								label={t("requests.stat.requestKb")}
+								title={t("requests.stat.requestKb.title")}
+								value={formatPayloadKb(summary.requestKb)}
+								hint={
+									summary.payloadRequests > 0
+										? t("requests.stat.requestKb.measured", {
+												avg: formatKb(summary.requestKb / summary.payloadRequests),
+												count: summary.payloadRequests,
+											})
+										: t("requests.stat.requestKb.notMeasured")
+								}
+							/>
+							<Stat
+								label={t("requests.stat.responseKb")}
+								title={t("requests.stat.responseKb.title")}
 								value={formatPayloadKb(summary.responseKb)}
 								hint={
-									summary.requests > 0 ? `${formatKb(summary.responseKb / summary.requests)} avg` : undefined
+									summary.requests > 0
+										? t("requests.stat.responseKb.avg", {
+												avg: formatKb(summary.responseKb / summary.requests),
+											})
+										: undefined
 								}
 							/>
 						</StatGrid>
@@ -175,20 +200,31 @@ export function RequestsRoute({ active, range, onRequestClick }: RequestsRoutePr
 
 			<Card
 				index={1}
-				title="Request log"
+				title={t("requests.log.title")}
 				description={
 					log.data === null
-						? "Loading the latest requests…"
+						? t("requests.log.loading")
 						: complete
-							? `${formatInteger(filtered.length)} of ${formatInteger(summary.requests)} requests in ${meta.windowLabel}`
-							: `${formatInteger(filtered.length)} of the latest ${formatInteger(summary.requests)} requests`
+							? t("requests.log.complete", {
+									shown: formatInteger(filtered.length),
+									total: formatInteger(summary.requests),
+									window: windowLabel,
+								})
+							: t("requests.log.partial", {
+									shown: formatInteger(filtered.length),
+									total: formatInteger(summary.requests),
+								})
 				}
 				actions={
 					<>
-						<SearchInput value={search} onChange={setSearch} placeholder="Model, provider or project" />
+						<SearchInput
+							value={search}
+							onChange={setSearch}
+							placeholder={t("requests.search.placeholder")}
+						/>
 						<Segmented
 							size="sm"
-							aria-label="Status"
+							aria-label={t("requests.filter.status")}
 							options={statusOptions}
 							value={status}
 							onChange={setStatus}
@@ -201,9 +237,11 @@ export function RequestsRoute({ active, range, onRequestClick }: RequestsRoutePr
 					log.data !== null && !complete ? (
 						<>
 							<span>
-								Showing the latest {formatInteger(view.loaded)} requests, back to{" "}
-								{summary.oldest === null ? "–" : formatTimestamp(summary.oldest)}. Older requests in{" "}
-								{meta.windowLabel} are not loaded.
+								{t("requests.log.footer", {
+									loaded: formatInteger(view.loaded),
+									oldest: summary.oldest === null ? "–" : formatTimestamp(summary.oldest),
+									window: windowLabel,
+								})}
 							</span>
 							{loadMore}
 						</>
@@ -216,14 +254,18 @@ export function RequestsRoute({ active, range, onRequestClick }: RequestsRoutePr
 							rows={filtered}
 							rowKey={row => row.id ?? `${row.sessionFile}:${row.entryId}`}
 							onRowClick={row => row.id !== undefined && onRequestClick(row.id)}
-							columns={REQUEST_COLUMNS}
+							columns={columns}
 							initialSort={{ key: "time", dir: "desc" }}
 							limit={100}
 							dense
 							empty={
 								<EmptyState
-									title={summary.requests === 0 ? `No requests in ${meta.windowLabel}` : "No requests match"}
-									hint={summary.requests === 0 ? undefined : "Clear the search or status filter."}
+									title={
+										summary.requests === 0
+											? t("requests.empty.range", { window: windowLabel })
+											: t("requests.empty.filter")
+									}
+									hint={summary.requests === 0 ? undefined : t("requests.empty.filterHint")}
 								/>
 							}
 						/>
@@ -234,114 +276,135 @@ export function RequestsRoute({ active, range, onRequestClick }: RequestsRoutePr
 	);
 }
 
-const REQUEST_COLUMNS: readonly Column<MessageStats>[] = [
-	{
-		key: "model",
-		header: "Model",
-		sort: row => row.model,
-		render: row => <LabelCell primary={<span className="mono">{row.model}</span>} secondary={row.provider} />,
-	},
-	{
-		key: "time",
-		header: "When",
-		sort: row => row.timestamp,
-		render: row => (
-			<span className="muted" title={formatTimestamp(row.timestamp)}>
-				{formatRelativeTime(row.timestamp)}
-			</span>
-		),
-	},
-	{
-		key: "project",
-		header: "Project",
-		sort: row => row.folder,
-		render: row => (
-			<span className="mono muted truncate" title={row.folder} style={{ display: "block", maxWidth: 180 }}>
-				{formatFolder(row.folder)}
-			</span>
-		),
-	},
-	{
-		key: "input",
-		header: "Input",
-		title: "Uncached input tokens",
-		align: "right",
-		sort: row => row.usage.input,
-		render: row => <span className="num">{formatCompact(row.usage.input)}</span>,
-	},
-	{
-		key: "cache",
-		header: "Cache read",
-		title: "Cache read tokens (hover a cell for cache writes)",
-		align: "right",
-		sort: row => row.usage.cacheRead,
-		render: row => (
-			<span className="num" title={`Cache write: ${formatInteger(row.usage.cacheWrite)}`}>
-				{formatCompact(row.usage.cacheRead)}
-			</span>
-		),
-	},
-	{
-		key: "output",
-		header: "Output",
-		align: "right",
-		sort: row => row.usage.output,
-		render: row => <span className="num">{formatCompact(row.usage.output)}</span>,
-	},
-	{
-		key: "requestKb",
-		header: "In KB",
-		title: "Exact request-body bytes sent for this turn",
-		align: "right",
-		sort: row => row.requestKb ?? 0,
-		render: row => <span className="num muted">{formatKb(row.requestKb)}</span>,
-	},
-	{
-		key: "responseKb",
-		header: "Out KB",
-		title: "Exact response-body bytes received for this turn",
-		align: "right",
-		sort: row => row.responseKb ?? 0,
-		render: row => <span className="num muted">{formatKb(row.responseKb)}</span>,
-	},
-	{
-		key: "cost",
-		header: "Cost",
-		title: "API-equivalent estimate",
-		align: "right",
-		sort: row => row.usage.cost.total,
-		render: row => <span className="num">{formatMessageCost(row, 4)}</span>,
-	},
-	{
-		key: "duration",
-		header: "Duration",
-		align: "right",
-		sort: row => row.duration ?? -1,
-		render: row => <span className="num">{formatDurationMs(row.duration)}</span>,
-	},
-	{
-		key: "ttft",
-		header: "TTFT",
-		title: "Time to first token",
-		align: "right",
-		sort: row => row.ttft ?? -1,
-		render: row => <span className="num muted">{formatDurationMs(row.ttft)}</span>,
-	},
-	{
-		key: "status",
-		header: "Status",
-		sort: row => requestStatus(row),
-		render: row => {
-			const status = REQUEST_STATUS[requestStatus(row)];
-			return (
-				<span title={row.errorMessage ?? undefined}>
-					<LabelCell
-						lead={<Dot tone={status.tone} />}
-						primary={status.label}
-						secondary={<span className="mono">{row.stopReason}</span>}
-					/>
-				</span>
-			);
+/** The dashboard translate function; declared structurally since it lives in the off-limits i18n core. */
+type Translate = (key: string, params?: Record<string, string | number>) => string;
+
+function buildColumns(
+	t: Translate,
+	monoFont: string,
+	mutedColor: string,
+): readonly Column<MessageStats>[] {
+	const mono = { fontFamily: monoFont };
+	const num = { fontVariantNumeric: "tabular-nums" };
+	const muted = { color: mutedColor };
+	return [
+		{
+			key: "model",
+			header: t("requests.col.model"),
+			sort: row => row.model,
+			render: row => <LabelCell primary={<span style={mono}>{row.model}</span>} secondary={row.provider} />,
 		},
-	},
-];
+		{
+			key: "time",
+			header: t("requests.col.time"),
+			sort: row => row.timestamp,
+			render: row => (
+				<span style={muted} title={formatTimestamp(row.timestamp)}>
+					{formatRelativeTime(row.timestamp)}
+				</span>
+			),
+		},
+		{
+			key: "project",
+			header: t("requests.col.project"),
+			sort: row => row.folder,
+			render: row => (
+				<span
+					style={{ ...mono, ...muted, display: "block", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+					title={row.folder}
+				>
+					{formatFolder(row.folder)}
+				</span>
+			),
+		},
+		{
+			key: "input",
+			header: t("requests.col.input"),
+			title: t("requests.col.input.title"),
+			align: "right",
+			sort: row => row.usage.input,
+			render: row => <span style={num}>{formatCompact(row.usage.input)}</span>,
+		},
+		{
+			key: "cache",
+			header: t("requests.col.cache"),
+			title: t("requests.col.cache.title"),
+			align: "right",
+			sort: row => row.usage.cacheRead,
+			render: row => (
+				<span style={num} title={t("requests.col.cacheWrite", { count: formatInteger(row.usage.cacheWrite) })}>
+					{formatCompact(row.usage.cacheRead)}
+				</span>
+			),
+		},
+		{
+			key: "output",
+			header: t("requests.col.output"),
+			align: "right",
+			sort: row => row.usage.output,
+			render: row => <span style={num}>{formatCompact(row.usage.output)}</span>,
+		},
+		{
+			key: "requestKb",
+			header: t("requests.col.requestKb"),
+			title: t("requests.col.requestKb.title"),
+			align: "right",
+			sort: row => row.requestKb ?? 0,
+			render: row => (
+				<span style={{ ...num, ...muted }}>{formatKb(row.requestKb)}</span>
+			),
+		},
+		{
+			key: "responseKb",
+			header: t("requests.col.responseKb"),
+			title: t("requests.col.responseKb.title"),
+			align: "right",
+			sort: row => row.responseKb ?? 0,
+			render: row => (
+				<span style={{ ...num, ...muted }}>{formatKb(row.responseKb)}</span>
+			),
+		},
+		{
+			key: "cost",
+			header: t("requests.col.cost"),
+			title: t("requests.col.cost.title"),
+			align: "right",
+			sort: row => row.usage.cost.total,
+			render: row => <span style={num}>{formatMessageCost(row, 4)}</span>,
+		},
+		{
+			key: "duration",
+			header: t("requests.col.duration"),
+			align: "right",
+			sort: row => row.duration ?? -1,
+			render: row => <span style={num}>{formatDurationMs(row.duration)}</span>,
+		},
+		{
+			key: "ttft",
+			header: t("requests.col.ttft"),
+			title: t("requests.col.ttft.title"),
+			align: "right",
+			sort: row => row.ttft ?? -1,
+			render: row => (
+				<span style={{ ...num, ...muted }}>{formatDurationMs(row.ttft)}</span>
+			),
+		},
+		{
+			key: "status",
+			header: t("requests.col.status"),
+			sort: row => requestStatus(row),
+			render: row => {
+				const status = REQUEST_STATUS[requestStatus(row)];
+				return (
+					<span title={row.errorMessage ?? undefined}>
+						<LabelCell
+							lead={<Dot tone={status.tone} />}
+							primary={status.label}
+							secondary={<span style={mono}>{row.stopReason}</span>}
+						/>
+					</span>
+				);
+			},
+		},
+	];
+}

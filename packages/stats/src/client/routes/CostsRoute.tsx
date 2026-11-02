@@ -1,13 +1,14 @@
-import "./costs.css";
+import { Button, Col, Flex, Row, Typography, theme } from "antd";
 import { useMemo, useState } from "react";
 import { getCostDashboardStats } from "../api";
 import { Chart, type ChartSeries, Legend, ShareBar, useHiddenSeries } from "../charts";
 import { buildModelColorLookup, modelKey, OTHER_COLOR, SERIES_COLORS } from "../data/colors";
 import { formatCost, formatEstimatedCost, formatInteger, formatPercent } from "../data/formatters";
 import { useQuery } from "../data/query";
-import { bucketAxis, rangeMeta } from "../data/range";
+import { bucketAxis, rangeMeta, rangeWindowLabel } from "../data/range";
 import { densify, pivotSeries } from "../data/series";
 import { buildCostSummary, type CostComponents, type CostModelRow, type CostSummaryView } from "../data/view-models";
+import { intlLocale, t, useT } from "../i18n";
 import type { CostDashboardStats, TimeRange } from "../types";
 import {
 	Card,
@@ -35,8 +36,8 @@ export interface CostsRouteProps {
 type SplitMode = "model" | "component";
 
 const SPLIT_OPTIONS = [
-	{ value: "model" as const, label: "By model" },
-	{ value: "component" as const, label: "By component" },
+	{ value: "model" as const, label: t("costs.split.model") },
+	{ value: "component" as const, label: t("costs.split.component") },
 ];
 
 /** Models stacked individually in the daily chart; the rest fold into "Other". */
@@ -46,14 +47,14 @@ const MODEL_LIMIT = 6;
 const DAY_MS = 86_400_000;
 
 const COMPONENTS = [
-	{ key: "costInput", label: "Input", color: "#5b8cff" },
-	{ key: "costOutput", label: "Output", color: "var(--chart-secondary)" },
-	{ key: "costCacheRead", label: "Cache read", color: "var(--chart-primary)" },
-	{ key: "costCacheWrite", label: "Cache write", color: "#f5b54a" },
+	{ key: "costInput", label: t("costs.component.input"), color: "#5b8cff" },
+	{ key: "costOutput", label: t("costs.component.output"), color: "var(--chart-secondary)" },
+	{ key: "costCacheRead", label: t("costs.component.cacheRead"), color: "var(--chart-primary)" },
+	{ key: "costCacheWrite", label: t("costs.component.cacheWrite"), color: "#f5b54a" },
 ] as const satisfies readonly { key: keyof CostComponents; label: string; color: string }[];
 
-const UTC_DAY = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
-const UTC_DAY_LONG = new Intl.DateTimeFormat(undefined, {
+const UTC_DAY = new Intl.DateTimeFormat(intlLocale(), { month: "short", day: "numeric", timeZone: "UTC" });
+const UTC_DAY_LONG = new Intl.DateTimeFormat(intlLocale(), {
 	weekday: "short",
 	month: "short",
 	day: "numeric",
@@ -62,22 +63,21 @@ const UTC_DAY_LONG = new Intl.DateTimeFormat(undefined, {
 });
 
 export function CostsRoute({ active, range }: CostsRouteProps) {
+	const t = useT();
 	const query = useQuery(["costs", range], ({ signal }) => getCostDashboardStats(range, signal), { enabled: active });
 	const meta = rangeMeta(range);
 	const [split, setSplit] = useState<SplitMode>("model");
 	const [hidden, toggleSeries] = useHiddenSeries();
+	const { token } = theme.useToken();
 	const view = useMemo(() => (query.data ? buildCostsView(query.data, range) : null), [query.data, range]);
 	// Stable columns: a fresh array would make Table re-sort on every render.
-	const columns = useMemo(() => (view ? buildCostColumns(view) : []), [view]);
+	const columns = useMemo(() => (view ? buildCostColumns(view, token.colorWarning) : []), [view, token.colorWarning]);
 	const isEmpty = (data: CostDashboardStats) => data.costSeries.length === 0;
-	const empty = <EmptyState title="No usage in this range" hint="Pick a wider range in the top bar." />;
+	const empty = <EmptyState title={t("costs.empty.title")} hint={t("costs.empty.hint")} />;
 
 	return (
-		<div className="page">
-			<PageHeader
-				title="Costs"
-				description={`What ${meta.windowLabel} of usage would cost at public API rates. Subscription usage without a public price is counted as unpriced, not free.`}
-			/>
+		<Flex vertical gap={20}>
+			<PageHeader title={t("nav.costs")} description={t("costs.subtitle", { window: rangeWindowLabel(range) })} />
 
 			<QueryView
 				query={query}
@@ -88,81 +88,77 @@ export function CostsRoute({ active, range }: CostsRouteProps) {
 				{() => view && <CostStats view={view} stale={query.stale} />}
 			</QueryView>
 
-			<div className="grid grid-main-side">
-				<Card
-					index={1}
-					title="Daily estimate"
-					description={
-						split === "model" ? "Per UTC day, stacked by model" : "Per UTC day, stacked by billing component"
-					}
-					actions={
-						<Segmented
-							size="sm"
-							options={SPLIT_OPTIONS}
-							value={split}
-							onChange={setSplit}
-							aria-label="Split by"
-						/>
-					}
-					stale={query.stale}
-				>
-					<QueryView query={query} skeleton={<ChartSkeleton height={280} />} isEmpty={isEmpty} empty={empty}>
-						{() => {
-							if (!view) return null;
-							const series = split === "model" ? view.modelSeries : view.componentSeries;
-							return (
-								<div className="stack" style={{ gap: 12 }}>
-									<Chart
-										slots={view.buckets.length}
-										tickLabel={i => UTC_DAY.format(view.buckets[i])}
-										tooltipTitle={i => UTC_DAY_LONG.format(view.buckets[i])}
-										series={series}
-										hidden={hidden}
-										height={280}
-										format={v => formatCost(v, Number.isInteger(v) ? 0 : 2)}
-										formatTooltip={v => formatCost(v)}
-										emptyLabel="No priced usage in this range"
-										tooltipExtra={i =>
-											view.unpricedPerDay[i] > 0 ? (
-												<div className="chart-tooltip-row chart-tooltip-total">
-													<span className="chart-tooltip-label">Unpriced requests</span>
-													<span className="chart-tooltip-value">
-														{formatInteger(view.unpricedPerDay[i])}
-													</span>
-												</div>
-											) : null
-										}
-									/>
-									<Legend
-										items={series.map(s => ({
-											key: s.key,
-											label: s.label,
-											color: s.color,
-											value: formatCost(sum(s.values)),
-										}))}
-										hidden={hidden}
-										onToggle={toggleSeries}
-									/>
-								</div>
-							);
-						}}
-					</QueryView>
-				</Card>
+			<Row gutter={[16, 16]}>
+				<Col xs={24} lg={16}>
+					<Card
+						index={1}
+						title={t("costs.daily.title")}
+						description={split === "model" ? t("costs.daily.desc.model") : t("costs.daily.desc.component")}
+						actions={
+							<Segmented
+								size="sm"
+								options={SPLIT_OPTIONS}
+								value={split}
+								onChange={setSplit}
+								aria-label={t("costs.split.aria")}
+							/>
+						}
+						stale={query.stale}
+					>
+						<QueryView query={query} skeleton={<ChartSkeleton height={280} />} isEmpty={isEmpty} empty={empty}>
+							{() => {
+								if (!view) return null;
+								const series = split === "model" ? view.modelSeries : view.componentSeries;
+								return (
+									<Flex vertical gap={12}>
+										<Chart
+											slots={view.buckets.length}
+											tickLabel={i => UTC_DAY.format(view.buckets[i])}
+											tooltipTitle={i => UTC_DAY_LONG.format(view.buckets[i])}
+											series={series}
+											hidden={hidden}
+											height={280}
+											format={v => formatCost(v, Number.isInteger(v) ? 0 : 2)}
+											formatTooltip={v => formatCost(v)}
+											emptyLabel={t("costs.chart.empty")}
+											tooltipExtra={i =>
+												view.unpricedPerDay[i] > 0 ? (
+													<div className="chart-tooltip-row chart-tooltip-total">
+														<span className="chart-tooltip-label">{t("costs.tooltip.unpriced")}</span>
+														<span className="chart-tooltip-value">
+															{formatInteger(view.unpricedPerDay[i])}
+														</span>
+													</div>
+												) : null
+											}
+										/>
+										<Legend
+											items={series.map(s => ({
+												key: s.key,
+												label: s.label,
+												color: s.color,
+												value: formatCost(sum(s.values)),
+											}))}
+											hidden={hidden}
+											onToggle={toggleSeries}
+										/>
+									</Flex>
+								);
+							}}
+						</QueryView>
+					</Card>
+				</Col>
 
-				<Card index={2} title="Where it went" description="Estimate by billing component" stale={query.stale}>
-					<QueryView query={query} skeleton={<ChartSkeleton height={280} />} isEmpty={isEmpty} empty={empty}>
-						{() => view && <ComponentBreakdown summary={view.summary} />}
-					</QueryView>
-				</Card>
-			</div>
+				<Col xs={24} lg={8}>
+					<Card index={2} title={t("costs.went.title")} description={t("costs.went.desc")} stale={query.stale}>
+						<QueryView query={query} skeleton={<ChartSkeleton height={280} />} isEmpty={isEmpty} empty={empty}>
+							{() => view && <ComponentBreakdown summary={view.summary} />}
+						</QueryView>
+					</Card>
+				</Col>
+			</Row>
 
-			<Card
-				index={3}
-				title="By model"
-				description="Estimate per model with its input, output and cache split"
-				stale={query.stale}
-				flush
-			>
+			<Card index={3} title={t("costs.table.title")} description={t("costs.table.desc")} stale={query.stale} flush>
 				<QueryView query={query} skeleton={<TableSkeleton rows={8} />} isEmpty={isEmpty} empty={empty}>
 					{() =>
 						view && (
@@ -177,7 +173,7 @@ export function CostsRoute({ active, range }: CostsRouteProps) {
 					}
 				</QueryView>
 			</Card>
-		</div>
+		</Flex>
 	);
 }
 
@@ -240,6 +236,7 @@ function buildCostsView(data: CostDashboardStats, range: TimeRange): CostsView {
 }
 
 function CostStats({ view, stale }: { view: CostsView; stale: boolean }) {
+	const t = useT();
 	const { summary } = view;
 	const pricedRequests = summary.requests - summary.unpricedRequests;
 	const top = summary.topModel;
@@ -247,36 +244,42 @@ function CostStats({ view, stale }: { view: CostsView; stale: boolean }) {
 		<div data-stale={stale}>
 			<StatGrid min={180}>
 				<Stat
-					label="API-equivalent estimate"
-					title="What this usage would cost at public API rates"
+					label={t("costs.stat.estimate")}
+					title={t("costs.stat.estimate.title")}
 					value={formatEstimatedCost(summary.totalCost, summary.unpricedRequests)}
-					hint={`${formatInteger(summary.requests)} requests`}
+					hint={t("costs.stat.estimate.requests", { count: summary.requests })}
 					spark={view.dailyTotals}
 					sparkColor="var(--chart-secondary)"
 				/>
 				<Stat
-					label="Average per day"
-					title="Estimate ÷ days with any usage"
+					label={t("costs.stat.avgPerDay")}
+					title={t("costs.stat.avgPerDay.title")}
 					value={formatEstimatedCost(summary.avgDailyCost, summary.unpricedRequests)}
-					hint={`over ${formatInteger(summary.activeDays)} active day${summary.activeDays === 1 ? "" : "s"}`}
+					hint={t("costs.stat.avgPerDay.days", { count: summary.activeDays })}
 				/>
 				<Stat
-					label="Top model"
+					label={t("costs.stat.topModel")}
 					title={top ? `${top.model} (${top.provider})` : undefined}
 					value={top ? top.model : "–"}
-					hint={top ? `${formatCost(top.cost)} · ${formatPercent(top.share)} of estimate` : "Nothing priced yet"}
+					hint={
+						top
+							? t("costs.stat.topModel.hint", { cost: formatCost(top.cost), share: formatPercent(top.share) })
+							: t("costs.stat.topModel.empty")
+					}
 				/>
 				<Stat
-					label="Per priced request"
-					title="Estimate ÷ requests that have a public price"
+					label={t("costs.stat.perRequest")}
+					title={t("costs.stat.perRequest.title")}
 					value={pricedRequests > 0 ? formatUnitCost(summary.totalCost / pricedRequests) : "–"}
-					hint={`${formatInteger(pricedRequests)} priced`}
+					hint={t("costs.stat.perRequest.priced", { count: pricedRequests })}
 				/>
 				<Stat
-					label="Unpriced requests"
-					title="Subscription usage with no public-equivalent price; excluded from the estimate"
+					label={t("costs.stat.unpriced")}
+					title={t("costs.stat.unpriced.title")}
 					value={formatInteger(summary.unpricedRequests)}
-					hint={summary.unpricedRequests > 0 ? "excluded from the estimate" : "all usage priced"}
+					hint={
+						summary.unpricedRequests > 0 ? t("costs.hint.excluded") : t("costs.hint.allPriced")
+					}
 				/>
 			</StatGrid>
 		</div>
@@ -284,73 +287,91 @@ function CostStats({ view, stale }: { view: CostsView; stale: boolean }) {
 }
 
 function ComponentBreakdown({ summary }: { summary: CostSummaryView }) {
+	const t = useT();
+	const { token } = theme.useToken();
+	const rowBorder = `1px solid ${token.colorBorderSecondary}`;
 	return (
-		<div className="stack" style={{ gap: 14 }}>
+		<Flex vertical gap={14}>
 			<ShareBar
 				height={10}
 				segments={COMPONENTS.map(c => ({ key: c.key, label: c.label, value: summary[c.key], color: c.color }))}
 			/>
-			<div className="costs-components">
-				{COMPONENTS.map(c => (
-					<div key={c.key} className="costs-component-row">
-						<span className="row">
+			<div>
+				{COMPONENTS.map((c, i) => (
+					<div
+						key={c.key}
+						style={{
+							display: "flex",
+							alignItems: "center",
+							gap: 12,
+							padding: "7px 0",
+							borderBottom: i === COMPONENTS.length - 1 ? undefined : rowBorder,
+						}}
+					>
+						<Flex align="center" gap={8} style={{ flex: 1, minWidth: 0 }}>
 							<Swatch color={c.color} />
 							{c.label}
-						</span>
-						<span className="num">{formatCost(summary[c.key])}</span>
-						<span className="num dim costs-component-share">
+						</Flex>
+						<span style={{ fontVariantNumeric: "tabular-nums" }}>{formatCost(summary[c.key])}</span>
+						<Typography.Text
+							type="secondary"
+							style={{ width: 56, textAlign: "right", fontVariantNumeric: "tabular-nums" }}
+						>
 							{summary.totalCost > 0 ? formatPercent(summary[c.key] / summary.totalCost) : "–"}
-						</span>
+						</Typography.Text>
 					</div>
 				))}
-				<div className="costs-component-row costs-component-total">
-					<span>Total</span>
-					<span className="num">{formatEstimatedCost(summary.totalCost, summary.unpricedRequests)}</span>
-					<span className="costs-component-share" />
+				<div style={{ display: "flex", alignItems: "center", gap: 12, padding: "7px 0" }}>
+					<span style={{ flex: 1, fontWeight: 500 }}>{t("costs.breakdown.total")}</span>
+					<span style={{ fontVariantNumeric: "tabular-nums" }}>
+						{formatEstimatedCost(summary.totalCost, summary.unpricedRequests)}
+					</span>
+					<span style={{ width: 56 }} />
 				</div>
 			</div>
 			{summary.unpricedRequests > 0 && (
-				<p className="micro dim">
-					{formatInteger(summary.unpricedRequests)} unpriced subscription request
-					{summary.unpricedRequests === 1 ? " is" : "s are"} not included.
-				</p>
+				<Typography.Text type="secondary" style={{ fontSize: 12, margin: 0 }}>
+					{t("costs.breakdown.unpricedNote", { count: summary.unpricedRequests })}
+				</Typography.Text>
 			)}
-		</div>
+		</Flex>
 	);
 }
 
-function buildCostColumns(view: CostsView): Column<CostModelRow>[] {
+function buildCostColumns(view: CostsView, warnColor: string): Column<CostModelRow>[] {
 	const componentColumns: Column<CostModelRow>[] = COMPONENTS.map(c => ({
 		key: c.key,
 		header: c.label,
 		align: "right",
 		sort: row => row[c.key],
-		render: row => <span className="num">{formatCost(row[c.key])}</span>,
+		render: row => <span style={{ fontVariantNumeric: "tabular-nums" }}>{formatCost(row[c.key])}</span>,
 	}));
 	return [
 		{
 			key: "model",
-			header: "Model",
+			header: t("costs.col.model"),
 			sort: row => row.model,
 			render: row => (
 				<LabelCell
 					lead={<Swatch color={view.swatches.get(row.key) ?? OTHER_COLOR} />}
-					primary={<span className="mono">{row.model}</span>}
+					primary={
+						<span style={{ fontFamily: "ui-monospace, SFMono-Regular, monospace" }}>{row.model}</span>
+					}
 					secondary={row.provider}
 				/>
 			),
 		},
 		{
 			key: "requests",
-			header: "Requests",
+			header: t("costs.col.requests"),
 			align: "right",
 			sort: row => row.requests,
-			render: row => <span className="num">{formatInteger(row.requests)}</span>,
+			render: row => <span style={{ fontVariantNumeric: "tabular-nums" }}>{formatInteger(row.requests)}</span>,
 		},
 		{
 			key: "cost",
-			header: "Estimate",
-			title: "API-equivalent estimate at public rates",
+			header: t("costs.col.estimate"),
+			title: t("costs.col.estimate.title"),
 			align: "right",
 			sort: row => row.cost,
 			render: row => (
@@ -364,15 +385,19 @@ function buildCostColumns(view: CostsView): Column<CostModelRow>[] {
 		},
 		{
 			key: "share",
-			header: "Share",
+			header: t("costs.col.share"),
 			align: "right",
 			sort: row => row.share,
-			render: row => <span className="num muted">{row.cost > 0 ? formatPercent(row.share) : "–"}</span>,
+			render: row => (
+				<Typography.Text type="secondary" style={{ fontVariantNumeric: "tabular-nums" }}>
+					{row.cost > 0 ? formatPercent(row.share) : "–"}
+				</Typography.Text>
+			),
 		},
 		{
 			key: "split",
-			header: "Split",
-			title: "Input · output · cache read · cache write",
+			header: t("costs.col.split"),
+			title: t("costs.col.split.title"),
 			width: 150,
 			render: row =>
 				row.cost > 0 ? (
@@ -380,18 +405,18 @@ function buildCostColumns(view: CostsView): Column<CostModelRow>[] {
 						segments={COMPONENTS.map(c => ({ key: c.key, label: c.label, value: row[c.key], color: c.color }))}
 					/>
 				) : (
-					<span className="dim">–</span>
+					<Typography.Text type="secondary">–</Typography.Text>
 				),
 		},
 		...componentColumns,
 		{
 			key: "perRequest",
-			header: "Per request",
-			title: "Estimate ÷ priced requests",
+			header: t("costs.col.perRequest"),
+			title: t("costs.col.perRequest.title"),
 			align: "right",
 			sort: row => (row.requests > row.unpricedRequests ? row.cost / (row.requests - row.unpricedRequests) : -1),
 			render: row => (
-				<span className="num">
+				<span style={{ fontVariantNumeric: "tabular-nums" }}>
 					{row.requests > row.unpricedRequests
 						? formatUnitCost(row.cost / (row.requests - row.unpricedRequests))
 						: "–"}
@@ -400,15 +425,15 @@ function buildCostColumns(view: CostsView): Column<CostModelRow>[] {
 		},
 		{
 			key: "unpriced",
-			header: "Unpriced",
-			title: "Requests with no public-equivalent price",
+			header: t("costs.col.unpriced"),
+			title: t("costs.col.unpriced.title"),
 			align: "right",
 			sort: row => row.unpricedRequests,
 			render: row =>
 				row.unpricedRequests > 0 ? (
-					<span className="num tone-warn">{formatInteger(row.unpricedRequests)}</span>
+					<span style={{ fontVariantNumeric: "tabular-nums", color: warnColor }}>{formatInteger(row.unpricedRequests)}</span>
 				) : (
-					<span className="num dim">–</span>
+					<Typography.Text type="secondary" style={{ fontVariantNumeric: "tabular-nums" }}>–</Typography.Text>
 				),
 		},
 	];
@@ -416,7 +441,7 @@ function buildCostColumns(view: CostsView): Column<CostModelRow>[] {
 
 /** Per-request cost; amounts below the 4-digit precision read as a bound instead of "$0.0000". */
 function formatUnitCost(value: number): string {
-	return value > 0 && value < 0.0001 ? "<$0.0001" : formatCost(value);
+	return value > 0 && value < 0.0001 ? t("costs.unitCost.bound") : formatCost(value);
 }
 
 function sum(values: readonly (number | null)[]): number {
