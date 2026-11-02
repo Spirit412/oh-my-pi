@@ -43,6 +43,32 @@ export function stateLabel(enabled: boolean): string {
 	return enabled ? t("omp.common.state.on", "on") : t("omp.common.state.off", "off");
 }
 
+/** Which non-builtin source a command or skill description came from. */
+export type DynamicCommandDescriptionSource = "extension" | "command" | "skill";
+
+/**
+ * Stable key for a non-builtin command or skill description. These names come
+ * from extensions, plugins, project commands, and skills, so the English
+ * description stays the inline fallback and a core/user/project catalog may
+ * translate it without touching the source file.
+ */
+export function dynamicCommandDescriptionKey(source: DynamicCommandDescriptionSource, name: string): string {
+	return `omp.dynamic.${source}.${name}.description`;
+}
+
+/**
+ * Resolve an extension, file/custom, or skill command description at read
+ * time. The command palette, ACP command list, and extension `getCommands()`
+ * surface all go through this so a catalog entry applies everywhere.
+ */
+export function resolveDynamicCommandDescription(
+	source: DynamicCommandDescriptionSource,
+	name: string,
+	fallback: string,
+): string {
+	return t(dynamicCommandDescriptionKey(source, name), fallback);
+}
+
 /**
  * Wrap subcommand definitions so their descriptions translate at read time.
  * `usage` stays verbatim: it is invocation syntax, not prose.

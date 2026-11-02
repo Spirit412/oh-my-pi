@@ -204,6 +204,7 @@ import { setLocale } from "./i18n";
 import { resolveLocale } from "./i18n/locale";
 import { cfgLanguage } from "./i18n/settings";
 import { loadPluginTranslationCatalogs } from "./extensibility/plugins/loader";
+import { loadUserTranslationCatalogs } from "./i18n/user-catalogs";
 
 type RunAcpMode = (createSession: AcpSessionFactory) => Promise<never>;
 type RunPrintMode = (session: AgentSession, options: PrintModeOptions) => Promise<number>;
@@ -2336,6 +2337,9 @@ export async function runRootCommand(
 		}
 		await pluginPreloadPromise;
 		await logger.time("loadPluginTranslationCatalogs", loadPluginTranslationCatalogs, cwd);
+		// User/project catalogs load last so they can translate installed plugin
+		// and local command/skill descriptions without editing those packages.
+		await logger.time("loadUserTranslationCatalogs", loadUserTranslationCatalogs, { cwd });
 		// Pure file I/O: overlap it with session-option building, but land it before
 		// extensions load or the session can start project daemons.
 		const daemonPresencePromise =

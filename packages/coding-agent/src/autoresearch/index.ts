@@ -4,6 +4,7 @@ import * as vcs from "@oh-my-pi/pi-natives/vcs";
 import type { AutocompleteItem } from "@oh-my-pi/pi-tui";
 import { logger, prompt } from "@oh-my-pi/pi-utils";
 import type { ExtensionContext, ExtensionFactory } from "../extensibility/extensions";
+import { t } from "../i18n";
 import commandResumeTemplate from "./command-resume.md" with { type: "text" };
 import { createDashboardController } from "@oh-my-pi/pi-tui/apps/autoresearch-dashboard";
 import { currentResults, findBaselineMetric, findBaselineRunNumber } from "@oh-my-pi/pi-tui/apps/autoresearch-data";
@@ -123,17 +124,27 @@ export const createAutoresearchExtension: ExtensionFactory = api => {
 	api.registerTool(createUpdateNotesTool({ dashboard, getRuntime, pi: api }));
 
 	api.registerCommand("autoresearch", {
-		description: "Toggle builtin autoresearch mode, or pass off / clear, or a goal message.",
+		description: t(
+			"omp.dynamic.extension.autoresearch.description",
+			"Toggle builtin autoresearch mode, or pass off / clear, or a goal message.",
+		),
 		getArgumentCompletions(argumentPrefix: string): AutocompleteItem[] | null {
 			if (argumentPrefix.includes(" ")) return null;
 			const normalized = argumentPrefix.trim().toLowerCase();
 			if (normalized.length === 0) return null;
 			const completions: AutocompleteItem[] = [
-				{ label: "off", value: "off", description: "Leave autoresearch mode" },
+				{
+					label: "off",
+					value: "off",
+					description: t("omp.dynamic.extension.autoresearch.arg.off.description", "Leave autoresearch mode"),
+				},
 				{
 					label: "clear",
 					value: "clear",
-					description: "Reset worktree to baseline and close the active session",
+					description: t(
+						"omp.dynamic.extension.autoresearch.arg.clear.description",
+						"Reset worktree to baseline and close the active session",
+					),
 				},
 			];
 			const filtered = completions.filter(item => item.label.startsWith(normalized));

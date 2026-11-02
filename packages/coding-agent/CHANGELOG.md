@@ -14,6 +14,8 @@
 - Added Russian localization for builtin slash-command metadata: command and subcommand descriptions, ACP-specific copy, and live autocomplete status lines (todos, jobs, tools, context, modes, models, toggles) with plural forms and state labels.
 - Added Russian copy for ACP config selectors (mode, model, thinking) and the plan-approval prompt. Wire ids such as `default`, `plan`, and the Approve/Refine option strings stay English.
 - Added Russian localization for the settings panel: setting and option descriptions, tab labels, tab leads, section headings, and environment override notes follow the UI locale. Parameter names and option labels stay English so the panel matches config keys and documentation.
+- Added user (`<agentDir>/locales/<locale>.json`) and project (`.omp/locales/<locale>.json`) translation catalogs for local command and skill descriptions. Project catalogs are restricted to `omp.dynamic.*` so a repository cannot relabel core UI.
+- Added localized descriptions for extension, custom/file, and skill commands across the slash-command palette, ACP command list, and extension `getCommands()`; the built-in `autoresearch` command now ships Russian copy.
 - Added Russian localization for CLI help and shell completions: `omp --help`, `omp <command> --help`, and generated completion descriptions resolve before rendering; `--lang` wins over `OMP_LANG` and the system locale.
 - Added Russian localization for the status line, context usage and context views, and transcript chrome (warning/error labels, unknown-error fallback).
 - Added Russian localization for the full TUI surface — tool renderers, overlays, chat, prompt, setup, apps, and shared components — with 3,445 keys and Russian plural categories.
@@ -22,6 +24,7 @@
 
 ### Changed
 
+- Command and skill descriptions now resolve through i18n when the command palette, ACP command list, or extension `getCommands()` renders them, falling back to the original English text when no catalog entry exists.
 - Approval prompts and the approval dialog, tooltips, and footer hints now render through the i18n translator. English output is unchanged; `--lang ru` (or `OMP_LANG=ru`) renders the approval flow in Russian.
 
 ### Fixed

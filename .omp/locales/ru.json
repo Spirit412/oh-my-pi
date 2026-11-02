@@ -1,0 +1,10 @@
+{
+	"omp.dynamic.command.cleanup.description": "Автономная итерация очистки: найти одну цель, выполнить, проверить и отчитаться",
+	"omp.dynamic.command.fix-issues.description": "Диагностировать, воспроизвести и исправить открытые GitHub-issue параллельно",
+	"omp.dynamic.command.release.description": "Выпустить все пакеты указанной версии",
+	"omp.dynamic.command.review-prs.description": "Параллельный разбор PR: решить, стоит ли мержить, подготовить worktree и исправить блокеры",
+	"omp.dynamic.command.triage.description": "Классифицировать и разметить новые GitHub-issue без меток",
+	"omp.dynamic.skill.semantic-compression.description": "Сжимать многословный текст в плотный телеграфный стиль без потери точности",
+	"omp.dynamic.skill.system-prompts.description": "Писать системные промпты, описания инструментов и определения агентов",
+	"omp.dynamic.skill.tool-prompt-optimization.description": "Оптимизировать описания встроенных инструментов агента"
+}

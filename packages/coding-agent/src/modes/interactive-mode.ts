@@ -167,6 +167,7 @@ import {
 import type { ShakeMode } from "../session/shake-types";
 import { BUILTIN_SLASH_COMMAND_RESERVED_NAMES, buildTuiBuiltinSlashCommands } from "../slash-commands/builtin-registry";
 import { buildStaticInlineHint } from "../slash-commands/builtin-completions";
+import { resolveDynamicCommandDescription } from "../slash-commands/i18n";
 import { formatCoarseDuration } from "@oh-my-pi/pi-tui/chrome/format";
 import { type DictationTarget, MicCursor, type SttCallbacks, STTController, type SttState } from "../stt";
 import type { SpaceHoldHandler } from "@oh-my-pi/pi-tui/space-hold";
@@ -2959,7 +2960,7 @@ export class InteractiveMode implements InteractiveModeContext {
 			this.session.extensionRunner?.getRegisteredCommands(BUILTIN_SLASH_COMMAND_RESERVED_NAMES) ?? []
 		).map(cmd => ({
 			name: cmd.name,
-			description: cmd.description ?? "(hook command)",
+			description: resolveDynamicCommandDescription("extension", cmd.name, cmd.description ?? "(hook command)"),
 			icon: getSlashCommandTypeIcon("extension"),
 			iconName: "extension",
 			getArgumentCompletions: cmd.getArgumentCompletions,
@@ -2970,7 +2971,7 @@ export class InteractiveMode implements InteractiveModeContext {
 			const complete = loaded.command.getArgumentCompletions?.bind(loaded.command);
 			return {
 				name: loaded.command.name,
-				description: `${loaded.command.description} (${loaded.source})`,
+				description: `${resolveDynamicCommandDescription("command", loaded.command.name, loaded.command.description)} (${loaded.source})`,
 				icon: getSlashCommandTypeIcon(loaded.path.startsWith("mcp:") ? "mcp" : "prompt"),
 				iconName: loaded.path.startsWith("mcp:") ? "mcp" : "prompt",
 				getArgumentCompletions: complete && (prefix => complete(prefix, this.sessionManager.getCwd())),
@@ -2986,7 +2987,7 @@ export class InteractiveMode implements InteractiveModeContext {
 				this.skillCommands.set(commandName, skill);
 				skillCommandList.push({
 					name: commandName,
-					description: skill.description,
+					description: resolveDynamicCommandDescription("skill", skill.name, skill.description),
 					icon,
 					iconName: "skill",
 				});
@@ -3031,7 +3032,7 @@ export class InteractiveMode implements InteractiveModeContext {
 			const argumentHint = cmd.argumentHint ? replaceTabs(cmd.argumentHint).replace(/[\r\n]+/g, " ") : undefined;
 			return {
 				name: cmd.name,
-				description: cmd.description,
+				description: resolveDynamicCommandDescription("command", cmd.name, cmd.description),
 				icon: promptIcon,
 				iconName: "prompt",
 				argumentHint,

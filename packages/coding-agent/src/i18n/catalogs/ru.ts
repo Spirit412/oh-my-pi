@@ -508,4 +508,11 @@ export const ru: TranslationCatalog = {
 	"omp.acp.thinking.auto": "Авто",
 	"omp.acp.thinking.autoDescription": "Автоопределение для каждого запроса",
 	"omp.acp.plan.approvalMessage": "Утвердить план «{title}» и начать реализацию?\n\n{preview}",
+	// Extension-registered commands. File/custom commands and skills use the
+	// same `omp.dynamic.*` namespace from user or project locale catalogs.
+	"omp.dynamic.extension.autoresearch.description":
+		"Переключать встроенный режим autoresearch; можно передать off / clear или цель",
+	"omp.dynamic.extension.autoresearch.arg.off.description": "Выйти из режима autoresearch",
+	"omp.dynamic.extension.autoresearch.arg.clear.description":
+		"Сбросить worktree к baseline и закрыть активную сессию",
 };

@@ -18,6 +18,7 @@ import type { SkillsSettings } from "../settings";
 import type * as BuiltinRegistry from "../../slash-commands/builtin-registry";
 import type { CustomCommandSource, LoadedCustomCommand } from "../custom-commands";
 import { getSkillSlashCommandName, type Skill } from "../skills";
+import { resolveDynamicCommandDescription } from "../../slash-commands/i18n";
 import type { SlashCommandInfo, SlashCommandLocation } from "../slash-commands";
 import type { ExtensionRunner } from "./runner";
 
@@ -40,7 +41,9 @@ export function getSessionSlashCommands(session: CommandsCapableSession): SlashC
 		for (const cmd of runner.getRegisteredCommands(BUILTIN_SLASH_COMMAND_RESERVED_NAMES)) {
 			out.push({
 				name: cmd.name,
-				description: cmd.description,
+				description: cmd.description
+					? resolveDynamicCommandDescription("extension", cmd.name, cmd.description)
+					: undefined,
 				source: "extension",
 			});
 		}
@@ -49,7 +52,7 @@ export function getSessionSlashCommands(session: CommandsCapableSession): SlashC
 	for (const cmd of session.customCommands) {
 		out.push({
 			name: cmd.command.name,
-			description: cmd.command.description,
+			description: resolveDynamicCommandDescription("command", cmd.command.name, cmd.command.description),
 			source: "prompt",
 			location: customCommandLocation(cmd.source),
 			path: cmd.resolvedPath,
@@ -60,7 +63,9 @@ export function getSessionSlashCommands(session: CommandsCapableSession): SlashC
 		for (const skill of session.skills) {
 			out.push({
 				name: getSkillSlashCommandName(skill),
-				description: skill.description || undefined,
+				description: skill.description
+					? resolveDynamicCommandDescription("skill", skill.name, skill.description)
+					: undefined,
 				source: "skill",
 				path: skill.filePath,
 			});

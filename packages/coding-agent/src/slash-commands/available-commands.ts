@@ -7,7 +7,7 @@ import { getSkillSlashCommandName, type Skill } from "../extensibility/skills";
 import { type FileSlashCommand, loadSlashCommands } from "../extensibility/slash-commands";
 import { ACP_BUILTIN_RESERVED_NAMES, isAcpBuiltinShadowedName } from "./acp-builtins";
 import { BUILTIN_SLASH_COMMANDS_INTERNAL } from "./builtin-registry";
-import { localizeSubcommands, resolveAcpCommandDescription } from "./i18n";
+import { localizeSubcommands, resolveAcpCommandDescription, resolveDynamicCommandDescription } from "./i18n";
 
 export type AvailableSlashCommandSource = "builtin" | "skill" | "extension" | "custom" | "mcp_prompt" | "file";
 
@@ -66,7 +66,11 @@ export async function buildAvailableSlashCommands(
 		for (const skill of session.skills) {
 			appendCommand({
 				name: getSkillSlashCommandName(skill),
-				description: skill.description || `Run ${skill.name} skill`,
+				description: resolveDynamicCommandDescription(
+					"skill",
+					skill.name,
+					skill.description || `Run ${skill.name} skill`,
+				),
 				input: { hint: "arguments" },
 				source: "skill",
 			});
@@ -79,7 +83,11 @@ export async function buildAvailableSlashCommands(
 			if (isAcpBuiltinShadowedName(command.name)) continue;
 			appendCommand({
 				name: command.name,
-				description: command.description ?? "(extension command)",
+				description: resolveDynamicCommandDescription(
+					"extension",
+					command.name,
+					command.description ?? "(extension command)",
+				),
 				input: { hint: "arguments" },
 				source: "extension",
 			});
@@ -90,7 +98,7 @@ export async function buildAvailableSlashCommands(
 		const source: AvailableSlashCommandSource = command.path?.startsWith("mcp:") ? "mcp_prompt" : "custom";
 		appendCommand({
 			name: command.command.name,
-			description: command.command.description,
+			description: resolveDynamicCommandDescription("command", command.command.name, command.command.description),
 			input: { hint: "arguments" },
 			source,
 		});
@@ -101,7 +109,7 @@ export async function buildAvailableSlashCommands(
 	for (const command of fileCommands) {
 		appendCommand({
 			name: command.name,
-			description: command.description,
+			description: resolveDynamicCommandDescription("command", command.name, command.description),
 			input: command.argumentHint ? { hint: command.argumentHint } : undefined,
 			source: "file",
 		});
