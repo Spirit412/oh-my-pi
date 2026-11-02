@@ -1,11 +1,11 @@
-import { Button, Col, Flex, Row, Typography, theme } from "antd";
+import { Col, Flex, Row, Typography, theme } from "antd";
 import { useMemo, useState } from "react";
 import { getCostDashboardStats } from "../api";
 import { Chart, type ChartSeries, Legend, ShareBar, useHiddenSeries } from "../charts";
 import { buildModelColorLookup, modelKey, OTHER_COLOR, SERIES_COLORS } from "../data/colors";
 import { formatCost, formatEstimatedCost, formatInteger, formatPercent } from "../data/formatters";
 import { useQuery } from "../data/query";
-import { bucketAxis, rangeMeta, rangeWindowLabel } from "../data/range";
+import { bucketAxis, rangeWindowLabel } from "../data/range";
 import { densify, pivotSeries } from "../data/series";
 import { buildCostSummary, type CostComponents, type CostModelRow, type CostSummaryView } from "../data/view-models";
 import { intlLocale, t, useT } from "../i18n";
@@ -65,7 +65,6 @@ const UTC_DAY_LONG = new Intl.DateTimeFormat(intlLocale(), {
 export function CostsRoute({ active, range }: CostsRouteProps) {
 	const t = useT();
 	const query = useQuery(["costs", range], ({ signal }) => getCostDashboardStats(range, signal), { enabled: active });
-	const meta = rangeMeta(range);
 	const [split, setSplit] = useState<SplitMode>("model");
 	const [hidden, toggleSeries] = useHiddenSeries();
 	const { token } = theme.useToken();

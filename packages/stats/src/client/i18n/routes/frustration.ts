@@ -98,6 +98,7 @@ export const en: MessageDict = {
 
 	"frustration.key.trend": "At assistant trend",
 	"frustration.key.hatched": "Hatched: mostly regex fallback (run the judge)",
+	"frustration.key.hatchedNoRun": "Hatched: mostly regex fallback",
 	"frustration.key.hatchedTitle":
 		"Under {share}% of these messages are judged; their rates come from regex signals",
 	"frustration.key.hue": "Hue = model family",
@@ -165,21 +166,21 @@ export const ru: MessageDict = {
 	"frustration.summary.atAssistant.title": "Сообщения с раздражением на ассистента",
 	"frustration.summary.angry": "Злые",
 	"frustration.summary.angry.title": "Сообщения с злостью или враждебностью к ассистенту",
-	"frustration.summary.messagesCount": { one: "{count} сообщение", few: "{count} сообщения", many: "{count} сообщений" },
+	"frustration.summary.messagesCount": { one: "{count} сообщение", few: "{count} сообщения", many: "{count} сообщений", other: "{count} сообщений" },
 
 	"frustration.progress.judged": "оценено {done} из {total}",
 	"frustration.progress.cancel": "Отменить прогон",
 	"frustration.progress.cancelling": "Отмена…",
-	"frustration.progress.failed": { one: "{count} сбой", few: "{count} сбоя", many: "{count} сбоев" },
+	"frustration.progress.failed": { one: "{count} сбой", few: "{count} сбоя", many: "{count} сбоев", other: "{count} сбоев" },
 	"frustration.progress.costSoFar": "потрачено",
 	"frustration.progress.elapsed": "прошло",
 	"frustration.progress.perSecond": "{rate}/с",
-	"frustration.progress.inFlight": { one: "{count} в обработке", few: "{count} в обработке", many: "{count} в обработке" },
+	"frustration.progress.inFlight": { one: "{count} в обработке", few: "{count} в обработке", many: "{count} в обработке", other: "{count} в обработке" },
 
 	"frustration.result.idle":
 		"Судья пока не запускался. Классифицируйте неоценённые сообщения, чтобы заменить оценки regex вердиктами.",
 	"frustration.result.progress": "{done}/{total} сообщ.",
-	"frustration.result.failed": { one: ", сбой: {count}", few: ", сбоя: {count}", many: ", сбоев: {count}" },
+	"frustration.result.failed": { one: ", сбой: {count}", few: ", сбоя: {count}", many: ", сбоев: {count}", other: ", сбоев: {count}" },
 	"frustration.result.withJudge": " · {name}",
 	"frustration.result.inTime": " за {time}",
 	"frustration.result.done": "Последний прогон оценил {parts} за {cost}.",
@@ -215,6 +216,7 @@ export const ru: MessageDict = {
 
 	"frustration.key.trend": "Тренд «на ассистента»",
 	"frustration.key.hatched": "Штриховка: в основном regex (запустите судью)",
+	"frustration.key.hatchedNoRun": "Штриховка: в основном regex",
 	"frustration.key.hatchedTitle":
 		"Менее {share}% этих сообщений оценено; их показатели получены по regex-сигналам",
 	"frustration.key.hue": "Оттенок = семейство моделей",

@@ -1,5 +1,5 @@
-import { X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Flex, Select, theme, type GlobalToken } from "antd";
+import { useMemo, useState, type CSSProperties } from "react";
 import { getRecentToolCalls, getToolDashboardStats } from "../api";
 import { Legend, Sparkline, TimeChart, useHiddenSeries } from "../charts";
 import { buildColorLookup, OTHER_COLOR } from "../data/colors";
@@ -15,9 +15,10 @@ import {
 	formatTimestamp,
 } from "../data/formatters";
 import { useQuery } from "../data/query";
-import { bucketAxis, rangeMeta } from "../data/range";
+import { bucketAxis, rangeMeta, rangeWindowLabel } from "../data/range";
 import { densify, pivotSeries } from "../data/series";
 import { buildToolRows, toolCallSource, type ToolRowView } from "../data/view-models";
+import { t, useT } from "../i18n";
 import type { TimeRange, ToolCallDetail, ToolDashboardStats, ToolModelStats, ToolTimeSeriesPoint } from "../types";
 import {
 	Badge,
@@ -38,7 +39,6 @@ import {
 	TableSkeleton,
 	type Tone,
 } from "../ui";
-import "./tools.css";
 
 export interface ToolsRouteProps {
 	active: boolean;
@@ -47,10 +47,7 @@ export interface ToolsRouteProps {
 
 type CallMetric = "calls" | "errors";
 
-const METRIC_OPTIONS = [
-	{ value: "calls" as const, label: "Calls" },
-	{ value: "errors" as const, label: "Errors" },
-];
+type Translate = typeof t;
 
 /** Tools stacked individually in the calls chart; the rest fold into "Other". */
 const TOP_TOOLS = 6;
@@ -72,12 +69,13 @@ function argsSnippet(preview: string | null): string {
 	return compact.length > ARGS_SNIPPET_LIMIT ? `${compact.slice(0, ARGS_SNIPPET_LIMIT - 1)}…` : compact;
 }
 
-const ATTRIBUTION_NOTE =
-	"Tokens and API-equivalent cost of each invoking turn, split evenly across that turn's tool calls";
+const ATTRIBUTION_NOTE = t("tools.attribution");
 
-const NO_CALLS = <EmptyState title="No tool calls in this range" />;
+const NO_CALLS = <EmptyState title={t("tools.empty")} />;
 
 export function ToolsRoute({ active, range }: ToolsRouteProps) {
+	const tt = useT();
+	const { token } = theme.useToken();
 	const tools = useQuery(["tools", range], ({ signal }) => getToolDashboardStats(range, signal), { enabled: active });
 	const recentCalls = useQuery(["tools-recent", range], ({ signal }) => getRecentToolCalls(range, 100, signal), {
 		enabled: active,
@@ -87,101 +85,109 @@ export function ToolsRoute({ active, range }: ToolsRouteProps) {
 	const [pickedTool, setToolFilter] = useState<string | null>(null);
 	const meta = rangeMeta(range);
 
-	const view = useMemo(() => buildToolsView(tools.data, range), [tools.data, range]);
+	const METRIC_OPTIONS = [
+		{ value: "calls" as const, label: tt("tools.metric.calls") },
+		{ value: "errors" as const, label: tt("tools.metric.errors") },
+	];
+
+	const view = useMemo(() => buildToolsView(tools.data, range, tt, token), [tools.data, range, tt, token]);
 	// A pick from another range only applies while that tool still has calls.
 	const toolFilter = pickedTool !== null && view.toolNames.includes(pickedTool) ? pickedTool : null;
 
 	const chartSeries = metric === "calls" ? view.callSeries : view.errorSeries;
 	const isEmpty = (data: ToolDashboardStats) => data.byTool.length === 0;
+	const bucketLabel =
+		meta.bucketMs < 3_600_000
+			? tt("tools.bucket.minutes", { count: Math.round(meta.bucketMs / 60_000) })
+			: meta.bucketMs < 86_400_000
+				? tt("tools.bucket.hour")
+				: tt("tools.bucket.day");
 
 	return (
-		<div className="page">
-			<PageHeader
-				title="Tools"
-				description={`Which tools omp called in ${meta.windowLabel}, how often they failed, and what they cost.`}
-			/>
+		<Flex vertical gap={20}>
+			<PageHeader title={tt("nav.tools")} description={tt("tools.subtitle", { window: rangeWindowLabel(range) })} />
 
 			<QueryView query={tools} skeleton={<ChartSkeleton height={112} />}>
 				{() => {
-					const t = view.totals;
+					const totals = view.totals;
 					return (
-						<div data-stale={tools.stale} className="stack" style={{ gap: 16 }}>
+						<Flex vertical gap={16} data-stale={tools.stale}>
 							<StatGrid min={190}>
 								<Stat
-									label="Tool calls"
-									value={formatInteger(t.calls)}
-									hint={`${formatInteger(t.errors)} failed`}
+									label={tt("tools.stat.calls")}
+									value={formatInteger(totals.calls)}
+									hint={tt("tools.stat.callsFailed", { count: formatInteger(totals.errors) })}
 									spark={view.totalCalls}
 								/>
 								<Stat
-									label="Distinct tools"
-									value={formatInteger(t.tools)}
-									hint={view.rows[0] ? `Most used: ${view.rows[0].tool}` : undefined}
+									label={tt("tools.stat.distinct")}
+									value={formatInteger(totals.tools)}
+									hint={view.rows[0] ? tt("tools.stat.mostUsed", { name: view.rows[0].tool }) : undefined}
 								/>
 								<Stat
-									label="Error rate"
-									title="Tool results that came back flagged as errors"
-									value={formatErrorRate(t.calls > 0 ? t.errors / t.calls : 0)}
-									hint={`${formatInteger(t.calls - t.errors)} succeeded`}
+									label={tt("tools.stat.errorRate")}
+									title={tt("tools.stat.errorRate.title")}
+									value={formatErrorRate(totals.calls > 0 ? totals.errors / totals.calls : 0)}
+									hint={tt("tools.stat.succeeded", { count: formatInteger(totals.calls - totals.errors) })}
 									spark={view.totalErrors}
 									sparkColor="var(--bad)"
 								/>
 								<Stat
-									label="Attributed tokens"
+									label={tt("tools.stat.tokens")}
 									title={ATTRIBUTION_NOTE}
-									value={formatCompact(Math.round(t.tokens))}
-									hint={`${formatCompact(Math.round(t.output))} output`}
+									value={formatCompact(Math.round(totals.tokens))}
+									hint={tt("tools.stat.output", { count: formatCompact(Math.round(totals.output)) })}
 								/>
 								<Stat
-									label="Attributed cost"
-									title={`${ATTRIBUTION_NOTE}; API-equivalent estimate`}
-									value={formatEstimatedCost(t.cost, t.unpriced)}
+									label={tt("tools.stat.cost")}
+									title={tt("tools.stat.cost.title", { note: ATTRIBUTION_NOTE })}
+									value={formatEstimatedCost(totals.cost, totals.unpriced)}
 									hint={
-										t.unpriced > 0
-											? `${formatInteger(Math.round(t.unpriced))} unpriced requests`
-											: "API-equivalent"
+										totals.unpriced > 0
+											? tt("tools.stat.unpriced", { count: formatInteger(Math.round(totals.unpriced)) })
+											: tt("tools.stat.apiEquivalent")
 									}
 								/>
 							</StatGrid>
 							<StatGrid min={150}>
 								<Stat
 									size="sm"
-									label="Result size"
-									title={`Tool-result text fed back into context · ${formatInteger(t.resultChars)} characters`}
-									value={formatPayloadKb(t.resultChars / 1024)}
+									label={tt("tools.stat.resultSize")}
+									title={tt("tools.stat.resultSize.title", { count: formatInteger(totals.resultChars) })}
+									value={formatPayloadKb(totals.resultChars / 1024)}
 								/>
 								<Stat
 									size="sm"
-									label="Arguments size"
-									title={`Serialized tool-call arguments · ${formatInteger(t.argsChars)} characters`}
-									value={formatPayloadKb(t.argsChars / 1024)}
+									label={tt("tools.stat.argsSize")}
+									title={tt("tools.stat.argsSize.title", { count: formatInteger(totals.argsChars) })}
+									value={formatPayloadKb(totals.argsChars / 1024)}
 								/>
 								<Stat
 									size="sm"
-									label="Avg result per call"
-									value={formatKb(t.calls > 0 ? t.resultChars / t.calls / 1024 : 0)}
+									label={tt("tools.stat.avgResult")}
+									value={formatKb(totals.calls > 0 ? totals.resultChars / totals.calls / 1024 : 0)}
 								/>
 								<Stat
 									size="sm"
-									label="Avg arguments per call"
-									value={formatKb(t.calls > 0 ? t.argsChars / t.calls / 1024 : 0)}
+									label={tt("tools.stat.avgArgs")}
+									value={formatKb(totals.calls > 0 ? totals.argsChars / totals.calls / 1024 : 0)}
 								/>
 							</StatGrid>
-						</div>
+						</Flex>
 					);
 				}}
 			</QueryView>
 
 			<Card
 				index={1}
-				title={metric === "calls" ? "Calls over time" : "Errors over time"}
-				description={`Per ${meta.bucketMs < 3_600_000 ? "5 minutes" : meta.bucketMs < 86_400_000 ? "hour" : "day"}, top ${TOP_TOOLS} tools stacked`}
+				title={metric === "calls" ? tt("tools.chart.calls") : tt("tools.chart.errors")}
+				description={tt("tools.chart.perBucket", { bucket: bucketLabel, count: TOP_TOOLS })}
 				actions={<Segmented size="sm" options={METRIC_OPTIONS} value={metric} onChange={setMetric} />}
 				stale={tools.stale}
 			>
 				<QueryView query={tools} skeleton={<ChartSkeleton height={260} />} isEmpty={isEmpty} empty={NO_CALLS}>
 					{() => (
-						<div className="stack" style={{ gap: 12 }}>
+						<Flex vertical gap={12}>
 							<TimeChart
 								buckets={view.buckets}
 								bucketMs={meta.bucketMs}
@@ -189,7 +195,7 @@ export function ToolsRoute({ active, range }: ToolsRouteProps) {
 								hidden={hidden}
 								height={260}
 								formatTooltip={formatInteger}
-								emptyLabel={metric === "errors" ? "No tool errors in this range" : undefined}
+								emptyLabel={metric === "errors" ? tt("tools.chart.noErrors") : undefined}
 							/>
 							<Legend
 								items={chartSeries.map(s => ({
@@ -201,15 +207,15 @@ export function ToolsRoute({ active, range }: ToolsRouteProps) {
 								hidden={hidden}
 								onToggle={toggleHidden}
 							/>
-						</div>
+						</Flex>
 					)}
 				</QueryView>
 			</Card>
 
 			<Card
 				index={2}
-				title="By tool"
-				description={`${ATTRIBUTION_NOTE}. Select a tool to break it down by model.`}
+				title={tt("tools.byTool.title")}
+				description={tt("tools.byTool.description", { note: ATTRIBUTION_NOTE })}
 				flush
 				stale={tools.stale}
 			>
@@ -231,40 +237,20 @@ export function ToolsRoute({ active, range }: ToolsRouteProps) {
 
 			<Card
 				index={3}
-				title="By tool and model"
-				description="Which models call which tools, and how often those calls fail"
+				title={tt("tools.byToolModel.title")}
+				description={tt("tools.byToolModel.description")}
 				flush
 				stale={tools.stale}
 				actions={
-					<div className="row" style={{ gap: 6 }}>
-						<select
-							className="input tools-filter"
-							value={toolFilter ?? ""}
-							onChange={e => setToolFilter(e.target.value || null)}
-							aria-label="Filter by tool"
-						>
-							<option value="">All tools</option>
-							{view.toolNames.map(name => (
-								<option key={name} value={name}>
-									{name}
-								</option>
-							))}
-						</select>
-						{toolFilter !== null && (
-							<button
-								type="button"
-								className="btn"
-								data-size="sm"
-								data-variant="ghost"
-								data-icon="true"
-								title="Clear tool filter"
-								aria-label="Clear tool filter"
-								onClick={() => setToolFilter(null)}
-							>
-								<X size={13} />
-							</button>
-						)}
-					</div>
+					<Select
+						style={{ width: 200 }}
+						aria-label={tt("tools.filter.aria")}
+						placeholder={tt("tools.filter.all")}
+						allowClear
+						value={toolFilter ?? undefined}
+						onChange={v => setToolFilter(v ?? null)}
+						options={view.toolNames.map(name => ({ value: name, label: name }))}
+					/>
 				}
 			>
 				<QueryView query={tools} skeleton={<TableSkeleton rows={8} />} isEmpty={isEmpty} empty={NO_CALLS}>
@@ -274,8 +260,8 @@ export function ToolsRoute({ active, range }: ToolsRouteProps) {
 
 			<Card
 				index={4}
-				title="Recent tool calls"
-				description={`Newest calls in ${meta.windowLabel}, with the MCP server, skill or script they used, their target, and the arguments they were called with`}
+				title={tt("tools.recent.title")}
+				description={tt("tools.recent.description", { window: rangeWindowLabel(range) })}
 				flush
 				stale={recentCalls.stale}
 			>
@@ -288,90 +274,96 @@ export function ToolsRoute({ active, range }: ToolsRouteProps) {
 					{calls => <RecentToolCallsTable rows={calls} />}
 				</QueryView>
 			</Card>
-		</div>
+		</Flex>
 	);
 }
 
 /** Newest calls with source, target and argument preview; the session drawer holds the full payload. */
 function RecentToolCallsTable({ rows }: { rows: ToolCallDetail[] }) {
-	const columns = useMemo<Column<ToolCallDetail>[]>(
-		() => [
+	const tt = useT();
+	const { token } = theme.useToken();
+	const columns = useMemo<Column<ToolCallDetail>[]>(() => {
+		const mono: CSSProperties = { fontFamily: token.fontFamilyCode };
+		const num: CSSProperties = { fontVariantNumeric: "tabular-nums" };
+		const muted: CSSProperties = { color: token.colorTextSecondary };
+		const dim: CSSProperties = { color: token.colorTextTertiary };
+		const truncate: CSSProperties = { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 };
+		const toolName: CSSProperties = { ...mono, ...truncate, display: "inline-block", maxWidth: 220 };
+		return [
 			{
 				key: "time",
-				header: "When",
+				header: tt("tools.col.when"),
 				sort: row => row.timestamp,
 				render: row => (
-					<span className="muted" title={formatTimestamp(row.timestamp)}>
+					<span style={muted} title={formatTimestamp(row.timestamp)}>
 						{formatRelativeTime(row.timestamp)}
 					</span>
 				),
 			},
 			{
 				key: "tool",
-				header: "Tool",
+				header: tt("tools.col.tool"),
 				sort: row => row.tool,
 				render: row => (
-					<span className="row" style={{ gap: 8 }}>
-						<span className="mono truncate tools-name" title={row.tool}>
+					<Flex align="center" gap={8}>
+						<span style={toolName} title={row.tool}>
 							{row.tool}
 						</span>
 						<Badge tone={TOOL_KIND_TONE[row.kind]}>{row.kind}</Badge>
-						{row.isError === true && <Badge tone="bad">error</Badge>}
-					</span>
+						{row.isError === true && <Badge tone="bad">{tt("tools.col.error")}</Badge>}
+					</Flex>
 				),
 			},
 			{
 				key: "source",
-				header: "Source",
+				header: tt("tools.col.source"),
 				sort: row => toolCallSource(row),
-				render: row => <span className="truncate">{toolCallSource(row)}</span>,
+				render: row => <span style={truncate}>{toolCallSource(row)}</span>,
 			},
 			{
 				key: "target",
-				header: "Target",
-				title: "URL, command, path, query or MCP server/tool",
+				header: tt("tools.col.target"),
+				title: tt("tools.col.target.title"),
 				render: row =>
 					row.target ? (
-						<span className="mono muted truncate" title={row.target} style={{ display: "block", maxWidth: 280 }}>
+						<span style={{ ...mono, ...muted, ...truncate, display: "block", maxWidth: 280 }} title={row.target}>
 							{row.target}
 						</span>
 					) : (
-						<span className="dim">–</span>
+						<span style={dim}>–</span>
 					),
 			},
 			{
 				key: "args",
-				header: "Arguments",
-				title: "Recorded argument preview; the session transcript holds the full payload",
+				header: tt("tools.col.args"),
+				title: tt("tools.col.args.title"),
 				render: row =>
 					row.argsPreview ? (
 						<span
-							className="mono muted truncate"
+							style={{ ...mono, ...muted, ...truncate, display: "block", maxWidth: 320 }}
 							title={row.argsPreview}
-							style={{ display: "block", maxWidth: 320 }}
 						>
 							{argsSnippet(row.argsPreview)}
 						</span>
 					) : (
-						<span className="dim">–</span>
+						<span style={dim}>–</span>
 					),
 			},
 			{
 				key: "result",
-				header: "Result",
-				title: "Size of tool-result text fed back into context",
+				header: tt("tools.col.result"),
+				title: tt("tools.col.result.title"),
 				align: "right",
 				sort: row => row.resultChars ?? -1,
 				render: row =>
 					row.resultChars === null ? (
-						<span className="dim">–</span>
+						<span style={dim}>–</span>
 					) : (
-						<span className="num muted">{formatKb(row.resultChars / 1024)}</span>
+						<span style={{ ...num, ...muted }}>{formatKb(row.resultChars / 1024)}</span>
 					),
 			},
-		],
-		[],
-	);
+		];
+	}, [tt, token]);
 	return (
 		<Table
 			rows={rows}
@@ -400,7 +392,7 @@ interface ToolTotals {
 	argsChars: number;
 }
 
-function buildToolsView(data: ToolDashboardStats | null, range: TimeRange) {
+function buildToolsView(data: ToolDashboardStats | null, range: TimeRange, tt: Translate, token: GlobalToken) {
 	const byTool = data?.byTool ?? [];
 	const points = data?.series ?? [];
 	const rows = buildToolRows(byTool).sort((a, b) => b.calls - a.calls);
@@ -421,15 +413,15 @@ function buildToolsView(data: ToolDashboardStats | null, range: TimeRange) {
 		resultChars: 0,
 		argsChars: 0,
 	};
-	for (const t of byTool) {
-		totals.calls += t.calls;
-		totals.errors += t.errors;
-		totals.tokens += t.totalTokensShare;
-		totals.output += t.outputTokensShare;
-		totals.cost += t.costShare;
-		totals.unpriced += t.unpricedRequestsShare;
-		totals.resultChars += t.resultChars;
-		totals.argsChars += t.argsChars;
+	for (const tool of byTool) {
+		totals.calls += tool.calls;
+		totals.errors += tool.errors;
+		totals.tokens += tool.totalTokensShare;
+		totals.output += tool.outputTokensShare;
+		totals.cost += tool.costShare;
+		totals.unpriced += tool.unpricedRequestsShare;
+		totals.resultChars += tool.resultChars;
+		totals.argsChars += tool.argsChars;
 	}
 
 	// Every tool keeps its table swatch color in both metrics; zero slots become
@@ -447,7 +439,7 @@ function buildToolsView(data: ToolDashboardStats | null, range: TimeRange) {
 	);
 
 	const maxCalls = rows[0]?.calls ?? 0;
-	const toolColumns = buildToolColumns(maxCalls, colors, trends);
+	const toolColumns = buildToolColumns(tt, token, maxCalls, colors, trends);
 
 	return {
 		rows,
@@ -464,40 +456,49 @@ function buildToolsView(data: ToolDashboardStats | null, range: TimeRange) {
 }
 
 function buildToolColumns(
+	tt: Translate,
+	token: GlobalToken,
 	maxCalls: number,
 	colors: ReadonlyMap<string, string>,
 	trends: ReadonlyMap<string, number[]>,
 ): Column<ToolRowView>[] {
+	const mono: CSSProperties = { fontFamily: token.fontFamilyCode };
+	const num: CSSProperties = { fontVariantNumeric: "tabular-nums" };
+	const muted: CSSProperties = { color: token.colorTextSecondary };
+	const dim: CSSProperties = { color: token.colorTextTertiary };
+	const truncate: CSSProperties = { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 };
+	const toolName: CSSProperties = { ...mono, ...truncate, display: "inline-block", maxWidth: 220 };
+	const share: CSSProperties = { display: "inline-block", minWidth: 32, marginLeft: 8, textAlign: "right" };
 	return [
 		{
 			key: "tool",
-			header: "Tool",
+			header: tt("tools.col.tool"),
 			sort: row => row.tool,
 			render: row => (
-				<span className="row" style={{ gap: 8 }}>
+				<Flex align="center" gap={8}>
 					<Swatch color={colors.get(row.tool) ?? OTHER_COLOR} />
-					<span className="mono truncate tools-name" title={row.tool}>
+					<span style={toolName} title={row.tool}>
 						{row.tool}
 					</span>
-				</span>
+				</Flex>
 			),
 		},
 		{
 			key: "trend",
-			header: "Trend",
-			title: "Calls per bucket over the range",
+			header: tt("tools.col.trend"),
+			title: tt("tools.col.trend.title"),
 			render: row => {
 				const values = trends.get(row.tool);
 				return values && values.length > 1 ? (
 					<Sparkline values={values} width={80} height={20} color={colors.get(row.tool) ?? OTHER_COLOR} />
 				) : (
-					<span className="dim">–</span>
+					<span style={dim}>–</span>
 				);
 			},
 		},
 		{
 			key: "calls",
-			header: "Calls",
+			header: tt("tools.col.calls"),
 			align: "right",
 			sort: row => row.calls,
 			render: row => (
@@ -505,9 +506,9 @@ function buildToolColumns(
 					value={row.calls}
 					max={maxCalls}
 					display={
-						<span title={`${formatPercent(row.callFraction)} of all tool calls`}>
+						<span title={tt("tools.col.callsShare", { share: formatPercent(row.callFraction) })}>
 							{formatInteger(row.calls)}
-							<span className="dim tools-share">{formatPercent(row.callFraction, 0)}</span>
+							<span style={{ ...dim, ...share }}>{formatPercent(row.callFraction, 0)}</span>
 						</span>
 					}
 				/>
@@ -515,83 +516,92 @@ function buildToolColumns(
 		},
 		{
 			key: "errorRate",
-			header: "Errors",
-			title: "Calls whose result came back flagged as an error",
+			header: tt("tools.col.errors"),
+			title: tt("tools.col.errors.title"),
 			align: "right",
 			sort: row => row.errorRate,
 			render: row => (
-				<span className="row" style={{ gap: 8, justifyContent: "flex-end" }}>
-					<span className="num dim">{formatInteger(row.errors)}</span>
+				<Flex align="center" gap={8} justify="flex-end">
+					<span style={{ ...num, ...dim }}>{formatInteger(row.errors)}</span>
 					<Badge tone={row.errors > 0 ? errorRateTone(row.errorRate) : "neutral"} mono>
 						{formatErrorRate(row.errorRate)}
 					</Badge>
-				</span>
+				</Flex>
 			),
 		},
 		{
 			key: "args",
-			header: "Args",
-			title: "Size of serialized tool-call arguments",
+			header: tt("tools.col.argsShort"),
+			title: tt("tools.col.argsSize.title"),
 			align: "right",
 			sort: row => row.argsChars,
 			render: row => (
-				<span className="num" title={`${formatInteger(row.argsChars)} characters · ${formatKb(row.argsKb)}`}>
+				<span
+					style={num}
+					title={tt("tools.col.sizeChars", { count: formatInteger(row.argsChars), size: formatKb(row.argsKb) })}
+				>
 					{formatPayloadKb(row.argsKb)}
 				</span>
 			),
 		},
 		{
 			key: "result",
-			header: "Result",
-			title: "Size of tool-result text fed back into context",
+			header: tt("tools.col.result"),
+			title: tt("tools.col.result.title"),
 			align: "right",
 			sort: row => row.resultChars,
 			render: row => (
-				<span className="num" title={`${formatInteger(row.resultChars)} characters · ${formatKb(row.resultKb)}`}>
+				<span
+					style={num}
+					title={tt("tools.col.sizeChars", {
+						count: formatInteger(row.resultChars),
+						size: formatKb(row.resultKb),
+					})}
+				>
 					{formatPayloadKb(row.resultKb)}
 				</span>
 			),
 		},
 		{
 			key: "avgResult",
-			header: "Result / call",
-			title: "Mean tool-result size per call",
+			header: tt("tools.col.resultPerCall"),
+			title: tt("tools.col.resultPerCall.title"),
 			align: "right",
 			sort: row => row.avgResultChars,
-			render: row => <span className="num muted">{formatKb(row.avgResultChars / 1024)}</span>,
+			render: row => <span style={{ ...num, ...muted }}>{formatKb(row.avgResultChars / 1024)}</span>,
 		},
 		{
 			key: "tokens",
-			header: "Attr. tokens",
+			header: tt("tools.col.tokens"),
 			title: ATTRIBUTION_NOTE,
 			align: "right",
 			sort: row => row.totalTokensShare,
 			render: row => (
-				<span className="num" title={`${formatPercent(row.tokenFraction)} of attributed tokens`}>
+				<span style={num} title={tt("tools.col.tokensShare", { share: formatPercent(row.tokenFraction) })}>
 					{formatCompact(Math.round(row.totalTokensShare))}
-					<span className="dim tools-share">{formatPercent(row.tokenFraction, 0)}</span>
+					<span style={{ ...dim, ...share }}>{formatPercent(row.tokenFraction, 0)}</span>
 				</span>
 			),
 		},
 		{
 			key: "cost",
-			header: "Attr. cost",
-			title: `${ATTRIBUTION_NOTE}; API-equivalent estimate`,
+			header: tt("tools.col.cost"),
+			title: tt("tools.stat.cost.title", { note: ATTRIBUTION_NOTE }),
 			align: "right",
 			sort: row => row.costShare,
 			render: row => (
-				<span className="num" title={`${formatPercent(row.costFraction)} of attributed cost`}>
+				<span style={num} title={tt("tools.col.costShare", { share: formatPercent(row.costFraction) })}>
 					{formatEstimatedCost(row.costShare, row.unpricedRequestsShare)}
-					<span className="dim tools-share">{formatPercent(row.costFraction, 0)}</span>
+					<span style={{ ...dim, ...share }}>{formatPercent(row.costFraction, 0)}</span>
 				</span>
 			),
 		},
 		{
 			key: "lastUsed",
-			header: "Last used",
+			header: tt("tools.col.lastUsed"),
 			align: "right",
 			sort: row => row.lastUsed,
-			render: row => <span className="muted">{formatRelativeTime(row.lastUsed)}</span>,
+			render: row => <span style={muted}>{formatRelativeTime(row.lastUsed)}</span>,
 		},
 	];
 }
@@ -613,6 +623,8 @@ function ToolModelTable({
 	tool: string | null;
 	colors: ReadonlyMap<string, string>;
 }) {
+	const tt = useT();
+	const { token } = theme.useToken();
 	const filtered = useMemo<ToolModelRow[]>(
 		() =>
 			(tool === null ? rows : rows.filter(r => r.tool === tool)).map(r => ({
@@ -622,83 +634,90 @@ function ToolModelTable({
 		[rows, tool],
 	);
 	const columns = useMemo<Column<ToolModelRow>[]>(() => {
+		const mono: CSSProperties = { fontFamily: token.fontFamilyCode };
+		const num: CSSProperties = { fontVariantNumeric: "tabular-nums" };
+		const muted: CSSProperties = { color: token.colorTextSecondary };
+		const dim: CSSProperties = { color: token.colorTextTertiary };
+		const truncate: CSSProperties = { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 };
+		const toolName: CSSProperties = { ...mono, ...truncate, display: "inline-block", maxWidth: 220 };
 		const maxCalls = filtered.reduce((max, r) => Math.max(max, r.calls), 0);
 		return [
 			{
 				key: "tool",
-				header: "Tool",
+				header: tt("tools.col.tool"),
 				sort: row => row.tool,
 				render: row => (
-					<span className="row" style={{ gap: 8 }}>
+					<Flex align="center" gap={8}>
 						<Swatch color={colors.get(row.tool) ?? OTHER_COLOR} />
-						<span className="mono truncate tools-name" title={row.tool}>
+						<span style={toolName} title={row.tool}>
 							{row.tool}
 						</span>
-					</span>
+					</Flex>
 				),
 			},
 			{
 				key: "model",
-				header: "Model",
+				header: tt("tools.col.model"),
 				sort: row => row.model,
 				render: row => (
-					<LabelCell primary={<span className="mono">{row.model || "(unknown)"}</span>} secondary={row.provider} />
+					<LabelCell primary={<span style={mono}>{row.model || tt("tools.unknownModel")}</span>} secondary={row.provider} />
 				),
 			},
 			{
 				key: "calls",
-				header: "Calls",
+				header: tt("tools.col.calls"),
 				align: "right",
 				sort: row => row.calls,
 				render: row => <MeterCell value={row.calls} max={maxCalls} display={formatInteger(row.calls)} />,
 			},
 			{
 				key: "errorRate",
-				header: "Errors",
+				header: tt("tools.col.errors"),
+				title: tt("tools.col.errors.title"),
 				align: "right",
 				sort: row => row.errorRate,
 				render: row => (
-					<span className="row" style={{ gap: 8, justifyContent: "flex-end" }}>
-						<span className="num dim">{formatInteger(row.errors)}</span>
+					<Flex align="center" gap={8} justify="flex-end">
+						<span style={{ ...num, ...dim }}>{formatInteger(row.errors)}</span>
 						<Badge tone={row.errors > 0 ? errorRateTone(row.errorRate) : "neutral"} mono>
 							{formatErrorRate(row.errorRate)}
 						</Badge>
-					</span>
+					</Flex>
 				),
 			},
 			{
 				key: "result",
-				header: "Result",
-				title: "Size of tool-result text fed back into context",
+				header: tt("tools.col.result"),
+				title: tt("tools.col.result.title"),
 				align: "right",
 				sort: row => row.resultChars,
-				render: row => <span className="num">{formatPayloadKb(row.resultKb)}</span>,
+				render: row => <span style={num}>{formatPayloadKb(row.resultKb)}</span>,
 			},
 			{
 				key: "tokens",
-				header: "Attr. tokens",
+				header: tt("tools.col.tokens"),
 				title: ATTRIBUTION_NOTE,
 				align: "right",
 				sort: row => row.totalTokensShare,
-				render: row => <span className="num">{formatCompact(Math.round(row.totalTokensShare))}</span>,
+				render: row => <span style={num}>{formatCompact(Math.round(row.totalTokensShare))}</span>,
 			},
 			{
 				key: "cost",
-				header: "Attr. cost",
-				title: `${ATTRIBUTION_NOTE}; API-equivalent estimate`,
+				header: tt("tools.col.cost"),
+				title: tt("tools.stat.cost.title", { note: ATTRIBUTION_NOTE }),
 				align: "right",
 				sort: row => row.costShare,
-				render: row => <span className="num">{formatEstimatedCost(row.costShare, row.unpricedRequestsShare)}</span>,
+				render: row => <span style={num}>{formatEstimatedCost(row.costShare, row.unpricedRequestsShare)}</span>,
 			},
 			{
 				key: "lastUsed",
-				header: "Last used",
+				header: tt("tools.col.lastUsed"),
 				align: "right",
 				sort: row => row.lastUsed,
-				render: row => <span className="muted">{formatRelativeTime(row.lastUsed)}</span>,
+				render: row => <span style={muted}>{formatRelativeTime(row.lastUsed)}</span>,
 			},
 		];
-	}, [filtered, colors]);
+	}, [filtered, colors, tt, token]);
 
 	return (
 		<Table
@@ -708,7 +727,7 @@ function ToolModelTable({
 			initialSort={{ key: "calls", dir: "desc" }}
 			limit={25}
 			dense
-			empty={<EmptyState title={tool ? `No calls to ${tool} in this range` : "No tool calls in this range"} />}
+			empty={<EmptyState title={tool ? tt("tools.emptyFor", { tool }) : tt("tools.empty")} />}
 		/>
 	);
 }

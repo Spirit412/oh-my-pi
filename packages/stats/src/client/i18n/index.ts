@@ -78,7 +78,7 @@ if (typeof console !== "undefined") {
 
 const messages: Record<DashboardLocale, MessageDict> = { en, ru };
 
-let current: DashboardLocale = initialLocale;
+const current: DashboardLocale = initialLocale;
 
 /** The active dashboard locale (fixed for the page lifetime). */
 export function getLocale(): DashboardLocale {
