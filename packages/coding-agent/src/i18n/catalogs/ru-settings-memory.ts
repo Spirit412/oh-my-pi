@@ -2,12 +2,12 @@ import type { TranslationCatalog } from "@oh-my-pi/pi-utils/i18n";
 
 /** Russian copy for the memory settings tab. */
 export const ruSettingsMemory: TranslationCatalog = {
-	"omp.setting.memory.backend.label": "Бэкенд памяти",
+	"omp.setting.memory.backend.label": "Memory Backend",
 	"omp.setting.memory.backend.description":
 		"Выкл., локальный конвейер сводок, Mnemopi SQLite, удалённая память Hindsight или Sharpshooter",
-	"omp.setting.memory.backend.option.off.label": "Выкл.",
+	"omp.setting.memory.backend.option.off.label": "Off",
 	"omp.setting.memory.backend.option.off.description": "Подсистема памяти не работает",
-	"omp.setting.memory.backend.option.local.label": "Локальный",
+	"omp.setting.memory.backend.option.local.label": "Local",
 	"omp.setting.memory.backend.option.local.description": "Локальный конвейер суммаризации сессий (memory_summary.md)",
 	"omp.setting.memory.backend.option.hindsight.label": "Hindsight",
 	"omp.setting.memory.backend.option.hindsight.description": "Удалённый сервис памяти Hindsight (Vectorize)",
@@ -17,115 +17,115 @@ export const ruSettingsMemory: TranslationCatalog = {
 	"omp.setting.memory.backend.option.sharpshooter.label": "Sharpshooter",
 	"omp.setting.memory.backend.option.sharpshooter.description":
 		"Файлы проектных решений (архитектура/продукт/стиль), включаемые по сигналам трения и консолидируемые в фоне",
-	"omp.setting.sharpshooter.model.label": "Модель Sharpshooter",
+	"omp.setting.sharpshooter.model.label": "Sharpshooter Model",
 	"omp.setting.sharpshooter.model.description": "Выбор модели для извлечения и консолидации; пусто = роль smol",
-	"omp.setting.autolearn.enabled.label": "Autolearn (экспериментально)",
+	"omp.setting.autolearn.enabled.label": "Auto-Learn (experimental)",
 	"omp.setting.autolearn.enabled.description":
 		"После остановки агента подталкивать его сохранять выводы в память и создавать/улучшать изолированные управляемые навыки",
-	"omp.setting.autolearn.autoContinue.label": "Автоматически запускать сбор при остановке",
+	"omp.setting.autolearn.autoContinue.label": "Auto-run capture at stop",
 	"omp.setting.autolearn.autoContinue.description":
 		"Если включено, при остановке автоматически выполняется один отдельный ход сбора (расходует дополнительные токены). Если выключено, остаются только постоянные указания автообучения.",
-	"omp.setting.mnemopi.dbPath.label": "Путь к БД Mnemopi",
+	"omp.setting.mnemopi.dbPath.label": "Mnemopi DB Path",
 	"omp.setting.mnemopi.dbPath.description":
 		"Необязательный путь к БД SQLite. По умолчанию — каталог воспоминаний агента.",
-	"omp.setting.mnemopi.bank.label": "Банк Mnemopi",
+	"omp.setting.mnemopi.bank.label": "Mnemopi Bank",
 	"omp.setting.mnemopi.bank.description":
 		"Необязательное базовое имя общего банка. Режимы по проектам образуют из него локальные банки проектов.",
-	"omp.setting.mnemopi.scoping.label": "Область действия Mnemopi",
+	"omp.setting.mnemopi.scoping.label": "Mnemopi Scoping",
 	"omp.setting.mnemopi.scoping.description":
 		"global = один общий банк; per-project = отдельный банк для каждого cwd; per-project-tagged = запись в банк проекта плюс видимость общего при recall",
-	"omp.setting.mnemopi.scoping.option.global.label": "Глобально",
+	"omp.setting.mnemopi.scoping.option.global.label": "Global",
 	"omp.setting.mnemopi.scoping.option.global.description": "Один общий банк Mnemopi для всех проектов",
-	"omp.setting.mnemopi.scoping.option.per-project.label": "Для каждого проекта",
+	"omp.setting.mnemopi.scoping.option.per-project.label": "Per project",
 	"omp.setting.mnemopi.scoping.option.per-project.description":
 		"Локальный банк Mnemopi для каждого имени каталога cwd",
-	"omp.setting.mnemopi.scoping.option.per-project-tagged.label": "Для каждого проекта (с тегами)",
+	"omp.setting.mnemopi.scoping.option.per-project-tagged.label": "Per project (tagged)",
 	"omp.setting.mnemopi.scoping.option.per-project-tagged.description":
 		"Запись в локальный банк проекта, но результаты recall объединяются с общими",
-	"omp.setting.mnemopi.embeddingVariant.label": "Вариант эмбеддингов",
+	"omp.setting.mnemopi.embeddingVariant.label": "Embedding variant",
 	"omp.setting.mnemopi.embeddingVariant.description":
 		"Семейство локальных моделей эмбеддингов. en = более сильная модель для английского; multilingual = межъязыковая модель. При изменении существующие эмбеддинги памяти пересчитываются при следующем запуске.",
-	"omp.setting.mnemopi.embeddingVariant.option.en.label": "Английский (bge-base-en-v1.5)",
+	"omp.setting.mnemopi.embeddingVariant.option.en.label": "English (bge-base-en-v1.5)",
 	"omp.setting.mnemopi.embeddingVariant.option.en.description": "BAAI/bge-base-en-v1.5 (768d), только английский",
-	"omp.setting.mnemopi.embeddingVariant.option.multilingual.label": "Многоязычный (multilingual-e5-large)",
+	"omp.setting.mnemopi.embeddingVariant.option.multilingual.label": "Multilingual (multilingual-e5-large)",
 	"omp.setting.mnemopi.embeddingVariant.option.multilingual.description":
 		"intfloat/multilingual-e5-large (1024d), межъязыковой recall",
-	"omp.setting.mnemopi.autoRecall.label": "Автоматический recall Mnemopi",
+	"omp.setting.mnemopi.autoRecall.label": "Mnemopi Auto Recall",
 	"omp.setting.mnemopi.autoRecall.description": "Извлекать локальные воспоминания в первый ход каждой сессии",
-	"omp.setting.mnemopi.autoRetain.label": "Автоматический retain Mnemopi",
+	"omp.setting.mnemopi.autoRetain.label": "Mnemopi Auto Retain",
 	"omp.setting.mnemopi.autoRetain.description": "Сохранять завершённые ходы беседы в локальную память Mnemopi",
-	"omp.setting.mnemopi.polyphonicRecall.label": "Полифонический recall Mnemopi",
+	"omp.setting.mnemopi.polyphonicRecall.label": "Mnemopi Polyphonic Recall",
 	"omp.setting.mnemopi.polyphonicRecall.description":
 		"Объединять recall с графовым, фактовым, векторным и временным голосами, чтобы связанные воспоминания всплывали без совпадения по ключевым словам",
-	"omp.setting.mnemopi.enhancedRecall.label": "Улучшенный recall Mnemopi",
+	"omp.setting.mnemopi.enhancedRecall.label": "Mnemopi Enhanced Recall",
 	"omp.setting.mnemopi.enhancedRecall.description":
 		"Кешировать результаты recall для повторных и похожих запросов с одинаковыми параметрами; любая запись в память сбрасывает кеш",
-	"omp.setting.mnemopi.proactiveLinking.label": "Проактивное связывание Mnemopi",
+	"omp.setting.mnemopi.proactiveLinking.label": "Mnemopi Proactive Linking",
 	"omp.setting.mnemopi.proactiveLinking.description":
 		"Добавлять новые воспоминания в эпизодический граф при сохранении, связывая их с родственными сущностями и воспоминаниями",
-	"omp.setting.mnemopi.noEmbeddings.label": "Отключить эмбеддинги Mnemopi",
+	"omp.setting.mnemopi.noEmbeddings.label": "Mnemopi Disable Embeddings",
 	"omp.setting.mnemopi.noEmbeddings.description":
 		"Принудительно использовать детерминированный recall только по FTS вместо векторных эмбеддингов",
-	"omp.setting.mnemopi.embeddingModel.label": "Модель эмбеддингов Mnemopi",
+	"omp.setting.mnemopi.embeddingModel.label": "Mnemopi Embedding Model",
 	"omp.setting.mnemopi.embeddingModel.description":
 		"Дополнительно: явный id модели эмбеддингов, переопределяющий вариант. Оставьте пустым, чтобы использовать mnemopi.embeddingVariant.",
-	"omp.setting.mnemopi.embeddingApiUrl.label": "URL API эмбеддингов Mnemopi",
+	"omp.setting.mnemopi.embeddingApiUrl.label": "Mnemopi Embedding API URL",
 	"omp.setting.mnemopi.embeddingApiUrl.description":
 		"Необязательный эндпоинт эмбеддингов, совместимый с OpenAI, передаваемый в Mnemopi",
-	"omp.setting.mnemopi.embeddingApiKey.label": "Ключ API эмбеддингов Mnemopi",
+	"omp.setting.mnemopi.embeddingApiKey.label": "Mnemopi Embedding API Key",
 	"omp.setting.mnemopi.embeddingApiKey.description": "Необязательный ключ API эмбеддингов, передаваемый в Mnemopi",
-	"omp.setting.mnemopi.llmMode.label": "Режим LLM Mnemopi",
+	"omp.setting.mnemopi.llmMode.label": "Mnemopi LLM Mode",
 	"omp.setting.mnemopi.llmMode.description":
 		"Не использовать LLM, использовать онлайн-модель tiny (роль TINY из /models, иначе @smol) или удалённый эндпоинт, совместимый с OpenAI",
-	"omp.setting.mnemopi.llmMode.option.none.label": "Нет",
+	"omp.setting.mnemopi.llmMode.option.none.label": "None",
 	"omp.setting.mnemopi.llmMode.option.none.description": "Отключить извлечение с помощью LLM в Mnemopi",
-	"omp.setting.mnemopi.llmMode.option.smol.label": "Онлайн (tiny)",
+	"omp.setting.mnemopi.llmMode.option.smol.label": "Online (tiny)",
 	"omp.setting.mnemopi.llmMode.option.smol.description":
 		"Использовать онлайн-модель tiny (роль TINY из /models, иначе @smol)",
-	"omp.setting.mnemopi.llmMode.option.remote.label": "Удалённо",
+	"omp.setting.mnemopi.llmMode.option.remote.label": "Remote",
 	"omp.setting.mnemopi.llmMode.option.remote.description": "Использовать настройки удалённой LLM Mnemopi ниже",
-	"omp.setting.mnemopi.llmBaseUrl.label": "Базовый URL LLM Mnemopi",
+	"omp.setting.mnemopi.llmBaseUrl.label": "Mnemopi LLM Base URL",
 	"omp.setting.mnemopi.llmBaseUrl.description":
 		"Необязательный эндпоинт LLM, совместимый с OpenAI, для удалённого режима Mnemopi",
-	"omp.setting.mnemopi.llmApiKey.label": "Ключ API LLM Mnemopi",
+	"omp.setting.mnemopi.llmApiKey.label": "Mnemopi LLM API Key",
 	"omp.setting.mnemopi.llmApiKey.description": "Необязательный ключ API LLM для удалённого режима Mnemopi",
-	"omp.setting.mnemopi.llmModel.label": "Модель LLM Mnemopi",
+	"omp.setting.mnemopi.llmModel.label": "Mnemopi LLM Model",
 	"omp.setting.mnemopi.llmModel.description": "Необязательное имя модели LLM для удалённого режима Mnemopi",
-	"omp.setting.hindsight.apiUrl.label": "URL API Hindsight",
+	"omp.setting.hindsight.apiUrl.label": "Hindsight API URL",
 	"omp.setting.hindsight.apiUrl.description": "URL сервера Hindsight (облачный или собственный)",
-	"omp.setting.hindsight.apiToken.label": "Токен API Hindsight",
+	"omp.setting.hindsight.apiToken.label": "Hindsight API Token",
 	"omp.setting.hindsight.apiToken.description": "Bearer-токен для серверов Hindsight с аутентификацией",
-	"omp.setting.hindsight.bankId.label": "ID банка Hindsight",
+	"omp.setting.hindsight.bankId.label": "Hindsight Bank ID",
 	"omp.setting.hindsight.bankId.description": "Идентификатор банка памяти (по умолчанию: имя проекта)",
-	"omp.setting.hindsight.scoping.label": "Область действия Hindsight",
+	"omp.setting.hindsight.scoping.label": "Hindsight Scoping",
 	"omp.setting.hindsight.scoping.description":
 		"global = один общий банк; per-project = отдельный банк для каждого cwd; per-project-tagged = общий банк с тегами проектов, чтобы общие и проектные воспоминания объединялись при recall",
-	"omp.setting.hindsight.scoping.option.global.label": "Глобально",
+	"omp.setting.hindsight.scoping.option.global.label": "Global",
 	"omp.setting.hindsight.scoping.option.global.description":
 		"Один общий банк — все проекты видят одни и те же воспоминания",
-	"omp.setting.hindsight.scoping.option.per-project.label": "Для каждого проекта",
+	"omp.setting.hindsight.scoping.option.per-project.label": "Per project",
 	"omp.setting.hindsight.scoping.option.per-project.description":
 		"Отдельный банк для каждого имени каталога cwd — проекты не видят воспоминания друг друга",
-	"omp.setting.hindsight.scoping.option.per-project-tagged.label": "Для каждого проекта (с тегами)",
+	"omp.setting.hindsight.scoping.option.per-project-tagged.label": "Per project (tagged)",
 	"omp.setting.hindsight.scoping.option.per-project-tagged.description":
 		"Общий банк, записи помечаются тегом project:<cwd>. Recall показывает вместе проектные и глобальные воспоминания без тега",
-	"omp.setting.hindsight.autoRecall.label": "Автоматический recall Hindsight",
+	"omp.setting.hindsight.autoRecall.label": "Hindsight Auto Recall",
 	"omp.setting.hindsight.autoRecall.description": "Извлекать воспоминания в первый ход каждой сессии",
-	"omp.setting.hindsight.autoRetain.label": "Автоматический retain Hindsight",
+	"omp.setting.hindsight.autoRetain.label": "Hindsight Auto Retain",
 	"omp.setting.hindsight.autoRetain.description": "Сохранять транскрипт каждые N ходов и на границах сессии",
-	"omp.setting.hindsight.retainMode.label": "Режим retain Hindsight",
+	"omp.setting.hindsight.retainMode.label": "Hindsight Retain Mode",
 	"omp.setting.hindsight.retainMode.description":
 		"full-session = upsert одного документа на сессию, last-turn = порциями",
-	"omp.setting.hindsight.retainMode.option.full-session.label": "Вся сессия",
+	"omp.setting.hindsight.retainMode.option.full-session.label": "Full session",
 	"omp.setting.hindsight.retainMode.option.full-session.description":
 		"Upsert одного документа на сессию (рекомендуется)",
-	"omp.setting.hindsight.retainMode.option.last-turn.label": "Последний ход",
+	"omp.setting.hindsight.retainMode.option.last-turn.label": "Last turn",
 	"omp.setting.hindsight.retainMode.option.last-turn.description":
 		"Порционное сохранение с разбиением по границам ходов",
-	"omp.setting.hindsight.mentalModelsEnabled.label": "Ментальные модели Hindsight",
+	"omp.setting.hindsight.mentalModelsEnabled.label": "Hindsight Mental Models",
 	"omp.setting.hindsight.mentalModelsEnabled.description":
 		"Загружать подготовленные сводки рефлексии (ментальные модели) в инструкции разработчика при запуске. Загружает существующие модели из банка — ничего не записывает. В паре с hindsight.mentalModelAutoSeed также автоматически создаёт встроенный набор.",
-	"omp.setting.hindsight.mentalModelAutoSeed.label": "Автосоздание ментальных моделей Hindsight",
+	"omp.setting.hindsight.mentalModelAutoSeed.label": "Hindsight Mental Model Auto-Seed",
 	"omp.setting.hindsight.mentalModelAutoSeed.description":
 		"В начале сессии создавать встроенные ментальные модели (project-conventions, project-decisions, user-preferences), которых ещё нет в банке.",
 };

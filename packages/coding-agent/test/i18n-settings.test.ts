@@ -9,6 +9,7 @@ import {
 	settingsGroupLabel,
 } from "@oh-my-pi/pi-tui/overlays/settings-defs";
 import { createSettingsHost } from "../src/config/settings-ui";
+import { orderedSettings } from "../src/config/all-settings";
 import { hasTranslation, registerCatalog, registerCoreCatalogs, resetI18nForTest, setLocale } from "../src/i18n";
 
 afterEach(() => {
@@ -117,6 +118,29 @@ describe("bundled Russian settings catalog", () => {
 				}
 			}
 		}
+	});
+
+	test("keeps parameter names and option labels in English", () => {
+		setLocale("ru");
+
+		const sources = new Map(orderedSettings().map(setting => [setting.id, setting]));
+		for (const entry of createSettingsHost().entries) {
+			const source = sources.get(entry.path);
+			if (!source?.ui || !entry.ui) continue;
+			expect(entry.ui.label).toBe(source.ui.label);
+			if (Array.isArray(source.ui.options) && Array.isArray(entry.ui.options)) {
+				expect(entry.ui.options.map(option => option.label)).toEqual(source.ui.options.map(option => option.label));
+			}
+		}
+
+		expect(settingsUi("providers.cacheRetention").label).toBe("Prompt Cache Retention");
+		expect(submenuOptions("providers.cacheRetention").map(option => option.label)).toEqual([
+			"Auto",
+			"Short (5m)",
+			"Long (1h+)",
+			"Off",
+		]);
+		expect(settingsUi("providers.cacheRetention").description).toContain("Срок хранения кеша промптов");
 	});
 
 	test("covers tab labels, leads, and every section heading", () => {
