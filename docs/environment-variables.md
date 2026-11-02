@@ -302,7 +302,7 @@ Base URL resolution: option `azureBaseUrl` → env `AZURE_OPENAI_BASE_URL` → o
 | `KIMI_OAUTH_HOST`      | Fallback OAuth host override                             |
 | `KIMI_CODE_BASE_URL`   | Overrides Kimi usage endpoint base URL (`usage/kimi.ts`) |
 
-OAuth host chain: `KIMI_CODE_OAUTH_HOST` → `KIMI_OAUTH_HOST` → `https://auth.kimi.com`.
+OAuth host chain: `KIMI_CODE_OAUTH_HOST` → `KIMI_OAUTH_HOST` → `https://auth.kimi.com`. The overrides apply to the `kimi-code` login entry only; the separate `kimi-code-ai` entry (`/login kimi-code-ai`) always signs in against `https://auth.kimi.ai` and stores the credential under `kimi-code`.
 
 ### OpenAI-compatible endpoint controls
 

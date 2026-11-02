@@ -1,0 +1,23 @@
+auth "kimi-code-ai" {
+    // Second front door for the same Kimi Code subscription: the .ai domain is
+    // the international deployment, .com the mainland one. Both serve the same
+    // device grant with the same client id, so only the OAuth host differs.
+    name "Kimi Code (.ai)"
+    login "device-code" {
+        client-id "17e5f671-d194-4dfb-9706-5516cb48c098"
+        base-url "https://auth.kimi.ai"
+        headers-hook "kimi-fingerprint"
+        device url="{base}/api/oauth/device_authorization"
+        token url="{base}/api/oauth/token"
+        response user-code="user_code" device-code="device_code" verification-uri="verification_uri" verification-uri-complete="verification_uri_complete" interval="interval" expires-in="expires_in"
+        instructions "Enter code: {user_code}"
+        credential {
+            account-id claim="user_id|sub"
+        }
+    }
+    // One subscription, one credential pool: models, discovery, usage and
+    // web search all stay under `kimi-code`, so an .ai login behaves exactly
+    // like the .com one after the device grant completes.
+    store-as "kimi-code"
+    refresh {}
+}

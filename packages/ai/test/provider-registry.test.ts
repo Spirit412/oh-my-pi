@@ -141,4 +141,53 @@ describe("provider registry auth surface", () => {
 
 		expect(store.getApiKey("llama.cpp")).toBe("llama-cpp-local");
 	});
+
+	test("kimi-code-ai signs in at auth.kimi.ai and stores the credential under kimi-code", async () => {
+		const requested: string[] = [];
+		const fetchMock = (async (input: string | URL | Request) => {
+			const url = String(input);
+			requested.push(url);
+			if (url === "https://auth.kimi.ai/api/oauth/device_authorization") {
+				return Response.json({
+					user_code: "ABCD-EFGH",
+					device_code: "ai-device-code",
+					verification_uri: "https://www.kimi.ai/code/authorize_device",
+					verification_uri_complete: "https://www.kimi.ai/code/authorize_device?user_code=ABCD-EFGH",
+					expires_in: 1800,
+					interval: 5,
+				});
+			}
+			if (url === "https://auth.kimi.ai/api/oauth/token") {
+				return Response.json({ access_token: "ai-access", refresh_token: "ai-refresh", expires_in: 3600 });
+			}
+			throw new Error(`unexpected request: ${url}`);
+		}) as unknown as typeof fetch;
+
+		const store = new SqliteAuthCredentialStore(new Database(":memory:"));
+		const storage = new AuthStorage(store);
+		await storage.credentials.reload();
+		let authorization: { url: string; instructions?: string } | undefined;
+
+		await storage.oauth.login("kimi-code-ai", {
+			fetch: fetchMock,
+			onAuth: info => {
+				authorization = info;
+			},
+			onPrompt: async () => "",
+		});
+
+		// The device grant must never fall back to the .com front door.
+		expect(requested).toEqual([
+			"https://auth.kimi.ai/api/oauth/device_authorization",
+			"https://auth.kimi.ai/api/oauth/token",
+		]);
+		expect(authorization?.url).toBe("https://www.kimi.ai/code/authorize_device?user_code=ABCD-EFGH");
+		expect(authorization?.instructions).toBe("Enter code: ABCD-EFGH");
+		// `store-as "kimi-code"` keeps one credential pool: models, discovery,
+		// usage and web search all read the subscription from `kimi-code`.
+		const stored = store.listAuthCredentials("kimi-code");
+		expect(stored).toHaveLength(1);
+		expect(stored[0].credential).toMatchObject({ access: "ai-access", refresh: "ai-refresh" });
+		expect(store.listAuthCredentials("kimi-code-ai")).toHaveLength(0);
+	});
 });
