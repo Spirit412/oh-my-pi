@@ -12,14 +12,14 @@
 
 ### Fixed
 
-- Fixed TypeBox numeric bounds written in exponent notation throwing during schema construction, while preserving validation and nested JSON Schema constraints ([#15925](https://github.com/can1357/oh-my-pi/pull/15925) by [@jchanghong023](https://github.com/jchanghong023)).
-- Fixed importing local JSON Schema definition references containing URI percent encoding or JSON Pointer escapes ([#15926](https://github.com/can1357/oh-my-pi/pull/15926) by [@jchanghong023](https://github.com/jchanghong023)).
+- Fixed TypeBox numeric bounds written in exponent notation throwing during schema construction, while preserving validation and nested JSON Schema constraints ([#15925](https://github.com/Spirit412/oh-my-pi/pull/15925) by [@jchanghong023](https://github.com/jchanghong023)).
+- Fixed importing local JSON Schema definition references containing URI percent encoding or JSON Pointer escapes ([#15926](https://github.com/Spirit412/oh-my-pi/pull/15926) by [@jchanghong023](https://github.com/jchanghong023)).
 
 ## [18.2.1] - 2026-09-15
 
 ### Added
 
-- Added `trim()`, `superRefine()`, and one-argument `record()` support to the Zod compatibility facade ([#12011](https://github.com/can1357/oh-my-pi/pull/12011) by [@bnivanov](https://github.com/bnivanov)).
+- Added `trim()`, `superRefine()`, and one-argument `record()` support to the Zod compatibility facade ([#12011](https://github.com/Spirit412/oh-my-pi/pull/12011) by [@bnivanov](https://github.com/bnivanov)).
 
 ## [17.3.1] - 2026-08-13
 
@@ -43,7 +43,7 @@
 
 ### Fixed
 
-- Fixed the TypeBox adapter emitting an invalid left-bound-only DSL for min-only numeric schemas (e.g. `Type.Integer({ minimum: 1 })`), which threw `left bound requires a corresponding right bound` and broke extension tool loading ([#7648](https://github.com/can1357/oh-my-pi/issues/7648)).
+- Fixed the TypeBox adapter emitting an invalid left-bound-only DSL for min-only numeric schemas (e.g. `Type.Integer({ minimum: 1 })`), which threw `left bound requires a corresponding right bound` and broke extension tool loading ([#7648](https://github.com/Spirit412/oh-my-pi/issues/7648)).
 
 ## [17.2.8] - 2026-08-04
 

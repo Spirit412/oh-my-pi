@@ -31,19 +31,19 @@
 
 ### Fixed
 
-- Fixed usage stats pricing Google Antigravity and MiniMax Token Plan models at $0 when their catalog rows carry no price; they now use the catalog's pricing peer, as `xai-oauth` already did ([#16092](https://github.com/can1357/oh-my-pi/pull/16092) by [@H4vC](https://github.com/H4vC))
+- Fixed usage stats pricing Google Antigravity and MiniMax Token Plan models at $0 when their catalog rows carry no price; they now use the catalog's pricing peer, as `xai-oauth` already did ([#16092](https://github.com/Spirit412/oh-my-pi/pull/16092) by [@H4vC](https://github.com/H4vC))
 
 ## [18.11.0] - 2026-10-14
 
 ### Fixed
 
-- Providers → Subscription windows no longer mixes Codex 5-hour and 7-day quotas across plans: Team and weekly-only (ProLite) accounts now share the 7-day row, the 5-hour row counts only accounts that have one, and labels no longer flip with whichever account reported last ([#15664](https://github.com/can1357/oh-my-pi/issues/15664))
+- Providers → Subscription windows no longer mixes Codex 5-hour and 7-day quotas across plans: Team and weekly-only (ProLite) accounts now share the 7-day row, the 5-hour row counts only accounts that have one, and labels no longer flip with whichever account reported last ([#15664](https://github.com/Spirit412/oh-my-pi/issues/15664))
 
 ## [18.10.4] - 2026-10-13
 
 ### Fixed
 
-- Usage recorded at $0 for a model whose catalog price changes on a date (Gemini 4 Argon, Devin SWE-2) is now priced at the rate in force on the request's date, instead of staying $0 like peak/off-peak tariff usage ([#15620](https://github.com/can1357/oh-my-pi/pull/15620) by [@eggpeat](https://github.com/eggpeat))
+- Usage recorded at $0 for a model whose catalog price changes on a date (Gemini 4 Argon, Devin SWE-2) is now priced at the rate in force on the request's date, instead of staying $0 like peak/off-peak tariff usage ([#15620](https://github.com/Spirit412/oh-my-pi/pull/15620) by [@eggpeat](https://github.com/eggpeat))
 
 ## [18.9.0] - 2026-10-11
 
@@ -69,7 +69,7 @@
 
 ### Fixed
 
-- Fixed the Frustration page splitting DeepSeek V4 provider variants and the V4.1 Flash alias into separate model-version rows ([#14194](https://github.com/can1357/oh-my-pi/issues/14194)).
+- Fixed the Frustration page splitting DeepSeek V4 provider variants and the V4.1 Flash alias into separate model-version rows ([#14194](https://github.com/Spirit412/oh-my-pi/issues/14194)).
 
 ## [18.5.1] - 2026-10-03
 
@@ -89,13 +89,13 @@
 
 ### Fixed
 
-- Fixed `omp stats` dashboard numbers following the browser locale while the rest of the UI is English (e.g. `546 B` meaning 546 thousand and `$38.003,33` on a Turkish browser); figures now always use en-US formatting ([#13640](https://github.com/can1357/oh-my-pi/pull/13640) by [@NaC-L](https://github.com/NaC-L))
+- Fixed `omp stats` dashboard numbers following the browser locale while the rest of the UI is English (e.g. `546 B` meaning 546 thousand and `$38.003,33` on a Turkish browser); figures now always use en-US formatting ([#13640](https://github.com/Spirit412/oh-my-pi/pull/13640) by [@NaC-L](https://github.com/NaC-L))
 
 ## [18.4.1] - 2026-09-28
 
 ### Fixed
 
-- Fixed `/trace` and `omp stats` dashboards failing to load after operating-system temporary-file cleanup ([#13487](https://github.com/can1357/oh-my-pi/pull/13487) by [@Peter-Tam](https://github.com/Peter-Tam)).
+- Fixed `/trace` and `omp stats` dashboards failing to load after operating-system temporary-file cleanup ([#13487](https://github.com/Spirit412/oh-my-pi/pull/13487) by [@Peter-Tam](https://github.com/Peter-Tam)).
 
 ## [18.4.0] - 2026-09-28
 
@@ -129,7 +129,7 @@
 
 ### Fixed
 
-- Fixed the sessions API returning an encoded storage key instead of the session working directory ([#12078](https://github.com/can1357/oh-my-pi/pull/12078) by [@Dante-dan](https://github.com/Dante-dan)).
+- Fixed the sessions API returning an encoded storage key instead of the session working directory ([#12078](https://github.com/Spirit412/oh-my-pi/pull/12078) by [@Dante-dan](https://github.com/Dante-dan)).
 - Fixed Traces search inputs and checkbox using unthemed browser defaults, and iOS viewport zoom on search focus.
 - Fixed garbage tool names from provider-side parse failures (e.g. a gateway returning the model's whole invocation text as the tool name) polluting the tools dashboard's per-tool rows and filter dropdown; such names now collapse to their leading identifier, and existing databases re-ingest cleaned on next sync.
 - Reduced repeat stats-sync reads to appended transcript data while preserving service-tier accounting across restarts.
@@ -173,7 +173,7 @@
 
 ### Fixed
 
-- Fixed SuperGrok usage appearing as free by applying matching public xAI API pricing (including 200K-token rates), labeling costs as API-equivalent estimates, backfilling existing usage records, and displaying subscription-only models as N/A ([#9512](https://github.com/can1357/oh-my-pi/issues/9512)).
+- Fixed SuperGrok usage appearing as free by applying matching public xAI API pricing (including 200K-token rates), labeling costs as API-equivalent estimates, backfilling existing usage records, and displaying subscription-only models as N/A ([#9512](https://github.com/Spirit412/oh-my-pi/issues/9512)).
 
 ## [18.0.1] - 2026-08-23
 
@@ -218,13 +218,13 @@
 
 ### Fixed
 
-- Restricted the stats dashboard to IPv4 loopback and removed wildcard CORS access to its API ([#7633](https://github.com/can1357/oh-my-pi/issues/7633)).
+- Restricted the stats dashboard to IPv4 loopback and removed wildcard CORS access to its API ([#7633](https://github.com/Spirit412/oh-my-pi/issues/7633)).
 
 ## [17.2.4] - 2026-08-01
 
 ### Fixed
 
-- Fixed provider usage window stats silently showing no data during SQLite contention by installing a five-second busy timeout on read-only agent database connections ([#7300](https://github.com/can1357/oh-my-pi/issues/7300)).
+- Fixed provider usage window stats silently showing no data during SQLite contention by installing a five-second busy timeout on read-only agent database connections ([#7300](https://github.com/Spirit412/oh-my-pi/issues/7300)).
 
 ## [17.1.2] - 2026-07-24
 
@@ -318,7 +318,7 @@
 
 ### Fixed
 
-- Stats sync counted the same provider request multiple times when a forked or branched session file copied the parent's entries verbatim. Inserts now skip rows whose `(entry_id, timestamp)` already exists under a different `session_file`, and a one-shot migration on the next `omp stats` run collapses any pre-existing duplicates ([#3370](https://github.com/can1357/oh-my-pi/issues/3370)).
+- Stats sync counted the same provider request multiple times when a forked or branched session file copied the parent's entries verbatim. Inserts now skip rows whose `(entry_id, timestamp)` already exists under a different `session_file`, and a one-shot migration on the next `omp stats` run collapses any pre-existing duplicates ([#3370](https://github.com/Spirit412/oh-my-pi/issues/3370)).
 
 ## [16.1.15] - 2026-06-22
 
@@ -367,7 +367,7 @@
 
 ### Fixed
 
-- Fixed the stats dashboard's SQLite init never setting `PRAGMA busy_timeout`, so a concurrent `omp` startup hitting WAL recovery could crash `initDb()` with `SQLITE_BUSY` instead of waiting through it. The busy handler is now installed before `PRAGMA journal_mode=WAL` ([#2421](https://github.com/can1357/oh-my-pi/issues/2421)).
+- Fixed the stats dashboard's SQLite init never setting `PRAGMA busy_timeout`, so a concurrent `omp` startup hitting WAL recovery could crash `initDb()` with `SQLITE_BUSY` instead of waiting through it. The busy handler is now installed before `PRAGMA journal_mode=WAL` ([#2421](https://github.com/Spirit412/oh-my-pi/issues/2421)).
 
 ## [15.11.0] - 2026-06-10
 
@@ -391,7 +391,7 @@
 
 ### Fixed
 
-- Fixed `omp stats` crashing on first session sync in published `omp-{linux,darwin,windows}-*` binaries with `BuildMessage: ModuleNotFound resolving "./packages/stats/src/sync-worker.ts"`; the release build script now lists the stats sync, browser tab, and JS eval workers as explicit `--compile` entrypoints so Bun emits them into bunfs, matching the dev build script and the AGENTS.md worker spawn contract. ([#1150](https://github.com/can1357/oh-my-pi/issues/1150))
+- Fixed `omp stats` crashing on first session sync in published `omp-{linux,darwin,windows}-*` binaries with `BuildMessage: ModuleNotFound resolving "./packages/stats/src/sync-worker.ts"`; the release build script now lists the stats sync, browser tab, and JS eval workers as explicit `--compile` entrypoints so Bun emits them into bunfs, matching the dev build script and the AGENTS.md worker spawn contract. ([#1150](https://github.com/Spirit412/oh-my-pi/issues/1150))
 
 ## [15.1.0] - 2026-05-15
 
@@ -476,4 +476,4 @@
 
 ### Fixed
 
-- Include subtask session files in usage stats ([#250](https://github.com/can1357/oh-my-pi/issues/250))
+- Include subtask session files in usage stats ([#250](https://github.com/Spirit412/oh-my-pi/issues/250))

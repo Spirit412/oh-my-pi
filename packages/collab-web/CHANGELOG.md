@@ -19,14 +19,14 @@
 
 ### Fixed
 
-- Fixed long transcript paragraphs slowing Markdown rendering: a 44 KB paragraph with no blank line now parses in about 3 ms instead of 100 ms ([#13961](https://github.com/can1357/oh-my-pi/pull/13961) by [@sjawhar](https://github.com/sjawhar)).
-- Fixed transcript paragraphs with many unclosed `$`, `\(` or `\[`, slowing Markdown rendering for seconds ([#13961](https://github.com/can1357/oh-my-pi/pull/13961) by [@sjawhar](https://github.com/sjawhar)).
+- Fixed long transcript paragraphs slowing Markdown rendering: a 44 KB paragraph with no blank line now parses in about 3 ms instead of 100 ms ([#13961](https://github.com/Spirit412/oh-my-pi/pull/13961) by [@sjawhar](https://github.com/sjawhar)).
+- Fixed transcript paragraphs with many unclosed `$`, `\(` or `\[`, slowing Markdown rendering for seconds ([#13961](https://github.com/Spirit412/oh-my-pi/pull/13961) by [@sjawhar](https://github.com/sjawhar)).
 
 ## [18.4.1] - 2026-09-28
 
 ### Fixed
 
-- Prevented iOS Safari from zooming collab text fields on focus in wide touch viewports, including landscape orientation ([#13371](https://github.com/can1357/oh-my-pi/pull/13371) by [@andersennl](https://github.com/andersennl)).
+- Prevented iOS Safari from zooming collab text fields on focus in wide touch viewports, including landscape orientation ([#13371](https://github.com/Spirit412/oh-my-pi/pull/13371) by [@andersennl](https://github.com/andersennl)).
 
 ## [18.4.0] - 2026-09-28
 
@@ -54,13 +54,13 @@
 
 ### Fixed
 
-- Browser collab guests now automatically rejoin when a transient host network drop recreates the relay room ([#11858](https://github.com/can1357/oh-my-pi/issues/11858)).
+- Browser collab guests now automatically rejoin when a transient host network drop recreates the relay room ([#11858](https://github.com/Spirit412/oh-my-pi/issues/11858)).
 
 ## [18.1.17] - 2026-09-10
 
 ### Fixed
 
-- Transcript links are now allowed by the scheme the browser will actually resolve, so a destination that only becomes `javascript:` after URL normalization is dropped like any other unsafe scheme ([#11562](https://github.com/can1357/oh-my-pi/pull/11562) by [@alphastorm](https://github.com/alphastorm)).
+- Transcript links are now allowed by the scheme the browser will actually resolve, so a destination that only becomes `javascript:` after URL normalization is dropped like any other unsafe scheme ([#11562](https://github.com/Spirit412/oh-my-pi/pull/11562) by [@alphastorm](https://github.com/alphastorm)).
 
 ## [18.1.3] - 2026-09-02
 
@@ -116,7 +116,7 @@
 
 ### Fixed
 
-- Rendered user and host transcript messages as Markdown and separated adjacent assistant content blocks. ([#5559](https://github.com/can1357/oh-my-pi/issues/5559))
+- Rendered user and host transcript messages as Markdown and separated adjacent assistant content blocks. ([#5559](https://github.com/Spirit412/oh-my-pi/issues/5559))
 
 ## [17.0.0] - 2026-07-15
 
@@ -172,7 +172,7 @@
 
 ### Fixed
 
-- Hid advisory wrapper tags in collab transcript Markdown while preserving their content. ([#3559](https://github.com/can1357/oh-my-pi/issues/3559))
+- Hid advisory wrapper tags in collab transcript Markdown while preserving their content. ([#3559](https://github.com/Spirit412/oh-my-pi/issues/3559))
 
 ## [16.1.16] - 2026-06-23
 
@@ -200,7 +200,7 @@
 
 ### Fixed
 
-- Fixed the guest hanging in the "waiting" phase on large host sessions: the client now accumulates `snapshot-chunk` frames into the transcript snapshot and only transitions to `live` after the final chunk lands (or immediately when the host's snapshot is empty). ([#3144](https://github.com/can1357/oh-my-pi/issues/3144))
+- Fixed the guest hanging in the "waiting" phase on large host sessions: the client now accumulates `snapshot-chunk` frames into the transcript snapshot and only transitions to `live` after the final chunk lands (or immediately when the host's snapshot is empty). ([#3144](https://github.com/Spirit412/oh-my-pi/issues/3144))
 
 ## [16.0.10] - 2026-06-18
 

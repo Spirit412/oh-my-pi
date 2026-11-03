@@ -1,5 +1,5 @@
 /**
- * Regression for https://github.com/can1357/oh-my-pi/issues/12067
+ * Regression for https://github.com/Spirit412/oh-my-pi/issues/12067
  *
  * Headless `omp -p` could exit successfully with no output while first-turn
  * mnemopi recall awaited an embedding response. The embeddings subprocess was

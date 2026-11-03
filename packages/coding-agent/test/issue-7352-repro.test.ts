@@ -1,5 +1,5 @@
 /**
- * Regression for https://github.com/can1357/oh-my-pi/issues/7352
+ * Regression for https://github.com/Spirit412/oh-my-pi/issues/7352
  *
  * A headless `omp --mode json --no-session -p @<file>` run with
  * `memory.backend: mnemopi` hung after its turn completed and left an

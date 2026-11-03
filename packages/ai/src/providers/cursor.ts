@@ -7126,7 +7126,7 @@ function resolveCursorWireModel(
 	}
 	// Fixed per-model parameters come from catalog KDL (`cursor-model-parameter`
 	// in `runtime/behavior.kdl`). A bare `composer-2.5` id resolves to the Fast
-	// variant server-side (can1357/oh-my-pi#9012), so the catalog pins the
+	// variant server-side (Spirit412/oh-my-pi#9012), so the catalog pins the
 	// Standard tier with `fast=false`; `-fast` selections keep the Fast lane by
 	// declaring no parameter.
 	const fixedParameters = cursorModelParameters(wireModelId);

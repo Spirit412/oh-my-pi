@@ -216,7 +216,7 @@ export class ProtocolProbeComponent extends Container {
 			new Text(
 				[
 					`${theme.fg("muted", t("tui.apps.protocolProbe.hyperlinks", "Hyperlinks (OSC 8)"))} — ${yesNo(hyperlinksOn)}`,
-					`  \x1b]8;;https://github.com/can1357/oh-my-pi\x07${t("tui.apps.protocolProbe.repoLink", "omp repo")}\x1b]8;;\x07`,
+					`  \x1b]8;;https://github.com/Spirit412/oh-my-pi\x07${t("tui.apps.protocolProbe.repoLink", "omp repo")}\x1b]8;;\x07`,
 				].join("\n"),
 				1,
 				0,

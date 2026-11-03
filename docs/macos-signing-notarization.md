@@ -127,12 +127,12 @@ and Key ID.
 ```sh
 scripts/ci-macos-upload-secrets.sh ~/omp-signing --dry-run   # validate first
 scripts/ci-macos-upload-secrets.sh ~/omp-signing             # upload all five
-gh secret list --repo can1357/oh-my-pi                       # confirm
+gh secret list --repo Spirit412/oh-my-pi                       # confirm
 ```
 
 Re-run it whenever the certificate is renewed. `OMP_SIGNING_DIR` changes the
 default input directory; `OMP_REPO=owner/repo` changes the target repository
-(default `can1357/oh-my-pi`). The validation path requires macOS `security`;
+(default `Spirit412/oh-my-pi`). The validation path requires macOS `security`;
 uploading also requires an authenticated `gh` CLI.
 
 ### Finding your signing identity / Team ID (sanity check)

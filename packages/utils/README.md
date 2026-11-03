@@ -1,6 +1,6 @@
 # @oh-my-pi/pi-utils
 
-Shared utilities for [omp](https://github.com/can1357/oh-my-pi) packages. Zero ceremony, Bun-first.
+Shared utilities for [omp](https://github.com/Spirit412/oh-my-pi) packages. Zero ceremony, Bun-first.
 
 ## Notable modules
 
@@ -33,5 +33,5 @@ Ships TypeScript source directly (no build step); requires Bun ≥ 1.4.4.
 
 ## References
 
-- [Monorepo README](https://github.com/can1357/oh-my-pi#readme)
+- [Monorepo README](https://github.com/Spirit412/oh-my-pi#readme)
 - [CHANGELOG](./CHANGELOG.md)

@@ -535,12 +535,12 @@ describe("github tool", () => {
 			encoding: "base64",
 			size: 20,
 			content: Buffer.from('{"version":"16.3.11"}\n').toString("base64"),
-			html_url: "https://github.com/can1357/oh-my-pi/blob/main/packages/coding-agent/package.json",
+			html_url: "https://github.com/Spirit412/oh-my-pi/blob/main/packages/coding-agent/package.json",
 		});
 		const tool = new GithubTool(createSession());
 		const result = await tool.execute("file-read", {
 			op: "file_read",
-			repo: "can1357/oh-my-pi",
+			repo: "Spirit412/oh-my-pi",
 			branch: "main",
 			path: "packages/coding-agent/package.json",
 		});
@@ -551,7 +551,7 @@ describe("github tool", () => {
 			"/tmp/test",
 			[
 				"api",
-				"/repos/can1357/oh-my-pi/contents/packages/coding-agent/package.json",
+				"/repos/Spirit412/oh-my-pi/contents/packages/coding-agent/package.json",
 				"--method",
 				"GET",
 				"-H",

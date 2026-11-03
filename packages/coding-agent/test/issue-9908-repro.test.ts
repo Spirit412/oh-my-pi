@@ -1,5 +1,5 @@
 /**
- * Regression for https://github.com/can1357/oh-my-pi/issues/9908
+ * Regression for https://github.com/Spirit412/oh-my-pi/issues/9908
  *
  * Every omp process used to spawn its own `__omp_worker_mnemopi_embed` child
  * and keep the embedding model resident for the whole process lifetime

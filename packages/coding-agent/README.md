@@ -5,7 +5,7 @@ Core implementation package for the `omp` coding agent in the `omp` monorepo.
 For installation, setup, provider configuration, model roles, slash commands, and full CLI reference, see:
 
 - [Monorepo README (local)](../../README.md)
-- [Monorepo README (GitHub)](https://github.com/can1357/oh-my-pi#readme)
+- [Monorepo README (GitHub)](https://github.com/Spirit412/oh-my-pi#readme)
 
 Package-specific references:
 

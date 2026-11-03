@@ -12,52 +12,52 @@
 
 ### Fixed
 
-- Fixed snapcompact archive frames for Factory Droid models ignoring Factory's inline-image budget: they are now sized to half of it, like other budgeted hosts ([#16288](https://github.com/can1357/oh-my-pi/pull/16288) by [@will-bogusz](https://github.com/will-bogusz))
+- Fixed snapcompact archive frames for Factory Droid models ignoring Factory's inline-image budget: they are now sized to half of it, like other budgeted hosts ([#16288](https://github.com/Spirit412/oh-my-pi/pull/16288) by [@will-bogusz](https://github.com/will-bogusz))
 
 ## [18.10.4] - 2026-10-13
 
 ### Added
 
-- Added `viewWithoutThinking()`, `textWithoutThinking()`, `readerIncludesThinking()` and an optional `Archive.withoutThinking` variant, so an archive rendered with reasoning can be read by a model that must not see it; without a stored variant the view keeps only reasoning-free text and no frames ([#15436](https://github.com/can1357/oh-my-pi/pull/15436) by [@will-bogusz](https://github.com/will-bogusz))
+- Added `viewWithoutThinking()`, `textWithoutThinking()`, `readerIncludesThinking()` and an optional `Archive.withoutThinking` variant, so an archive rendered with reasoning can be read by a model that must not see it; without a stored variant the view keeps only reasoning-free text and no frames ([#15436](https://github.com/Spirit412/oh-my-pi/pull/15436) by [@will-bogusz](https://github.com/will-bogusz))
 
 ### Fixed
 
-- Fixed re-rendering an archive without reasoning keeping every paragraph after the first of a multi-paragraph `¶think:` section ([#15436](https://github.com/can1357/oh-my-pi/pull/15436) by [@will-bogusz](https://github.com/will-bogusz))
+- Fixed re-rendering an archive without reasoning keeping every paragraph after the first of a multi-paragraph `¶think:` section ([#15436](https://github.com/Spirit412/oh-my-pi/pull/15436) by [@will-bogusz](https://github.com/will-bogusz))
 
 ## [18.10.3] - 2026-10-12
 
 ### Breaking Changes
 
-- `providerImageBudget(provider)` and `providerFrameBudget(provider)` became `providerImageBudget(model)` and `providerFrameBudget(model)`, and `maxFramesForDataBudget(shape)` became `maxFramesForDataBudget(shape, budget)` with a required byte budget ([#15434](https://github.com/can1357/oh-my-pi/pull/15434) by [@will-bogusz](https://github.com/will-bogusz))
-- Removed `PROVIDER_IMAGE_BUDGETS` and `FRAME_DATA_BYTES_BUDGET`: image counts come from the catalog's `image-count-budget` rules, and frame byte budgets from `frameDataBytesBudget(model)` (`DEFAULT_FRAME_DATA_BYTES_BUDGET` where the host has none) ([#15434](https://github.com/can1357/oh-my-pi/pull/15434) by [@will-bogusz](https://github.com/will-bogusz))
+- `providerImageBudget(provider)` and `providerFrameBudget(provider)` became `providerImageBudget(model)` and `providerFrameBudget(model)`, and `maxFramesForDataBudget(shape)` became `maxFramesForDataBudget(shape, budget)` with a required byte budget ([#15434](https://github.com/Spirit412/oh-my-pi/pull/15434) by [@will-bogusz](https://github.com/will-bogusz))
+- Removed `PROVIDER_IMAGE_BUDGETS` and `FRAME_DATA_BYTES_BUDGET`: image counts come from the catalog's `image-count-budget` rules, and frame byte budgets from `frameDataBytesBudget(model)` (`DEFAULT_FRAME_DATA_BYTES_BUDGET` where the host has none) ([#15434](https://github.com/Spirit412/oh-my-pi/pull/15434) by [@will-bogusz](https://github.com/will-bogusz))
 
 ### Added
 
-- Added `plannedFrameTokens` and `Shape.frameTokensVerified`: archive sizing charges a frame its own price when the reader's `image-tokenization` rule is `verified`, and at least `FRAME_TOKEN_ESTIMATE` otherwise ([#15442](https://github.com/can1357/oh-my-pi/pull/15442) by [@will-bogusz](https://github.com/will-bogusz))
+- Added `plannedFrameTokens` and `Shape.frameTokensVerified`: archive sizing charges a frame its own price when the reader's `image-tokenization` rule is `verified`, and at least `FRAME_TOKEN_ESTIMATE` otherwise ([#15442](https://github.com/Spirit412/oh-my-pi/pull/15442) by [@will-bogusz](https://github.com/will-bogusz))
 
 ### Fixed
 
-- Fixed snapcompact frames for Claude and GPT on Cursor, including its `default` (Auto) route, being drawn at 1568–1932px, which Cursor shrank to 1024px before the model read them; frames now render at the host's catalog `image-max-edge` ([#15448](https://github.com/can1357/oh-my-pi/pull/15448) by [@will-bogusz](https://github.com/will-bogusz))
+- Fixed snapcompact frames for Claude and GPT on Cursor, including its `default` (Auto) route, being drawn at 1568–1932px, which Cursor shrank to 1024px before the model read them; frames now render at the host's catalog `image-max-edge` ([#15448](https://github.com/Spirit412/oh-my-pi/pull/15448) by [@will-bogusz](https://github.com/will-bogusz))
 
 ## [18.6.3] - 2026-10-06
 
 ### Breaking Changes
 
-- `maxFramesForDataBudget()` now takes the frame shape instead of a byte budget, so the default 1568px shapes get 26 frames instead of 17 ([#14277](https://github.com/can1357/oh-my-pi/pull/14277) by [@will-bogusz](https://github.com/will-bogusz)).
+- `maxFramesForDataBudget()` now takes the frame shape instead of a byte budget, so the default 1568px shapes get 26 frames instead of 17 ([#14277](https://github.com/Spirit412/oh-my-pi/pull/14277) by [@will-bogusz](https://github.com/will-bogusz)).
 
 ### Added
 
-- Added `frameBilling`, `frameTokens` and `frameBillingKey`, which price a rendered frame at what the model reading it is billed ([#14291](https://github.com/can1357/oh-my-pi/pull/14291) by [@will-bogusz](https://github.com/will-bogusz))
+- Added `frameBilling`, `frameTokens` and `frameBillingKey`, which price a rendered frame at what the model reading it is billed ([#14291](https://github.com/Spirit412/oh-my-pi/pull/14291) by [@will-bogusz](https://github.com/will-bogusz))
 
 ### Fixed
 
-- Fixed snapcompact frame token estimates following the gateway instead of the model reading the frames, which mispriced Claude behind OpenRouter or Vertex and Claude 4.6 and older ([#14286](https://github.com/can1357/oh-my-pi/pull/14286) by [@will-bogusz](https://github.com/will-bogusz)).
+- Fixed snapcompact frame token estimates following the gateway instead of the model reading the frames, which mispriced Claude behind OpenRouter or Vertex and Claude 4.6 and older ([#14286](https://github.com/Spirit412/oh-my-pi/pull/14286) by [@will-bogusz](https://github.com/will-bogusz)).
 
 ## [18.6.2] - 2026-10-04
 
 ### Fixed
 
-- Fixed short snapcompact frames being rejected by vision backends that require image dimensions above 32px ([#14355](https://github.com/can1357/oh-my-pi/issues/14355)).
+- Fixed short snapcompact frames being rejected by vision backends that require image dimensions above 32px ([#14355](https://github.com/Spirit412/oh-my-pi/issues/14355)).
 
 ## [18.2.9] - 2026-09-22
 
@@ -69,7 +69,7 @@
 
 ### Changed
 
-- `historyBlocks()` now resolves persisted frame payloads lazily, keeps the newest frames within a byte budget, and drops unresolved blob references instead of sending them to providers ([#10227](https://github.com/can1357/oh-my-pi/pull/10227) by [@lemonleks](https://github.com/lemonleks)).
+- `historyBlocks()` now resolves persisted frame payloads lazily, keeps the newest frames within a byte budget, and drops unresolved blob references instead of sending them to providers ([#10227](https://github.com/Spirit412/oh-my-pi/pull/10227) by [@lemonleks](https://github.com/lemonleks)).
 
 ## [18.1.18] - 2026-09-11
 
@@ -102,7 +102,7 @@
 
 ### Fixed
 
-- Fixed image-based compaction confusing digit `0` with letter `O` and corrupting compacted identifiers (e.g. Slack IDs): the default frame fonts (X.org `8x13`, `6x12`, `5x8`) drew zero as a bare oval indistinguishable from `O`. Zero now carries a disambiguating interior slash (`8x13`) or bar (`6x12`/`5x8`); unscii-8 already shipped a slashed zero ([#8713](https://github.com/can1357/oh-my-pi/issues/8713)).
+- Fixed image-based compaction confusing digit `0` with letter `O` and corrupting compacted identifiers (e.g. Slack IDs): the default frame fonts (X.org `8x13`, `6x12`, `5x8`) drew zero as a bare oval indistinguishable from `O`. Zero now carries a disambiguating interior slash (`8x13`) or bar (`6x12`/`5x8`); unscii-8 already shipped a slashed zero ([#8713](https://github.com/Spirit412/oh-my-pi/issues/8713)).
 
 ## [17.2.15] - 2026-08-12
 
@@ -114,7 +114,7 @@
 
 ### Fixed
 
-- Fixed snapcompact resume guides reporting only the HQ grid width for mixed-width foveated archives ([#6712](https://github.com/can1357/oh-my-pi/issues/6712)).
+- Fixed snapcompact resume guides reporting only the HQ grid width for mixed-width foveated archives ([#6712](https://github.com/Spirit412/oh-my-pi/issues/6712)).
 
 ## [17.1.0] - 2026-07-24
 
@@ -138,7 +138,7 @@
 
 ### Fixed
 
-- Fixed large snapcompact archives being reconstructed into unbounded per-request image payloads by adding a frame base64 byte budget and omitting over-budget archive frames from prompt blocks. ([#3792](https://github.com/can1357/oh-my-pi/issues/3792))
+- Fixed large snapcompact archives being reconstructed into unbounded per-request image payloads by adding a frame base64 byte budget and omitting over-budget archive frames from prompt blocks. ([#3792](https://github.com/Spirit412/oh-my-pi/issues/3792))
 
 ## [16.2.7] - 2026-06-30
 
@@ -157,7 +157,7 @@
 
 ### Added
 
-- Added `archiveSourceText(archive)` to extract a persisted frame archive's source text as plain text for LLM summarization. ([#3561](https://github.com/can1357/oh-my-pi/pull/3561) by [@serverinspector](https://github.com/serverinspector))
+- Added `archiveSourceText(archive)` to extract a persisted frame archive's source text as plain text for LLM summarization. ([#3561](https://github.com/Spirit412/oh-my-pi/pull/3561) by [@serverinspector](https://github.com/serverinspector))
 - Added `stripPreservedArchive(preserveData)` to drop the persisted frame-archive slot (`PRESERVE_KEY`) and collapse to `undefined` when no other state remains — shared by the agent and coding-agent compaction paths instead of duplicating the strip rule.
 
 ## [16.1.13] - 2026-06-22

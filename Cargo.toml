@@ -31,7 +31,7 @@ edition = "2024"
 license = "MIT"
 authors = ["Stencil Labs, Inc."]
 homepage = "https://omp.sh/"
-repository = "https://github.com/can1357/oh-my-pi"
+repository = "https://github.com/Spirit412/oh-my-pi"
 
 [patch.crates-io]
 brush-core = { path = "crates/vendor/brush-core" }

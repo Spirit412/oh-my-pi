@@ -5,7 +5,7 @@ import { getSupportedEfforts } from "@oh-my-pi/pi-catalog/model-thinking";
 import { xaiOAuthModelManagerOptions } from "@oh-my-pi/pi-catalog/provider-models/openai-compat";
 import type { FetchImpl } from "@oh-my-pi/pi-catalog/types";
 
-// Regression for https://github.com/can1357/oh-my-pi/issues/12697: xAI's
+// Regression for https://github.com/Spirit412/oh-my-pi/issues/12697: xAI's
 // OAuth /v1/models returns bare `{id}` rows with no reasoning, limits, or
 // modality metadata. Without a curated seed, grok-4.7 refreshes into a sparse
 // entry (reasoning false, null limits) whose thinking picker offers only
