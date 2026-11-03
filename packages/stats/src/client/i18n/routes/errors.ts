@@ -12,7 +12,7 @@ export const en: MessageDict = {
 
 	"errors.stat.failures": "Failures",
 	"errors.stat.failures.complete": "in {window}",
-	"errors.stat.failures.partial": "latest {count} loaded",
+	"errors.stat.failures.partial": { one: "latest {count} loaded", other: "latest {count} loaded" },
 	"errors.stat.signatures": "Signatures",
 	"errors.stat.signatures.title": "Distinct error messages after normalizing ids and numbers",
 	"errors.stat.signatures.top": {
@@ -44,15 +44,16 @@ export const en: MessageDict = {
 	"errors.fail.empty.filter": "No failures match",
 	"errors.fail.empty.hint": "Clear the search or the selected filters.",
 	"errors.search.placeholder": "Message, model or project",
-	"errors.footer.partial": "Showing the latest {count} failures in {window}; older ones are not loaded.",
-	"errors.loadMore": "Load latest {count}",
+	"errors.footer.partial": {
+		one: "Showing the latest {count} failure in {window}; older ones are not loaded.",
+		other: "Showing the latest {count} failures in {window}; older ones are not loaded.",
+	},
+	"errors.loadMore": { one: "Load latest {count}", other: "Load latest {count}" },
 	"errors.loadingMore": "Loading…",
 
 	"errors.detail.unknown": "Unknown error",
 	"errors.detail.meta": {
 		one: "{count} failure · first {first} · last {last}",
-		few: "{count} failures · first {first} · last {last}",
-		many: "{count} failures · first {first} · last {last}",
 		other: "{count} failures · first {first} · last {last}",
 	},
 	"errors.detail.openLatest": "Open latest",

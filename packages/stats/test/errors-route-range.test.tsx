@@ -49,6 +49,22 @@ describe("ErrorsRoute range", () => {
 		installGlobal("HTMLElement", domWindow.HTMLElement);
 		installGlobal("HTMLIFrameElement", domWindow.HTMLIFrameElement);
 		installGlobal("SVGElement", domWindow.SVGElement);
+		// Ant Design's CSS-in-JS runtime probes computed styles and media-query
+		// support at render time; the minimal DOM window provides neither.
+		installGlobal("getComputedStyle", (element: Element) => ({
+			content: "",
+			getPropertyValue: () => "",
+		}));
+		installGlobal("matchMedia", (query: string) => ({
+			matches: false,
+			media: query,
+			addEventListener: () => {},
+			removeEventListener: () => {},
+			addListener: () => {},
+			removeListener: () => {},
+			onchange: null,
+			dispatchEvent: () => false,
+		}));
 		installGlobal("IS_REACT_ACT_ENVIRONMENT", true);
 
 		const requestedUrls: string[] = [];

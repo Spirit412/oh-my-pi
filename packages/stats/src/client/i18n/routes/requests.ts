@@ -48,7 +48,7 @@ export const en: MessageDict = {
 	"requests.log.complete": "{shown} of {total} requests in {window}",
 	"requests.log.partial": "{shown} of the latest {total} requests",
 	"requests.log.footer": "Showing the latest {loaded} requests, back to {oldest}. Older requests in {window} are not loaded.",
-	"requests.log.loadMore": "Load latest {count}",
+	"requests.log.loadMore": { one: "Load latest {count}", other: "Load latest {count}" },
 	"requests.log.loadingMore": "Loading…",
 	"requests.search.placeholder": "Model, provider or project",
 	"requests.filter.status": "Status",
