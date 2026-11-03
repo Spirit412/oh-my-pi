@@ -31,10 +31,6 @@ declare global {
 	interface Window {
 		__OMP_DASHBOARD_CONFIG__?: { locale?: string };
 	}
-	interface ImportMeta {
-		/** Bun/Vite-compatible eager glob import (bundled at build time). */
-		glob<T>(pattern: string, options: { eager: true }): Record<string, T>;
-	}
 }
 
 /**
@@ -51,12 +47,55 @@ function bootLocale(): DashboardLocale {
 
 const initialLocale: DashboardLocale = bootLocale();
 
-const routeModules = import.meta.glob<{ en: MessageDict; ru: MessageDict }>("./routes/*.ts", { eager: true });
+/**
+ * Route dictionaries, listed explicitly: `import.meta.glob` resolves to an
+ * empty record under `Bun.build` (the bundler does not run the glob), which
+ * silently dropped every route string from the production bundle. Explicit
+ * imports keep the test runtime and the bundle in parity.
+ */
+import * as charts from "./routes/charts";
+import * as commonUi from "./routes/common-ui";
+import * as costs from "./routes/costs";
+import * as errors from "./routes/errors";
+import * as frustration from "./routes/frustration";
+import * as gain from "./routes/gain";
+import * as models from "./routes/models";
+import * as overview from "./routes/overview";
+import * as projects from "./routes/projects";
+import * as providers from "./routes/providers";
+import * as requests from "./routes/requests";
+import * as shell from "./routes/shell";
+import * as tools from "./routes/tools";
+import * as traces from "./routes/traces";
+import * as tracesRoute from "./routes/traces-route";
 
-function merge(base: MessageDict, modules: Record<string, { en: MessageDict; ru: MessageDict }>, locale: "en" | "ru") {
+interface RouteDictModule {
+	en: MessageDict;
+	ru: MessageDict;
+}
+
+const routeModules: RouteDictModule[] = [
+	charts,
+	commonUi,
+	costs,
+	errors,
+	frustration,
+	gain,
+	models,
+	overview,
+	projects,
+	providers,
+	requests,
+	shell,
+	tools,
+	traces,
+	tracesRoute,
+];
+
+function merge(base: MessageDict, modules: RouteDictModule[], locale: "en" | "ru") {
 	const merged: MessageDict = { ...base };
-	for (const key of Object.keys(modules)) {
-		Object.assign(merged, locale === "en" ? modules[key]!.en : modules[key]!.ru);
+	for (const mod of modules) {
+		Object.assign(merged, locale === "en" ? mod.en : mod.ru);
 	}
 	return merged;
 }
