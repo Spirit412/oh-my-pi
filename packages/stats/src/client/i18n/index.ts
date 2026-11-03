@@ -78,6 +78,11 @@ if (typeof console !== "undefined") {
 
 const messages: Record<DashboardLocale, MessageDict> = { en, ru };
 
+/** Fully merged English dictionary (common + all routes); consumer: tests. */
+export const enMessages: MessageDict = en;
+/** Fully merged Russian dictionary (common + all routes); consumer: tests. */
+export const ruMessages: MessageDict = ru;
+
 const current: DashboardLocale = initialLocale;
 
 /** The active dashboard locale (fixed for the page lifetime). */

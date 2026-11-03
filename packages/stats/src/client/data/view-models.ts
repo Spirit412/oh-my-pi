@@ -405,12 +405,42 @@ export function summarizeRequests(rows: readonly MessageStats[]): RequestLogSumm
 	};
 }
 
-/** Human name of a tool call's source: MCP server, skill, script or built-in tool. */
-export function toolCallSource(call: Pick<ToolCallDetail, "kind" | "server" | "skill" | "script">): string {
-	if (call.kind === "mcp") return `MCP · ${call.server ?? "unknown server"}`;
-	if (call.kind === "skill") return `Skill · ${call.skill ?? "unnamed"}`;
-	if (call.kind === "script") return `Script · ${call.script ?? "inline"}`;
-	return "Built-in";
+/** Translation function shape used by the label helpers (see `i18n`). */
+export type TranslateFn = (key: string, params?: Record<string, string | number>) => string;
+
+/** Structural source of a tool call: which dictionary key plus an optional name. */
+export interface ToolCallSourceParts {
+	key: "source.mcp" | "source.skill" | "source.script" | "source.builtin";
+	name?: string;
+}
+
+/** Source of a tool call as `{ key, name }` — sortable without a locale. */
+export function toolCallSourceParts(call: Pick<ToolCallDetail, "kind" | "server" | "skill" | "script">): ToolCallSourceParts {
+	if (call.kind === "mcp") return { key: "source.mcp", name: call.server ?? undefined };
+	if (call.kind === "skill") return { key: "source.skill", name: call.skill ?? undefined };
+	if (call.kind === "script") return { key: "source.script", name: call.script ?? undefined };
+	return { key: "source.builtin" };
+}
+
+/** Locale-independent sort key for the source column. */
+export function toolCallSourceSort(call: Pick<ToolCallDetail, "kind" | "server" | "skill" | "script">): string {
+	const parts = toolCallSourceParts(call);
+	return `${parts.key}|${parts.name ?? ""}`;
+}
+
+/** Localized one-line label of a tool call's source, e.g. "MCP · my-server". */
+export function toolCallSource(call: Pick<ToolCallDetail, "kind" | "server" | "skill" | "script">, tt: TranslateFn): string {
+	const parts = toolCallSourceParts(call);
+	const name =
+		parts.name ??
+		(parts.key === "source.mcp"
+			? tt("source.unknownServer")
+			: parts.key === "source.skill"
+				? tt("source.unnamed")
+				: parts.key === "source.script"
+					? tt("source.inline")
+					: undefined);
+	return name ? `${tt(parts.key)} · ${name}` : tt(parts.key);
 }
 
 const SIGNATURE_MAX = 180;

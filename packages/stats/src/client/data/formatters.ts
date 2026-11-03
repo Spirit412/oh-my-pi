@@ -95,7 +95,7 @@ export function formatTimestamp(timestamp: number): string {
 
 /** Project folder as stored by ingest (`/work-pi/`), without the slashes. */
 export function formatFolder(folder: string): string {
-	return folder.replace(/^\/+|\/+$/g, "") || "(root)";
+	return folder.replace(/^\/+|\/+$/g, "") || t("common.root");
 }
 
 /** Payload size in kilobytes with two decimals, the unit the stats pages report. */

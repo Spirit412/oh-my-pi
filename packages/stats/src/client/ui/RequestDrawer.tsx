@@ -296,7 +296,7 @@ function ToolCallsSection({ calls }: { calls: ToolCallDetail[] }) {
 								color: token.colorTextTertiary,
 							}}
 						>
-							<span>{toolCallSource(call)}</span>
+							<span>{toolCallSource(call, t)}</span>
 							{call.target && (
 								<span
 									style={{

@@ -64,6 +64,7 @@ export const en: MessageDict = {
 	"state.retry": "Retry",
 	"chart.empty": "No data in this range",
 	"common.close": "Close",
+	"common.root": "(root)",
 
 	"format.secondsSuffix": "{value}s",
 	"format.minutesSeconds": "{m}m {s}s",
@@ -128,6 +129,7 @@ export const ru: MessageDict = {
 	"state.retry": "Повторить",
 	"chart.empty": "Нет данных за этот период",
 	"common.close": "Закрыть",
+	"common.root": "(корень)",
 
 	"format.secondsSuffix": "{value} с",
 	"format.minutesSeconds": "{m} мин {s} с",

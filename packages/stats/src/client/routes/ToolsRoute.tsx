@@ -17,7 +17,7 @@ import {
 import { useQuery } from "../data/query";
 import { bucketAxis, rangeMeta, rangeWindowLabel } from "../data/range";
 import { densify, pivotSeries } from "../data/series";
-import { buildToolRows, toolCallSource, type ToolRowView } from "../data/view-models";
+import { buildToolRows, toolCallSource, toolCallSourceSort, type ToolRowView } from "../data/view-models";
 import { t, useT } from "../i18n";
 import type { TimeRange, ToolCallDetail, ToolDashboardStats, ToolModelStats, ToolTimeSeriesPoint } from "../types";
 import {
@@ -317,8 +317,8 @@ function RecentToolCallsTable({ rows }: { rows: ToolCallDetail[] }) {
 			{
 				key: "source",
 				header: tt("tools.col.source"),
-				sort: row => toolCallSource(row),
-				render: row => <span style={truncate}>{toolCallSource(row)}</span>,
+				sort: row => toolCallSourceSort(row),
+				render: row => <span style={truncate}>{toolCallSource(row, tt)}</span>,
 			},
 			{
 				key: "target",

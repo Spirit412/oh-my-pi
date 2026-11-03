@@ -139,6 +139,14 @@ export const en: MessageDict = {
 	"drawer.json.output": "Output message",
 	"drawer.json.entry": "Session entry",
 	"drawer.json.row": "Stats row",
+
+	"source.mcp": "MCP",
+	"source.skill": "Skill",
+	"source.script": "Script",
+	"source.builtin": "Built-in",
+	"source.unknownServer": "unknown server",
+	"source.unnamed": "unnamed",
+	"source.inline": "inline",
 };
 
 export const ru: MessageDict = {
@@ -292,4 +300,12 @@ export const ru: MessageDict = {
 	"drawer.json.output": "Сообщение-ответ",
 	"drawer.json.entry": "Запись сессии",
 	"drawer.json.row": "Строка статистики",
+
+	"source.mcp": "MCP",
+	"source.skill": "Скилл",
+	"source.script": "Скрипт",
+	"source.builtin": "Встроенный",
+	"source.unknownServer": "неизвестный сервер",
+	"source.unnamed": "без названия",
+	"source.inline": "инлайн",
 };
