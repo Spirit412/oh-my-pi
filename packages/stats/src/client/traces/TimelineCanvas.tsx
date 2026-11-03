@@ -7,9 +7,11 @@
  */
 
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import { formatDurationMs, formatInteger } from "../data/formatters";
+import { Button, theme } from "antd";
+import { formatDurationMs, formatInteger, formatTimestamp } from "../data/formatters";
+import { useT } from "../i18n";
 import type { TraceMarker, TraceSpan, TraceSpanKind, TraceTrack } from "../types";
 import { buildTicks, formatOffset, type TraceScale } from "./time-scale";
 import { type TraceTheme, useTraceTheme } from "./trace-colors";
@@ -50,13 +52,7 @@ const SPAN_RADIUS = 3;
 /** Opacity of spans that don't match the search. */
 const DIM_ALPHA = 0.3;
 
-const LANE_ORDER: Array<{ kind: TraceSpanKind; label: string }> = [
-	{ kind: "turn", label: "Input" },
-	{ kind: "model", label: "Model" },
-	{ kind: "tool", label: "Tools" },
-	{ kind: "subagent", label: "Agents" },
-	{ kind: "background", label: "Bg" },
-];
+const LANE_KINDS: TraceSpanKind[] = ["turn", "model", "tool", "subagent", "background"];
 
 interface LaneRow {
 	track: TraceTrack;
@@ -86,7 +82,11 @@ interface TimelineLayout {
 }
 
 /** Compute vertical layout for the visible (non-collapsed) track tree. */
-function buildLayout(tracks: TraceTrack[], collapsed: ReadonlySet<string>): TimelineLayout {
+function buildLayout(
+	tracks: TraceTrack[],
+	collapsed: ReadonlySet<string>,
+	laneLabels: Record<TraceSpanKind, string>,
+): TimelineLayout {
 	const byId = new Map(tracks.map(track => [track.id, track]));
 	const hasChildren = new Set<string>();
 	for (const track of tracks) {
@@ -127,12 +127,12 @@ function buildLayout(tracks: TraceTrack[], collapsed: ReadonlySet<string>): Time
 			y1: y,
 		};
 		y += HEADER_H;
-		for (const { kind, label } of LANE_ORDER) {
+		for (const kind of LANE_KINDS) {
 			const spans = byKind[kind];
 			// Main always shows the core lanes; optional lanes appear when populated.
 			const isCore = kind === "turn" || kind === "model" || kind === "tool";
 			if (spans.length === 0 && !(track.id === "main" && isCore)) continue;
-			const lane: LaneRow = { track, kind, label, y, spans };
+			const lane: LaneRow = { track, kind, label: laneLabels[kind], y, spans };
 			block.lanes.push(lane);
 			lanes.push(lane);
 			y += LANE_H + LANE_GAP;
@@ -226,6 +226,8 @@ export function TimelineCanvas({
 	traceStart,
 	autoFocus = true,
 }: TimelineCanvasProps) {
+	const t = useT();
+	const { token } = theme.useToken();
 	const colors = useTraceTheme();
 	const containerRef = useRef<HTMLDivElement>(null);
 	const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -246,8 +248,20 @@ export function TimelineCanvas({
 	const viewportRef = useRef(viewport);
 	viewportRef.current = viewport;
 
-	const layout = useMemo(() => buildLayout(tracks, collapsed), [tracks, collapsed]);
+	const layout = useMemo(
+		() =>
+			buildLayout(tracks, collapsed, {
+				turn: t("traces.lane.turn"),
+				model: t("traces.lane.model"),
+				tool: t("traces.lane.tool"),
+				subagent: t("traces.lane.subagent"),
+				background: t("traces.lane.background"),
+			}),
+		[tracks, collapsed, t],
+	);
 	const laneAxes = useMemo(() => buildLaneAxes(layout, scale), [layout, scale]);
+	const [focused, setFocused] = useState(false);
+	const [dragging, setDragging] = useState(false);
 
 	// Observe container width (gutter excluded).
 	useEffect(() => {
@@ -367,6 +381,7 @@ export function TimelineCanvas({
 	const handlePointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
 		event.currentTarget.setPointerCapture(event.pointerId);
 		dragRef.current = { pointerId: event.pointerId, lastX: event.clientX, moved: false };
+		setDragging(true);
 		event.currentTarget.focus();
 	};
 
@@ -394,6 +409,7 @@ export function TimelineCanvas({
 	const handlePointerUp = (event: React.PointerEvent<HTMLCanvasElement>) => {
 		const drag = dragRef.current;
 		dragRef.current = null;
+		setDragging(false);
 		if (drag?.moved) return;
 		const hit = hitAt(event.clientX, event.clientY);
 		if (hit?.kind === "span") onSelect(hit.span.id);
@@ -478,10 +494,12 @@ export function TimelineCanvas({
 		const canvas = canvasRef.current;
 		if (!canvas) return;
 		const raf = requestAnimationFrame(() => {
-			hitsRef.current = drawScene(canvas, layout, laneAxes, scale, viewport, colors, canvasWidth, matchIds);
+			hitsRef.current = drawScene(canvas, layout, laneAxes, scale, viewport, colors, canvasWidth, matchIds, ms =>
+				t("traces.timeline.gap", { duration: formatDurationMs(ms) }),
+			);
 		});
 		return () => cancelAnimationFrame(raf);
-	}, [layout, laneAxes, scale, viewport, colors, canvasWidth, matchIds]);
+	}, [layout, laneAxes, scale, viewport, colors, canvasWidth, matchIds, t]);
 
 	// Hover tint + selection outline are DOM boxes over the scene, so pointer
 	// moves never repaint it and need no second full-size bitmap.
@@ -493,13 +511,35 @@ export function TimelineCanvas({
 		if (hover) positionTooltip();
 	}, [hover, positionTooltip]);
 
-	const tooltip = hover ? renderTooltip(hover, traceStart, tooltipRef) : null;
+	const tooltip = hover ? renderTooltip(hover, traceStart, tooltipRef, t, token) : null;
 	const pixelWidth = Math.floor(canvasWidth * devicePixelRatio);
 	const pixelHeight = Math.floor(layout.totalHeight * devicePixelRatio);
 	const cssSize = { width: canvasWidth, height: layout.totalHeight };
+	const truncate: CSSProperties = { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 };
+	const gutterTrackStyle: CSSProperties = { fontSize: 12, fontWeight: 500, color: token.colorText };
+	const gutterModelStyle: CSSProperties = {
+		fontSize: 10.5,
+		color: token.colorTextTertiary,
+		fontFamily: "var(--font-mono, ui-monospace, monospace)",
+	};
+	const gutterLaneStyle: CSSProperties = {
+		position: "absolute",
+		fontSize: 10.5,
+		color: token.colorTextTertiary,
+	};
 
 	return (
-		<div ref={containerRef} className="traces-timeline">
+		<div
+			ref={containerRef}
+			style={{
+				position: "relative",
+				display: "flex",
+				maxHeight: 560,
+				overflowY: "auto",
+				overflowX: "hidden",
+				borderTop: `1px solid ${token.colorBorderSecondary}`,
+			}}
+		>
 			{/* Gutter: track/lane labels + collapse chevrons (DOM, not canvas). */}
 			<div style={{ width: GUTTER_W, flexShrink: 0, position: "relative", height: layout.totalHeight }}>
 				{layout.blocks.map(block => (
@@ -518,26 +558,29 @@ export function TimelineCanvas({
 							}}
 						>
 							{block.hasChildren ? (
-								<button
-									type="button"
+								<Button
+									type="text"
+									size="small"
+									tabIndex={-1}
 									onClick={() => onToggleCollapse(block.track.id)}
 									aria-label={
 										collapsed.has(block.track.id)
-											? `Expand ${block.track.label}`
-											: `Collapse ${block.track.label}`
+											? t("traces.timeline.expandTrack", { name: block.track.label })
+											: t("traces.timeline.collapseTrack", { name: block.track.label })
 									}
-									className="traces-chevron"
-								>
-									{collapsed.has(block.track.id) ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
-								</button>
+									icon={
+										collapsed.has(block.track.id) ? <ChevronRight size={12} /> : <ChevronDown size={12} />
+									}
+									style={{ width: 16, height: 16, padding: 0 }}
+								/>
 							) : (
-								<span style={{ width: 12, flexShrink: 0 }} />
+								<span style={{ width: 16, flexShrink: 0 }} />
 							)}
-							<span className="traces-gutter-track truncate" style={{ minWidth: 0 }}>
+							<span style={{ ...truncate, ...gutterTrackStyle }}>
 								{block.track.label}
 							</span>
 							{block.track.model && (
-								<span className="traces-gutter-model mono truncate" style={{ flexShrink: 1, minWidth: 0 }}>
+								<span style={{ ...truncate, ...gutterModelStyle, flexShrink: 1, minWidth: 0 }}>
 									{block.track.model}
 								</span>
 							)}
@@ -545,8 +588,7 @@ export function TimelineCanvas({
 						{block.lanes.map(lane => (
 							<div
 								key={`${lane.track.id}:${lane.kind}`}
-								className="traces-gutter-lane"
-								style={{ top: lane.y, left: 20 + block.depth * 14, lineHeight: `${LANE_H}px` }}
+								style={{ ...gutterLaneStyle, top: lane.y, left: 20 + block.depth * 14, lineHeight: `${LANE_H}px` }}
 							>
 								{lane.label}
 							</div>
@@ -555,16 +597,25 @@ export function TimelineCanvas({
 				))}
 			</div>
 
-			<div className="traces-canvas-stack" style={cssSize}>
+			<div style={{ ...cssSize, position: "relative", flexShrink: 0, overflow: "hidden" }}>
 				<canvas
 					ref={canvasRef}
-					className="traces-canvas"
 					width={pixelWidth}
 					height={pixelHeight}
-					style={cssSize}
+					style={{
+						...cssSize,
+						display: "block",
+						cursor: dragging ? "grabbing" : "grab",
+						outline: focused ? `1px solid ${token.colorPrimary}` : "none",
+						outlineOffset: -1,
+						borderRadius: token.borderRadiusSM,
+						touchAction: "none",
+					}}
 					tabIndex={0}
 					role="application"
-					aria-label="Trace timeline. W and S zoom, A and D pan, 0 fits all, F focuses the selection."
+					aria-label={t("traces.timeline.aria")}
+					onFocus={() => setFocused(true)}
+					onBlur={() => setFocused(false)}
 					onPointerDown={handlePointerDown}
 					onPointerMove={handlePointerMove}
 					onPointerUp={handlePointerUp}
@@ -577,9 +628,12 @@ export function TimelineCanvas({
 				/>
 				{hoverBox && hover?.kind === "span" && (
 					<div
-						className="traces-canvas-hover"
 						aria-hidden="true"
 						style={{
+							position: "absolute",
+							pointerEvents: "none",
+							boxSizing: "border-box",
+							background: token.colorFillSecondary,
 							left: hoverBox.x,
 							top: hoverBox.y,
 							width: hoverBox.w,
@@ -591,15 +645,18 @@ export function TimelineCanvas({
 				)}
 				{selectedBox && selected && (
 					<div
-						className="traces-canvas-selection"
 						aria-hidden="true"
 						style={{
+							position: "absolute",
+							pointerEvents: "none",
+							boxSizing: "border-box",
+							border: "1.5px solid",
+							borderColor: colors.selection,
 							left: selectedBox.x - 1,
 							top: selectedBox.y - 1,
 							width: selectedBox.w + 2,
 							height: LANE_H + 2,
 							borderRadius: SPAN_RADIUS,
-							borderColor: colors.selection,
 							opacity: matchIds === null || matchIds.has(selected.span.id) ? 1 : DIM_ALPHA,
 						}}
 					/>
@@ -634,6 +691,7 @@ function drawScene(
 	colors: TraceTheme,
 	width: number,
 	matchIds: ReadonlySet<string> | null,
+	gapLabel: (durationMs: number) => string,
 ): Hit[] {
 	const nextHits: Hit[] = [];
 	const ctx = canvas.getContext("2d");
@@ -688,7 +746,7 @@ function drawScene(
 		ctx.restore();
 		ctx.fillStyle = colors.tick;
 		ctx.textAlign = "center";
-		ctx.fillText(`⋯ ${formatDurationMs(gap.t1 - gap.t0)}`, x, RULER_H - 4);
+		ctx.fillText(gapLabel(gap.t1 - gap.t0), x, RULER_H - 4);
 		ctx.textAlign = "left";
 	}
 
@@ -840,17 +898,52 @@ function placeSpan(
 	return { x, y: lane.y, w: Math.max(MIN_SPAN_PX, xEnd - x) };
 }
 
-function renderTooltip(hover: Hit, traceStart: number, ref: React.RefObject<HTMLDivElement | null>) {
+/** Theme-token surface the tooltip shell draws from (subset of antd's GlobalToken). */
+interface TooltipTokens {
+	colorBgElevated: string;
+	colorBorder: string;
+	borderRadius: number;
+	boxShadow: string;
+	colorText: string;
+	colorTextSecondary: string;
+}
+
+function renderTooltip(
+	hover: Hit,
+	traceStart: number,
+	ref: React.RefObject<HTMLDivElement | null>,
+	t: (key: string, params?: Record<string, string | number>) => string,
+	token: TooltipTokens,
+) {
 	// Positioned by `transform` from the pointer handler (see positionTooltip).
-	const style: React.CSSProperties = { left: 0, top: 0 };
+	const shellStyle: React.CSSProperties = {
+		position: "fixed",
+		zIndex: 60,
+		maxWidth: 300,
+		pointerEvents: "none",
+		background: token.colorBgElevated,
+		border: `1px solid ${token.colorBorder}`,
+		borderRadius: token.borderRadius,
+		padding: "8px 10px",
+		fontSize: 12,
+		lineHeight: 1.5,
+		boxShadow: token.boxShadow,
+	};
+	const titleStyle: React.CSSProperties = { fontWeight: 500, color: token.colorText };
+	const metaStyle: React.CSSProperties = {
+		color: token.colorTextSecondary,
+		fontVariantNumeric: "tabular-nums",
+	};
+	const detailStyle: React.CSSProperties = { color: token.colorTextSecondary, wordBreak: "break-word" };
+	const unterminated = ` · ${t("traces.kind.unterminated")}`;
 
 	if (hover.kind === "marker") {
 		const { marker } = hover;
 		return (
-			<div ref={ref} className="traces-tooltip" style={style}>
-				<div className="traces-tooltip-title">{marker.label}</div>
-				<div className="muted num">
-					{new Date(marker.time).toLocaleTimeString()} ({formatOffset(marker.time - traceStart)})
+			<div ref={ref} style={shellStyle}>
+				<div style={titleStyle}>{marker.label}</div>
+				<div style={metaStyle}>
+					{formatTimestamp(marker.time)} ({formatOffset(marker.time - traceStart)})
 				</div>
 			</div>
 		);
@@ -858,22 +951,26 @@ function renderTooltip(hover: Hit, traceStart: number, ref: React.RefObject<HTML
 
 	const { span } = hover;
 	return (
-		<div ref={ref} className="traces-tooltip" style={style}>
-			<div className="traces-tooltip-title truncate">{span.label}</div>
-			<div className="muted num">
-				{formatDurationMs(span.end - span.start)} · {new Date(span.start).toLocaleTimeString()} (
-				{formatOffset(span.start - traceStart)}){span.unterminated ? " · unterminated" : ""}
+		<div ref={ref} style={shellStyle}>
+			<div style={{ ...titleStyle, ...truncateStyle }}>{span.label}</div>
+			<div style={metaStyle}>
+				{formatDurationMs(span.end - span.start)} · {formatTimestamp(span.start)} (
+				{formatOffset(span.start - traceStart)}){span.unterminated ? unterminated : ""}
 			</div>
 			{span.kind === "model" && (
-				<div className="muted num">
-					{span.tokens !== undefined && <>{formatInteger(span.tokens)} tok</>}
+				<div style={metaStyle}>
+					{span.tokens !== undefined && (
+						<>{t("traces.tooltip.tokens", { count: span.tokens, value: formatInteger(span.tokens) })}</>
+					)}
 					{span.cost !== undefined && <> · ${span.cost.toFixed(4)}</>}
-					{span.ttft !== undefined && <> · TTFT {formatDurationMs(span.ttft)}</>}
-					{span.isError && <> · error</>}
+					{span.ttft !== undefined && <> · {t("traces.tooltip.ttft", { duration: formatDurationMs(span.ttft) })}</>}
+					{span.isError && <> · {t("traces.tooltip.error")}</>}
 				</div>
 			)}
-			{span.kind === "subagent" && span.model && <div className="muted num">{span.model}</div>}
-			{span.detail && <div className="traces-tooltip-detail">{span.detail}</div>}
+			{span.kind === "subagent" && span.model && <div style={metaStyle}>{span.model}</div>}
+			{span.detail && <div style={detailStyle}>{span.detail}</div>}
 		</div>
 	);
 }
+
+const truncateStyle: CSSProperties = { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 };

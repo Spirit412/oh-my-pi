@@ -6,8 +6,10 @@
 
 import { ArrowLeft, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Button, Checkbox, Empty, theme } from "antd";
 import { getSessionTrace } from "../api";
 import { useQuery } from "../data/query";
+import { useT } from "../i18n";
 import type { SessionTrace, TraceSpan, TraceSpanKind, TraceTrack } from "../types";
 import { Card, ChartSkeleton, PageHeader, QueryView, SearchInput, Segmented } from "../ui";
 import { AggregatesPanel } from "./AggregatesPanel";
@@ -25,21 +27,10 @@ export interface TraceViewProps {
 	onBack: () => void;
 }
 
-const MODE_OPTIONS: Array<{ value: AxisMode; label: string; title?: string }> = [
-	{ value: "time", label: "Duration", title: "Real wall-clock time" },
-	{ value: "turns", label: "Turns", title: "Equal width per user turn" },
-	{ value: "calls", label: "Calls", title: "Equal width per model/tool call boundary" },
-];
-
-const LEGEND: Array<{ kind: TraceSpanKind; label: string }> = [
-	{ kind: "turn", label: "Input" },
-	{ kind: "model", label: "Model" },
-	{ kind: "tool", label: "Tool" },
-	{ kind: "subagent", label: "Agent" },
-	{ kind: "background", label: "Background" },
-];
+const LEGEND_KINDS: TraceSpanKind[] = ["turn", "model", "tool", "subagent", "background"];
 
 export function TraceView({ file, active, onBack }: TraceViewProps) {
+	const t = useT();
 	const query = useQuery<SessionTrace>(
 		["trace", file],
 		({ signal }, previous) => getSessionTrace(file, signal, previous),
@@ -49,28 +40,41 @@ export function TraceView({ file, active, onBack }: TraceViewProps) {
 	const trace = query.stale ? null : query.data;
 
 	return (
-		<div className="stack traces-view">
+		<div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
 			<div>
-				<button type="button" className="btn" data-variant="ghost" data-size="sm" onClick={onBack}>
-					<ArrowLeft size={14} aria-hidden="true" />
-					Sessions
-				</button>
+				<Button type="text" size="small" icon={<ArrowLeft size={14} aria-hidden="true" />} onClick={onBack}>
+					{t("traces.backToSessions")}
+				</Button>
 			</div>
 			<PageHeader
-				title={<span className="traces-title truncate">{trace?.title ?? file.split("/").pop()}</span>}
-				description={trace?.cwd ? <span className="mono">{trace.cwd}</span> : undefined}
-				actions={
-					<button
-						type="button"
-						className="btn"
-						data-variant="ghost"
-						data-icon="true"
-						onClick={query.refetch}
-						aria-label="Refresh trace"
-						title="Refresh trace"
+				title={
+					<span
+						style={{
+							display: "block",
+							maxWidth: 720,
+							overflow: "hidden",
+							textOverflow: "ellipsis",
+							whiteSpace: "nowrap",
+						}}
 					>
-						<RefreshCw size={14} className={query.refreshing ? "traces-spin" : undefined} />
-					</button>
+						{trace?.title ?? file.split("/").pop()}
+					</span>
+				}
+				description={
+					trace?.cwd ? (
+						<span style={{ fontFamily: "var(--font-mono, ui-monospace, monospace)" }}>{trace.cwd}</span>
+					) : undefined
+				}
+				actions={
+					<Button
+						type="text"
+						size="small"
+						icon={<RefreshCw size={14} />}
+						onClick={query.refetch}
+						loading={query.refreshing}
+						aria-label={t("traces.refresh")}
+						title={t("traces.refresh")}
+					/>
 				}
 			/>
 			<QueryView query={{ ...query, data: trace }} skeleton={<ChartSkeleton height={420} />}>
@@ -98,6 +102,8 @@ export function SessionTraceView({
 	embedded = false,
 	onNavigate,
 }: SessionTraceViewProps) {
+	const t = useT();
+	const { token } = theme.useToken();
 	const [mode, setMode] = useState<AxisMode>("time");
 	const [compressIdle, setCompressIdle] = useState(true);
 	const [selection, setSelection] = useState<string | null>(null);
@@ -106,6 +112,15 @@ export function SessionTraceView({
 	const [matchIndex, setMatchIndex] = useState(0);
 	const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
 	const [viewport, setViewport] = useState<TimelineViewport | null>(null);
+
+	const modeOptions = useMemo(
+		() => [
+			{ value: "time" as AxisMode, label: t("traces.mode.time"), title: t("traces.mode.time.title") },
+			{ value: "turns" as AxisMode, label: t("traces.mode.turns"), title: t("traces.mode.turns.title") },
+			{ value: "calls" as AxisMode, label: t("traces.mode.calls"), title: t("traces.mode.calls.title") },
+		],
+		[t],
+	);
 
 	const tracks = useMemo(() => trace?.tracks ?? [], [trace]);
 	const scale = useMemo(() => buildScale(tracks, mode, compressIdle), [tracks, mode, compressIdle]);
@@ -272,100 +287,120 @@ export function SessionTraceView({
 	const traceStart = trace.startedAt;
 
 	return (
-		<div className="stack traces-view" data-view={view}>
+		<div style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }} data-view={view}>
 			{view === "full" && <SummaryStrip summary={trace.summary} />}
-			{allSpans.length === 0 && <p className="muted">No spans recorded in this session.</p>}
+			{allSpans.length === 0 && <Empty description={t("traces.emptySpans")} style={{ padding: "24px 0" }} />}
 
 			<Card
 				index={1}
-				title="Timeline"
-				description="W/S zoom · A/D pan · drag pan · wheel zoom · 0 fit · F focus selection · dbl-click focus · Esc deselect"
+				title={t("traces.timeline.title")}
+				description={t("traces.timeline.hint")}
 				actions={
 					<>
-						<button
-							type="button"
-							className="btn"
-							data-variant="ghost"
-							data-size="sm"
-							onClick={() => collapseAll(false)}
-						>
-							Expand all
-						</button>
-						<button
-							type="button"
-							className="btn"
-							data-variant="ghost"
-							data-size="sm"
-							onClick={() => collapseAll(true)}
-						>
-							Collapse all
-						</button>
+						<Button type="text" size="small" onClick={() => collapseAll(false)}>
+							{t("traces.timeline.expandAll")}
+						</Button>
+						<Button type="text" size="small" onClick={() => collapseAll(true)}>
+							{t("traces.timeline.collapseAll")}
+						</Button>
 					</>
 				}
 			>
-				<div className="stack">
-					<div className="traces-toolbar">
-						<Segmented options={MODE_OPTIONS} value={mode} onChange={setMode} size="sm" aria-label="Axis mode" />
+				<div style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
+					<div
+						style={{
+							display: "flex",
+							alignItems: "center",
+							flexWrap: "wrap",
+							gap: 12,
+						}}
+					>
+						<Segmented
+							options={modeOptions}
+							value={mode}
+							onChange={setMode}
+							size="sm"
+							aria-label={t("traces.timeline.axisMode")}
+						/>
 						{mode === "time" && (
-							<label className="traces-check">
-								<input
-									type="checkbox"
-									checked={compressIdle}
-									onChange={event => setCompressIdle(event.target.checked)}
-								/>
-								Compress idle
-							</label>
+							<Checkbox
+								checked={compressIdle}
+								onChange={event => setCompressIdle(event.target.checked)}
+							>
+								{t("traces.timeline.compressIdle")}
+							</Checkbox>
 						)}
-						<div className="traces-search">
+						<div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
 							<SearchInput
 								value={search}
 								onChange={value => {
 									setSearch(value);
 									setMatchIndex(0);
 								}}
-								label="Search spans"
-								placeholder="Search spans…"
+								label={t("traces.search.label")}
+								placeholder={t("traces.search.placeholder")}
 								width={200}
 							/>
 							{search.trim() && (
 								<>
-									<span className="num muted traces-match-count">
+									<span
+										style={{
+											fontSize: 12,
+											minWidth: 36,
+											textAlign: "center",
+											fontVariantNumeric: "tabular-nums",
+											color: token.colorTextSecondary,
+										}}
+									>
 										{matches.length === 0
 											? "0"
 											: `${(matchIndex % Math.max(matches.length, 1)) + 1}/${matches.length}`}
 									</span>
-									<button
-										type="button"
-										className="btn"
-										data-variant="ghost"
-										data-size="sm"
-										data-icon="true"
+									<Button
+										type="text"
+										size="small"
+										icon={<ChevronLeft size={14} />}
 										onClick={() => cycleMatch(-1)}
-										aria-label="Previous match"
+										aria-label={t("traces.search.prev")}
 										disabled={matches.length === 0}
-									>
-										<ChevronLeft size={14} />
-									</button>
-									<button
-										type="button"
-										className="btn"
-										data-variant="ghost"
-										data-size="sm"
-										data-icon="true"
+									/>
+									<Button
+										type="text"
+										size="small"
+										icon={<ChevronRight size={14} />}
 										onClick={() => cycleMatch(1)}
-										aria-label="Next match"
+										aria-label={t("traces.search.next")}
 										disabled={matches.length === 0}
-									>
-										<ChevronRight size={14} />
-									</button>
+									/>
 								</>
 							)}
 						</div>
-						<div className="traces-legend">
-							{LEGEND.map(item => (
-								<span key={item.kind} className="traces-legend-item">
-									<span className="swatch" style={{ background: `var(${CATEGORY_VARS[item.kind]})` }} />
-									{item.label}
+						<div
+							style={{
+								display: "inline-flex",
+								flexWrap: "wrap",
+								gap: 12,
+								marginLeft: "auto",
+								fontSize: 12,
+								color: token.colorTextSecondary,
+							}}
+						>
+							{LEGEND_KINDS.map(kind => (
+								<span
+									key={kind}
+									style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+								>
+									<span
+										style={{
+											display: "inline-block",
+											width: 8,
+											height: 8,
+											borderRadius: 2,
+											flexShrink: 0,
+											background: `var(${CATEGORY_VARS[kind]})`,
+										}}
+									/>
+									{t(`traces.kind.${kind}`)}
 								</span>
 							))}
 						</div>
@@ -398,7 +433,7 @@ export function SessionTraceView({
 			/>
 
 			{view === "full" && (
-				<Card index={2} title="Transcript" description="Every span and marker in order; click to inspect" flush>
+				<Card index={2} title={t("traces.transcript.title")} description={t("traces.transcript.hint")} flush>
 					<TranscriptList
 						tracks={tracks}
 						selection={selection}

@@ -1,5 +1,7 @@
 import { Check, ChevronDown, ChevronRight, Copy } from "lucide-react";
+import { Button, theme } from "antd";
 import { useEffect, useRef, useState } from "react";
+import { useT } from "../i18n";
 
 export interface JsonBlockProps {
 	data: unknown;
@@ -9,6 +11,8 @@ export interface JsonBlockProps {
 
 /** Collapsible, copyable pretty-printed JSON. */
 export function JsonBlock({ data, title = "JSON", initialCollapsed = false }: JsonBlockProps) {
+	const t = useT();
+	const { token } = theme.useToken();
 	const [collapsed, setCollapsed] = useState(initialCollapsed);
 	const [copied, setCopied] = useState(false);
 	const copyResetRef = useRef<number>(0);
@@ -29,26 +33,38 @@ export function JsonBlock({ data, title = "JSON", initialCollapsed = false }: Js
 	};
 
 	return (
-		<div className="stack" style={{ gap: 6 }}>
-			<div className="row" style={{ justifyContent: "space-between" }}>
-				<button
-					type="button"
-					className="btn"
-					data-variant="ghost"
-					data-size="sm"
+		<div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+			<div style={{ display: "flex", justifyContent: "space-between" }}>
+				<Button
+					type="text"
+					size="small"
+					icon={collapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
 					onClick={() => setCollapsed(c => !c)}
 					aria-expanded={!collapsed}
 				>
-					{collapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
 					{title}
-				</button>
-				<button type="button" className="btn" data-variant="ghost" data-size="sm" onClick={copy}>
-					{copied ? <Check size={13} /> : <Copy size={13} />}
-					{copied ? "Copied" : "Copy"}
-				</button>
+				</Button>
+				<Button type="text" size="small" icon={copied ? <Check size={13} /> : <Copy size={13} />} onClick={copy}>
+					{copied ? t("ui.json.copied") : t("ui.json.copy")}
+				</Button>
 			</div>
 			{!collapsed && (
-				<pre className="code-block">
+				<pre
+					style={{
+						margin: 0,
+						padding: 12,
+						borderRadius: token.borderRadius,
+						background: token.colorFillQuaternary,
+						border: `1px solid ${token.colorBorderSecondary}`,
+						fontFamily: token.fontFamilyCode,
+						fontSize: 12,
+						lineHeight: 1.55,
+						whiteSpace: "pre-wrap",
+						overflowWrap: "anywhere",
+						maxHeight: 420,
+						overflow: "auto",
+					}}
+				>
 					<code>{json}</code>
 				</pre>
 			)}

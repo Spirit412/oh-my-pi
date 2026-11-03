@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from "react";
+import { AntdProvider } from "./antd";
 import type { DashboardSection } from "./app/nav";
 import { Shell } from "./app/Shell";
 import { LiveProvider } from "./data/live";
@@ -20,9 +21,11 @@ import { RequestDrawer } from "./ui/RequestDrawer";
 
 export default function App() {
 	return (
-		<LiveProvider>
-			<Dashboard />
-		</LiveProvider>
+		<AntdProvider>
+			<LiveProvider>
+				<Dashboard />
+			</LiveProvider>
+		</AntdProvider>
 	);
 }
 

@@ -1,4 +1,6 @@
 import { Search } from "lucide-react";
+import { Input } from "antd";
+import { useT } from "../i18n";
 
 export interface SearchInputProps {
 	value: string;
@@ -8,20 +10,18 @@ export interface SearchInputProps {
 	width?: number;
 }
 
-/** Text filter with a leading search glyph. */
-export function SearchInput({ value, onChange, placeholder = "Filter…", label = "Filter", width }: SearchInputProps) {
+/** Text filter with a leading search glyph and a clear button. */
+export function SearchInput({ value, onChange, placeholder, label, width }: SearchInputProps) {
+	const t = useT();
 	return (
-		<label className="search">
-			<Search size={14} />
-			<input
-				className="input"
-				type="search"
-				aria-label={label}
-				value={value}
-				placeholder={placeholder}
-				onChange={e => onChange(e.target.value)}
-				style={width !== undefined ? { width } : undefined}
-			/>
-		</label>
+		<Input
+			allowClear
+			prefix={<Search size={14} />}
+			aria-label={label ?? t("ui.search.label")}
+			value={value}
+			placeholder={placeholder ?? t("ui.search.placeholder")}
+			onChange={e => onChange(e.target.value)}
+			style={width !== undefined ? { width } : undefined}
+		/>
 	);
 }

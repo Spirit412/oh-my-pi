@@ -6,6 +6,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useT } from "../i18n";
 import type { TraceSpanKind, TraceTrack } from "../types";
 import type { TimelineViewport } from "./TimelineCanvas";
 import type { TraceScale } from "./time-scale";
@@ -79,6 +80,7 @@ function paintDensity(
 }
 
 export function Minimap({ tracks, scale, viewport, onViewportChange }: MinimapProps) {
+	const t = useT();
 	const colors = useTraceTheme();
 	const canvasRef = useRef<HTMLCanvasElement>(null);
 	const [width, setWidth] = useState(800);
@@ -180,10 +182,18 @@ export function Minimap({ tracks, scale, viewport, onViewportChange }: MinimapPr
 			ref={canvasRef}
 			width={Math.floor(width * devicePixelRatio)}
 			height={Math.floor(HEIGHT * devicePixelRatio)}
-			className="traces-minimap"
-			style={{ height: HEIGHT }}
+			style={{
+				height: HEIGHT,
+				width: "100%",
+				display: "block",
+				cursor: "crosshair",
+				borderRadius: 6,
+				border: "1px solid var(--line-2)",
+				background: "var(--panel)",
+				touchAction: "none",
+			}}
 			role="slider"
-			aria-label="Timeline overview brush"
+			aria-label={t("traces.minimap.aria")}
 			aria-valuemin={0}
 			aria-valuemax={100}
 			aria-valuenow={Math.round(((viewport.u0 - d0) / dSpan) * 100)}

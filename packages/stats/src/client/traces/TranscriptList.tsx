@@ -1,11 +1,13 @@
 /**
  * Windowed transcript list under the timeline: all spans + markers flattened
  * chronologically across tracks, bidirectionally synced with the canvas
- * selection. Hand-rolled fixed-row virtualization (32px rows, spacer divs).
+ * selection. Hand-rolled fixed-row virtualization (28px rows, spacer divs).
  */
 
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { theme } from "antd";
 import { formatDurationMs } from "../data/formatters";
+import { useT } from "../i18n";
 import { EmptyState } from "../ui";
 import type { TraceMarker, TraceSpan, TraceTrack } from "../types";
 import { formatOffset } from "./time-scale";
@@ -59,9 +61,12 @@ export const TranscriptList = memo(function TranscriptList({
 	matchIds,
 	traceStart,
 }: TranscriptListProps) {
+	const t = useT();
+	const { token } = theme.useToken();
 	const colors = useTraceTheme();
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [scrollTop, setScrollTop] = useState(0);
+	const [hoverKey, setHoverKey] = useState<string | null>(null);
 
 	const allRows = useMemo(() => buildTranscriptRows(tracks), [tracks]);
 	const rows = useMemo(() => {
@@ -89,8 +94,14 @@ export const TranscriptList = memo(function TranscriptList({
 	const lastVisible = Math.min(rows.length, Math.ceil((scrollTop + LIST_H) / ROW_H) + OVERSCAN);
 	const visible = rows.slice(firstVisible, lastVisible);
 
+	const truncate: CSSProperties = { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 };
+
 	return (
-		<div ref={containerRef} onScroll={event => setScrollTop(event.currentTarget.scrollTop)} className="traces-list">
+		<div
+			ref={containerRef}
+			onScroll={event => setScrollTop(event.currentTarget.scrollTop)}
+			style={{ height: LIST_H, overflowY: "auto" }}
+		>
 			<div style={{ height: rows.length * ROW_H, position: "relative" }}>
 				<div style={{ position: "absolute", top: firstVisible * ROW_H, left: 0, right: 0 }}>
 					{visible.map(row => {
@@ -100,47 +111,115 @@ export const TranscriptList = memo(function TranscriptList({
 						const label = row.span?.label ?? row.marker?.label ?? "";
 						const detail = row.span?.detail;
 						const duration = row.span ? formatDurationMs(row.span.end - row.span.start) : "";
-						const chipText = row.span?.kind ?? row.marker?.kind ?? "";
+						const chipText = row.span ? t(`traces.kind.${row.span.kind}`) : (row.marker?.kind ?? "");
+						const isStatic = span === undefined;
+						const rowStyle: CSSProperties = {
+							display: "flex",
+							alignItems: "center",
+							gap: 10,
+							height: ROW_H,
+							width: "100%",
+							padding: "0 16px",
+							paddingLeft: 12 + row.depth * 12,
+							background: isSelected
+								? token.controlItemBgActive
+								: hoverKey === row.key && !isStatic
+									? token.colorFillTertiary
+									: "transparent",
+							border: "none",
+							borderBottom: `1px solid ${token.colorBorderSecondary}`,
+							color: "inherit",
+							font: "inherit",
+							textAlign: "left",
+							cursor: isStatic ? "default" : "pointer",
+							boxShadow: isSelected ? "inset 2px 0 0 var(--accent)" : undefined,
+						};
 						const rowContent = (
 							<>
-								<span className="traces-kind" style={{ "--traces-kind-color": color } as React.CSSProperties}>
+								<span
+									style={{
+										flexShrink: 0,
+										width: 72,
+										fontSize: 11,
+										fontWeight: 500,
+										borderRadius: token.borderRadiusSM,
+										padding: "1px 0",
+										textAlign: "center",
+										overflow: "hidden",
+										textOverflow: "ellipsis",
+										whiteSpace: "nowrap",
+										color: token.colorText,
+										background: `color-mix(in srgb, ${color} 18%, transparent)`,
+										boxShadow: `inset 2px 0 0 ${color}`,
+									}}
+								>
 									{chipText}
 								</span>
 								{row.depth > 0 && (
-									<span className="traces-row-track mono truncate" title={row.track.label}>
+									<span
+										title={row.track.label}
+										style={{
+											...truncate,
+											flexShrink: 0,
+											maxWidth: 110,
+											fontSize: 11,
+											color: token.colorTextTertiary,
+											fontFamily: "var(--font-mono, ui-monospace, monospace)",
+										}}
+									>
 										{row.track.id}
 									</span>
 								)}
-								<span className="traces-row-label truncate">{label}</span>
-								{detail && <span className="traces-row-detail truncate">{detail}</span>}
-								<span className="traces-row-meta num">
-									{row.span?.isError && <span className="tone-bad">error</span>}
+								<span style={{ ...truncate, fontSize: 12.5, color: token.colorText, flexShrink: 1 }}>
+									{label}
+								</span>
+								{detail && (
+									<span style={{ ...truncate, fontSize: 12, color: token.colorTextTertiary, flex: 1 }}>
+										{detail}
+									</span>
+								)}
+								<span
+									style={{
+										marginLeft: "auto",
+										flexShrink: 0,
+										display: "inline-flex",
+										gap: 12,
+										fontSize: 11.5,
+										color: token.colorTextTertiary,
+										fontVariantNumeric: "tabular-nums",
+									}}
+								>
+									{row.span?.isError && <span style={{ color: token.colorError }}>{t("traces.kind.error")}</span>}
 									<span>{duration}</span>
 									<span>{formatOffset(row.time - traceStart)}</span>
 								</span>
 							</>
 						);
-						const indent = { paddingLeft: 12 + row.depth * 12 };
-						return span ? (
+						return isStatic ? (
+							<div
+								key={row.key}
+								style={rowStyle}
+								onMouseEnter={() => setHoverKey(row.key)}
+								onMouseLeave={() => setHoverKey(null)}
+							>
+								{rowContent}
+							</div>
+						) : (
 							<button
 								key={row.key}
 								type="button"
-								onClick={() => onSelect(span.id)}
-								className="traces-row"
-								data-selected={isSelected ? "true" : "false"}
-								style={indent}
+								onClick={() => span && onSelect(span.id)}
+								style={rowStyle}
+								onMouseEnter={() => setHoverKey(row.key)}
+								onMouseLeave={() => setHoverKey(null)}
 							>
 								{rowContent}
 							</button>
-						) : (
-							<div key={row.key} className="traces-row" data-static="true" style={indent}>
-								{rowContent}
-							</div>
 						);
 					})}
 				</div>
 			</div>
-			{rows.length === 0 && <EmptyState title="No matching events" />}
+			{rows.length === 0 && <EmptyState title={t("traces.transcript.empty")} />}
 		</div>
 	);
 });

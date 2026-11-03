@@ -4,7 +4,8 @@
  * formatting, and the contiguous bucket axis charts plot against.
  */
 
-import { format } from "@oh-my-pi/pi-utils/dates";
+import { formatDate } from "../i18n/dates";
+import { t } from "../i18n";
 import type { TimeRange } from "../types";
 
 const MINUTE_MS = 60 * 1000;
@@ -12,10 +13,6 @@ const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
 
 export interface RangeMeta {
-	/** Short selector label ("24h"). */
-	label: string;
-	/** Prose label for subtitles ("the last 24 hours"). */
-	windowLabel: string;
 	/** Span covered by the range; `null` for all time. */
 	spanMs: number | null;
 	/** Bucket size of the server's primary time series for this range. */
@@ -23,12 +20,12 @@ export interface RangeMeta {
 }
 
 const RANGE_META: Record<TimeRange, RangeMeta> = {
-	"1h": { label: "1h", windowLabel: "the last hour", spanMs: HOUR_MS, bucketMs: 5 * MINUTE_MS },
-	"24h": { label: "24h", windowLabel: "the last 24 hours", spanMs: DAY_MS, bucketMs: HOUR_MS },
-	"7d": { label: "7d", windowLabel: "the last 7 days", spanMs: 7 * DAY_MS, bucketMs: DAY_MS },
-	"30d": { label: "30d", windowLabel: "the last 30 days", spanMs: 30 * DAY_MS, bucketMs: DAY_MS },
-	"90d": { label: "90d", windowLabel: "the last 90 days", spanMs: 90 * DAY_MS, bucketMs: DAY_MS },
-	all: { label: "All", windowLabel: "all time", spanMs: null, bucketMs: DAY_MS },
+	"1h": { spanMs: HOUR_MS, bucketMs: 5 * MINUTE_MS },
+	"24h": { spanMs: DAY_MS, bucketMs: HOUR_MS },
+	"7d": { spanMs: 7 * DAY_MS, bucketMs: DAY_MS },
+	"30d": { spanMs: 30 * DAY_MS, bucketMs: DAY_MS },
+	"90d": { spanMs: 90 * DAY_MS, bucketMs: DAY_MS },
+	all: { spanMs: null, bucketMs: DAY_MS },
 };
 
 const MAX_BUCKETS = 1500;
@@ -36,20 +33,30 @@ const MAX_BUCKETS = 1500;
 /** Ranges in selector order. */
 export const TIME_RANGES: readonly TimeRange[] = ["1h", "24h", "7d", "30d", "90d", "all"];
 
+/** Short selector label ("24h"). */
+export function rangeLabel(range: TimeRange): string {
+	return t(`range.${range}`);
+}
+
+/** Prose label for subtitles ("the last 24 hours"). */
+export function rangeWindowLabel(range: TimeRange): string {
+	return t(`range.window.${range}`);
+}
+
 export function rangeMeta(range: TimeRange): RangeMeta {
 	return RANGE_META[range];
 }
 
 /** Tick/tooltip label for a bucket start, precise enough for the bucket size. */
 export function formatBucket(timestamp: number, bucketMs: number): string {
-	if (bucketMs < DAY_MS) return format(new Date(timestamp), bucketMs < HOUR_MS ? "HH:mm" : "MMM d HH:mm");
-	return format(new Date(timestamp), "MMM d");
+	if (bucketMs < DAY_MS) return formatDate(timestamp, bucketMs < HOUR_MS ? "HH:mm" : "MMM d HH:mm");
+	return formatDate(timestamp, "MMM d");
 }
 
 /** Compact axis tick for a bucket start. */
 export function formatTick(timestamp: number, bucketMs: number): string {
-	if (bucketMs < DAY_MS) return format(new Date(timestamp), "HH:mm");
-	return format(new Date(timestamp), "MMM d");
+	if (bucketMs < DAY_MS) return formatDate(timestamp, "HH:mm");
+	return formatDate(timestamp, "MMM d");
 }
 
 /**

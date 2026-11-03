@@ -1,3 +1,4 @@
+import { Button, theme } from "antd";
 import { ArrowUpRight, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { getRecentErrors } from "../api";
@@ -12,8 +13,9 @@ import {
 	formatTimestamp,
 } from "../data/formatters";
 import { useQuery } from "../data/query";
-import { rangeMeta } from "../data/range";
+import { rangeWindowLabel } from "../data/range";
 import { type ErrorGroupView, errorSignature, groupErrorsBySignature } from "../data/view-models";
+import { useT } from "../i18n";
 import type { MessageStats, TimeRange } from "../types";
 import {
 	Card,
@@ -29,8 +31,8 @@ import {
 	StatGrid,
 	Table,
 	TableSkeleton,
+	Badge,
 } from "../ui";
-import "./errors.css";
 
 export interface ErrorsRouteProps {
 	active: boolean;
@@ -42,6 +44,8 @@ export interface ErrorsRouteProps {
 const LOAD_STEPS = [50, 200, 1_000] as const;
 
 export function ErrorsRoute({ active, range, onRequestClick }: ErrorsRouteProps) {
+	const t = useT();
+	const { token } = theme.useToken();
 	const [step, setStep] = useState(0);
 	const limit = LOAD_STEPS[step];
 	const errors = useQuery(["errors", range, limit], ({ signal }) => getRecentErrors(range, limit, signal), {
@@ -50,7 +54,7 @@ export function ErrorsRoute({ active, range, onRequestClick }: ErrorsRouteProps)
 	const [selectedSignature, setSelectedSignature] = useState<string | null>(null);
 	const [selectedModel, setSelectedModel] = useState<string | null>(null);
 	const [search, setSearch] = useState("");
-	const meta = rangeMeta(range);
+	const windowLabel = rangeWindowLabel(range);
 
 	const view = useMemo(() => {
 		const rows = (errors.data ?? []).map(row => ({ row, signature: errorSignature(row.errorMessage) }));
@@ -100,31 +104,35 @@ export function ErrorsRoute({ active, range, onRequestClick }: ErrorsRouteProps)
 		errors.data !== null && !complete ? (
 			<>
 				<span>
-					Showing the latest {formatInteger(loaded)} failures in {meta.windowLabel}; older ones are not loaded.
+					{t("errors.footer.partial", { count: loaded, window: windowLabel })}
 				</span>
 				{nextStep !== null && (
-					<button
-						type="button"
-						className="btn"
-						data-size="sm"
-						disabled={errors.refreshing}
-						onClick={() => setStep(step + 1)}
-					>
-						{errors.refreshing && errors.stale ? "Loading…" : `Load latest ${formatInteger(nextStep)}`}
-					</button>
+					<Button type="default" size="small" disabled={errors.refreshing} onClick={() => setStep(step + 1)}>
+						{errors.refreshing && errors.stale
+							? t("errors.loadingMore")
+							: t("errors.loadMore", { count: nextStep })}
+					</Button>
 				)}
 			</>
 		) : undefined;
 
 	const maxGroup = view.groups[0]?.count ?? 0;
-	const groupColumns = useMemo(() => buildGroupColumns(maxGroup), [maxGroup]);
+	const groupColumns = useMemo(
+		() =>
+			buildGroupColumns(t, token.fontFamilyCode, token.colorTextTertiary, token.colorError, maxGroup),
+		[t, token, maxGroup],
+	);
+	const failureColumns = useMemo(
+		() => buildFailureColumns(t, token.fontFamilyCode, token.colorTextTertiary, token.colorError),
+		[t, token],
+	);
 	const selectedModelInfo = view.models.find(m => m.key === model);
 
 	return (
-		<div className="page">
+		<div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 			<PageHeader
-				title="Errors"
-				description={`Failed model requests in ${meta.windowLabel}, grouped by error signature. Open a failure for its full payload.`}
+				title={t("errors.title")}
+				description={t("errors.description", { window: windowLabel })}
 			/>
 
 			<QueryView query={errors} skeleton={<Skeleton height={96} style={{ borderRadius: 12 }} />}>
@@ -132,36 +140,54 @@ export function ErrorsRoute({ active, range, onRequestClick }: ErrorsRouteProps)
 					<div data-stale={errors.stale}>
 						<StatGrid min={170}>
 							<Stat
-								label="Failures"
+								label={t("errors.stat.failures")}
 								value={formatInteger(loaded)}
-								hint={complete ? `in ${meta.windowLabel}` : `latest ${formatInteger(loaded)} loaded`}
+								hint={
+									complete
+										? t("errors.stat.failures.complete", { window: windowLabel })
+										: t("errors.stat.failures.partial", { count: loaded })
+								}
 							/>
 							<Stat
-								label="Signatures"
-								title="Distinct error messages after normalizing ids and numbers"
+								label={t("errors.stat.signatures")}
+								title={t("errors.stat.signatures.title")}
 								value={formatInteger(view.groups.length)}
-								hint={view.groups[0] ? `top: ${formatInteger(view.groups[0].count)} failures` : undefined}
+								hint={
+									view.groups[0]
+										? t("errors.stat.signatures.top", { count: view.groups[0].count })
+										: undefined
+								}
 							/>
 							<Stat
-								label="Affected models"
+								label={t("errors.stat.models")}
 								value={formatInteger(view.models.length)}
 								hint={view.models[0]?.model}
 							/>
 							<Stat
-								label="Last failure"
+								label={t("errors.stat.last")}
 								value={view.newest ? formatRelativeTime(view.newest.timestamp) : "–"}
-								hint={view.newest ? formatTimestamp(view.newest.timestamp) : `none in ${meta.windowLabel}`}
+								hint={
+									view.newest
+										? formatTimestamp(view.newest.timestamp)
+										: t("errors.stat.last.noneIn", { window: windowLabel })
+								}
 							/>
 						</StatGrid>
 					</div>
 				)}
 			</QueryView>
 
-			<div className="grid grid-main-side">
+			<div
+				style={{
+					display: "grid",
+					gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr)",
+					gap: 16,
+				}}
+			>
 				<Card
 					index={1}
-					title="Error signatures"
-					description="Same message with ids and counters normalized. Select one to filter the failures below."
+					title={t("errors.sig.title")}
+					description={t("errors.sig.description")}
 					flush
 					stale={errors.stale}
 				>
@@ -171,8 +197,8 @@ export function ErrorsRoute({ active, range, onRequestClick }: ErrorsRouteProps)
 						isEmpty={rows => rows.length === 0}
 						empty={
 							<EmptyState
-								title={`No failures in ${meta.windowLabel}`}
-								hint="Every request succeeded or was aborted."
+								title={t("errors.sig.empty", { window: windowLabel })}
+								hint={t("errors.sig.emptyHint")}
 							/>
 						}
 					>
@@ -198,28 +224,49 @@ export function ErrorsRoute({ active, range, onRequestClick }: ErrorsRouteProps)
 
 				<Card
 					index={2}
-					title="By model"
-					description="Failures per model. Select one to filter."
+					title={t("errors.model.title")}
+					description={t("errors.model.description")}
 					stale={errors.stale}
 				>
 					<QueryView
 						query={errors}
 						skeleton={<Skeleton height={180} />}
 						isEmpty={rows => rows.length === 0}
-						empty={<EmptyState title="No affected models" />}
+						empty={<EmptyState title={t("errors.model.empty")} />}
 					>
 						{() => (
 							<BarList
 								items={view.models.slice(0, 12).map(m => ({
 									key: m.key,
 									label: (
-										<span className="row" style={{ gap: 6, minWidth: 0 }}>
-											<span className="mono truncate">{m.model}</span>
-											<span className="dim truncate">{m.provider}</span>
+										<span style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+											<span
+												style={{
+													fontFamily: token.fontFamilyCode,
+													overflow: "hidden",
+													textOverflow: "ellipsis",
+													whiteSpace: "nowrap",
+												}}
+											>
+												{m.model}
+											</span>
+											<span
+												style={{
+													color: token.colorTextTertiary,
+													overflow: "hidden",
+													textOverflow: "ellipsis",
+													whiteSpace: "nowrap",
+												}}
+											>
+												{m.provider}
+											</span>
 										</span>
 									),
 									value: m.count,
-									color: m.key === model ? "var(--bad)" : "color-mix(in srgb, var(--bad) 45%, transparent)",
+									color:
+										m.key === model
+											? token.colorError
+											: `color-mix(in srgb, ${token.colorError} 45%, transparent)`,
 								}))}
 								onSelect={key => setSelectedModel(model === key ? null : key)}
 							/>
@@ -230,38 +277,65 @@ export function ErrorsRoute({ active, range, onRequestClick }: ErrorsRouteProps)
 
 			<Card
 				index={3}
-				title="Failures"
+				title={t("errors.fail.title")}
 				description={
 					errors.data === null
-						? "Loading failures…"
-						: `${formatInteger(filtered.length)} of ${formatInteger(loaded)} failures, newest first`
+						? t("errors.fail.loading")
+						: t("errors.fail.count", {
+								shown: formatInteger(filtered.length),
+								total: formatInteger(loaded),
+							})
 				}
 				actions={
 					<>
 						{signature !== null && (
-							<button
-								type="button"
-								className="btn errors-filter"
-								data-size="sm"
+							<Button
+								type="default"
+								size="small"
 								onClick={() => setSelectedSignature(null)}
 								title={signature}
+								style={{ maxWidth: 260 }}
 							>
-								<span className="mono truncate">{signature}</span>
+								<span
+									style={{
+										fontFamily: token.fontFamilyCode,
+										overflow: "hidden",
+										textOverflow: "ellipsis",
+										whiteSpace: "nowrap",
+										minWidth: 0,
+									}}
+								>
+									{signature}
+								</span>
 								<X size={12} />
-							</button>
+							</Button>
 						)}
 						{selectedModelInfo && (
-							<button
-								type="button"
-								className="btn errors-filter"
-								data-size="sm"
+							<Button
+								type="default"
+								size="small"
 								onClick={() => setSelectedModel(null)}
+								style={{ maxWidth: 260 }}
 							>
-								<span className="mono truncate">{selectedModelInfo.model}</span>
+								<span
+									style={{
+										fontFamily: token.fontFamilyCode,
+										overflow: "hidden",
+										textOverflow: "ellipsis",
+										whiteSpace: "nowrap",
+										minWidth: 0,
+									}}
+								>
+									{selectedModelInfo.model}
+								</span>
 								<X size={12} />
-							</button>
+							</Button>
 						)}
-						<SearchInput value={search} onChange={setSearch} placeholder="Message, model or project" />
+						<SearchInput
+							value={search}
+							onChange={setSearch}
+							placeholder={t("errors.search.placeholder")}
+						/>
 					</>
 				}
 				flush
@@ -272,18 +346,20 @@ export function ErrorsRoute({ active, range, onRequestClick }: ErrorsRouteProps)
 					query={errors}
 					skeleton={<TableSkeleton rows={10} />}
 					isEmpty={rows => rows.length === 0}
-					empty={<EmptyState title={`No failures in ${meta.windowLabel}`} />}
+					empty={<EmptyState title={t("errors.fail.empty.range", { window: windowLabel })} />}
 				>
 					{() => (
 						<Table
 							rows={filtered}
 							rowKey={row => row.id ?? `${row.sessionFile}:${row.entryId}`}
 							onRowClick={row => row.id !== undefined && onRequestClick(row.id)}
-							columns={FAILURE_COLUMNS}
+							columns={failureColumns}
 							initialSort={{ key: "time", dir: "desc" }}
 							limit={50}
 							dense
-							empty={<EmptyState title="No failures match" hint="Clear the search or the selected filters." />}
+							empty={
+								<EmptyState title={t("errors.fail.empty.filter")} hint={t("errors.fail.empty.hint")} />
+							}
 						/>
 					)}
 				</QueryView>
@@ -292,132 +368,219 @@ export function ErrorsRoute({ active, range, onRequestClick }: ErrorsRouteProps)
 	);
 }
 
-function buildGroupColumns(maxCount: number): Column<ErrorGroupView>[] {
+/** The dashboard translate function; declared structurally since it lives in the off-limits i18n core. */
+type Translate = (key: string, params?: Record<string, string | number>) => string;
+
+function buildGroupColumns(
+	t: Translate,
+	monoFont: string,
+	mutedColor: string,
+	errorColor: string,
+	maxCount: number,
+): Column<ErrorGroupView>[] {
+	const mono = { fontFamily: monoFont };
+	const muted = { color: mutedColor };
 	return [
 		{
 			key: "signature",
-			header: "Signature",
+			header: t("errors.sig.col.signature"),
 			wrap: true,
 			sort: group => group.signature,
 			render: group => (
-				<span className="errors-signature" title={group.latest.errorMessage ?? undefined}>
+				<span
+					style={{
+						...mono,
+						display: "-webkit-box",
+						WebkitLineClamp: 2,
+						WebkitBoxOrient: "vertical",
+						overflow: "hidden",
+						fontSize: 12,
+						lineHeight: 1.5,
+						overflowWrap: "anywhere",
+					}}
+					title={group.latest.errorMessage ?? undefined}
+				>
 					{group.signature}
 				</span>
 			),
 		},
 		{
 			key: "models",
-			header: "Models",
+			header: t("errors.sig.col.models"),
 			sort: group => group.models.length,
 			render: group => (
 				<LabelCell
-					primary={<span className="mono">{group.models[0]?.model}</span>}
-					secondary={group.models.length > 1 ? `+${group.models.length - 1} more` : group.models[0]?.provider}
+					primary={<span style={mono}>{group.models[0]?.model}</span>}
+					secondary={
+						group.models.length > 1
+							? t("errors.sig.more", { count: group.models.length - 1 })
+							: group.models[0]?.provider
+					}
 				/>
 			),
 		},
 		{
 			key: "last",
-			header: "Last seen",
+			header: t("errors.sig.col.last"),
 			sort: group => group.lastSeen,
 			render: group => (
-				<span className="muted" title={formatTimestamp(group.lastSeen)}>
+				<span style={muted} title={formatTimestamp(group.lastSeen)}>
 					{formatRelativeTime(group.lastSeen)}
 				</span>
 			),
 		},
 		{
 			key: "count",
-			header: "Failures",
+			header: t("errors.sig.col.count"),
 			align: "right",
 			width: 120,
 			sort: group => group.count,
 			render: group => (
-				<MeterCell value={group.count} max={maxCount} display={formatInteger(group.count)} color="var(--bad)" />
+				<MeterCell value={group.count} max={maxCount} display={formatInteger(group.count)} color={errorColor} />
 			),
 		},
 	];
 }
 
 function SignatureDetail({ group, onRequestClick }: { group: ErrorGroupView; onRequestClick: (id: number) => void }) {
+	const t = useT();
+	const { token } = theme.useToken();
 	const latestId = group.latest.id;
 	return (
-		<div className="errors-detail">
-			<pre className="code-block errors-detail-message">{group.latest.errorMessage ?? "Unknown error"}</pre>
-			<div className="errors-detail-meta">
-				<span className="muted">
-					{formatInteger(group.count)} failures · first {formatTimestamp(group.firstSeen)} · last{" "}
-					{formatTimestamp(group.lastSeen)}
+		<div
+			style={{
+				display: "flex",
+				flexDirection: "column",
+				gap: 10,
+				padding: "4px 16px 14px",
+				background: token.colorFillQuaternary,
+				borderBottom: `1px solid ${token.colorBorderSecondary}`,
+			}}
+		>
+			<pre
+				style={{
+					margin: 0,
+					maxHeight: 200,
+					overflow: "auto",
+					fontFamily: token.fontFamilyCode,
+					fontSize: 12,
+					lineHeight: 1.55,
+					color: token.colorText,
+					whiteSpace: "pre-wrap",
+					overflowWrap: "anywhere",
+				}}
+			>
+				{group.latest.errorMessage ?? t("errors.detail.unknown")}
+			</pre>
+			<div
+				style={{
+					display: "flex",
+					alignItems: "center",
+					justifyContent: "space-between",
+					gap: 8,
+					flexWrap: "wrap",
+					fontSize: 12.5,
+				}}
+			>
+				<span style={{ color: token.colorTextTertiary }}>
+					{t("errors.detail.meta", {
+						count: group.count,
+						first: formatTimestamp(group.firstSeen),
+						last: formatTimestamp(group.lastSeen),
+					})}
 				</span>
 				{latestId !== undefined && (
-					<button type="button" className="btn" data-size="sm" onClick={() => onRequestClick(latestId)}>
-						Open latest <ArrowUpRight size={13} />
-					</button>
+					<Button type="default" size="small" onClick={() => onRequestClick(latestId)}>
+						{t("errors.detail.openLatest")} <ArrowUpRight size={13} />
+					</Button>
 				)}
 			</div>
-			<div className="errors-detail-models">
+			<div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
 				{group.models.map(m => (
-					<span key={modelKey(m.model, m.provider)} className="badge" data-mono="true">
-						{m.model} <span className="dim">{m.provider}</span>{" "}
-						<span className="num">{formatCompact(m.count)}</span>
-					</span>
+					<Badge key={modelKey(m.model, m.provider)} mono>
+						{m.model}{" "}
+						<span style={{ color: token.colorTextTertiary }}>{m.provider}</span>{" "}
+						<span style={{ fontVariantNumeric: "tabular-nums" }}>{formatCompact(m.count)}</span>
+					</Badge>
 				))}
 			</div>
 		</div>
 	);
 }
 
-const FAILURE_COLUMNS: readonly Column<MessageStats>[] = [
-	{
-		key: "time",
-		header: "When",
-		width: 120,
-		sort: row => row.timestamp,
-		render: row => (
-			<span className="muted" title={formatTimestamp(row.timestamp)}>
-				{formatRelativeTime(row.timestamp)}
-			</span>
-		),
-	},
-	{
-		key: "model",
-		header: "Model",
-		sort: row => row.model,
-		render: row => <LabelCell primary={<span className="mono">{row.model}</span>} secondary={row.provider} />,
-	},
-	{
-		key: "error",
-		header: "Error",
-		sort: row => row.errorMessage ?? "",
-		render: row => (
-			<span className="errors-message" title={row.errorMessage ?? undefined}>
-				{row.errorMessage ?? "Unknown error"}
-			</span>
-		),
-	},
-	{
-		key: "project",
-		header: "Project",
-		sort: row => row.folder,
-		render: row => (
-			<span className="mono muted" title={row.folder}>
-				{formatFolder(row.folder)}
-			</span>
-		),
-	},
-	{
-		key: "tokens",
-		header: "Tokens",
-		align: "right",
-		sort: row => row.usage.totalTokens,
-		render: row => <span className="num">{formatInteger(row.usage.totalTokens)}</span>,
-	},
-	{
-		key: "cost",
-		header: "Cost",
-		title: "API-equivalent estimate",
-		align: "right",
-		sort: row => row.usage.cost.total,
-		render: row => <span className="num">{formatMessageCost(row, 4)}</span>,
-	},
-];
+function buildFailureColumns(
+	t: Translate,
+	monoFont: string,
+	mutedColor: string,
+	errorColor: string,
+): readonly Column<MessageStats>[] {
+	const mono = { fontFamily: monoFont };
+	const muted = { color: mutedColor };
+	const num = { fontVariantNumeric: "tabular-nums" };
+	return [
+		{
+			key: "time",
+			header: t("errors.col.time"),
+			width: 120,
+			sort: row => row.timestamp,
+			render: row => (
+				<span style={muted} title={formatTimestamp(row.timestamp)}>
+					{formatRelativeTime(row.timestamp)}
+				</span>
+			),
+		},
+		{
+			key: "model",
+			header: t("errors.col.model"),
+			sort: row => row.model,
+			render: row => <LabelCell primary={<span style={mono}>{row.model}</span>} secondary={row.provider} />,
+		},
+		{
+			key: "error",
+			header: t("errors.col.error"),
+			sort: row => row.errorMessage ?? "",
+			render: row => (
+				<span
+					style={{
+						...mono,
+						display: "block",
+						maxWidth: 520,
+						overflow: "hidden",
+						textOverflow: "ellipsis",
+						whiteSpace: "nowrap",
+						fontSize: 12,
+						color: errorColor,
+					}}
+					title={row.errorMessage ?? undefined}
+				>
+					{row.errorMessage ?? t("errors.detail.unknown")}
+				</span>
+			),
+		},
+		{
+			key: "project",
+			header: t("errors.col.project"),
+			sort: row => row.folder,
+			render: row => (
+				<span style={{ ...mono, ...muted }} title={row.folder}>
+					{formatFolder(row.folder)}
+				</span>
+			),
+		},
+		{
+			key: "tokens",
+			header: t("errors.col.tokens"),
+			align: "right",
+			sort: row => row.usage.totalTokens,
+			render: row => <span style={num}>{formatInteger(row.usage.totalTokens)}</span>,
+		},
+		{
+			key: "cost",
+			header: t("errors.col.cost"),
+			title: t("errors.col.cost.title"),
+			align: "right",
+			sort: row => row.usage.cost.total,
+			render: row => <span style={num}>{formatMessageCost(row, 4)}</span>,
+		},
+	];
+}

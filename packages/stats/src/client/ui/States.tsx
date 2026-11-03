@@ -1,27 +1,36 @@
-import { Inbox, RotateCw, TriangleAlert } from "lucide-react";
+import { Alert, Button, Empty, Skeleton as AntdSkeleton } from "antd";
+import { Inbox, RotateCw } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
+import { useT } from "../i18n";
 
-export function EmptyState({ title = "Nothing here yet", hint }: { title?: ReactNode; hint?: ReactNode }) {
+export function EmptyState({ title, hint }: { title?: ReactNode; hint?: ReactNode }) {
+	const t = useT();
 	return (
-		<div className="empty">
-			<Inbox size={20} />
-			<div className="empty-title">{title}</div>
-			{hint !== undefined && <div className="empty-hint">{hint}</div>}
+		<div style={{ padding: "24px 0" }}>
+			<Empty image={<Inbox size={28} strokeWidth={1.5} />} description={title ?? t("state.empty")} />
+			{hint !== undefined && (
+				<div style={{ textAlign: "center", fontSize: 12, color: "rgba(128,128,128,1)", marginTop: 8 }}>{hint}</div>
+			)}
 		</div>
 	);
 }
 
 export function ErrorState({ error, onRetry }: { error: Error | string; onRetry?: () => void }) {
+	const t = useT();
 	return (
-		<div className="error-state" role="alert">
-			<TriangleAlert size={15} />
-			<span className="error-state-message">{typeof error === "string" ? error : error.message}</span>
-			{onRetry && (
-				<button type="button" className="btn" data-size="sm" data-variant="ghost" onClick={onRetry}>
-					<RotateCw size={13} /> Retry
-				</button>
-			)}
-		</div>
+		<Alert
+			type="error"
+			showIcon
+			title={typeof error === "string" ? error : error.message}
+			style={{ marginBottom: 12 }}
+			action={
+				onRetry ? (
+					<Button size="small" type="text" icon={<RotateCw size={13} />} onClick={onRetry}>
+						{t("state.retry")}
+					</Button>
+				) : undefined
+			}
+		/>
 	);
 }
 
@@ -34,7 +43,7 @@ export function Skeleton({
 	height?: number | string;
 	style?: CSSProperties;
 }) {
-	return <div className="skeleton" style={{ width, height, ...style }} />;
+	return <AntdSkeleton.Node active style={{ width, height, ...style }} children={false} />;
 }
 
 /** Placeholder block matching a chart's footprint. */

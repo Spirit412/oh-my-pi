@@ -1,5 +1,7 @@
+import { theme } from "antd";
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react";
 import { Sparkline } from "../charts/Sparkline";
+import { useT } from "../i18n";
 
 export interface StatDelta {
 	/** Relative change vs the previous period (0.12 = +12%). `null` when there is no baseline. */
@@ -22,26 +24,32 @@ export interface StatProps {
 	title?: string;
 }
 
-/**
- * One metric tile. The value flashes briefly when it changes after mount, so
- * live updates are noticeable without being loud.
- */
+/** One metric tile. The value highlights briefly when it changes after mount. */
 export function Stat({ label, value, hint, delta, spark, sparkColor, size = "md", title }: StatProps) {
+	const { token } = theme.useToken();
 	const flash = useChangeFlash(typeof value === "string" || typeof value === "number" ? value : null);
+	const valueStyle: CSSProperties = {
+		fontSize: size === "sm" ? 18 : 24,
+		fontWeight: 650,
+		letterSpacing: "-0.02em",
+		lineHeight: 1.2,
+		transition: "color 600ms",
+		color: flash ? token.colorPrimary : token.colorText,
+	};
 	return (
-		<div className="stat" data-size={size} title={title}>
-			<div className="stat-label">{label}</div>
-			<div className="stat-value" data-flash={flash}>
-				{value}
-			</div>
+		<div title={title} style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+			<div style={{ fontSize: 12, color: token.colorTextSecondary }}>{label}</div>
+			<div style={valueStyle}>{value}</div>
 			{(hint !== undefined || delta) && (
-				<div className="stat-foot">
+				<div style={{ display: "flex", gap: 8, alignItems: "baseline", fontSize: 12, color: token.colorTextSecondary, minWidth: 0 }}>
 					{delta && <Delta {...delta} />}
-					{hint !== undefined && <span className="truncate">{hint}</span>}
+					{hint !== undefined && (
+						<span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{hint}</span>
+					)}
 				</div>
 			)}
 			{spark && spark.length > 1 && (
-				<div className="stat-spark">
+				<div style={{ marginTop: 6 }}>
 					<Sparkline values={spark} color={sparkColor} />
 				</div>
 			)}
@@ -56,11 +64,15 @@ export interface StatGridProps {
 }
 
 /** Tiles sharing one card, separated by hairlines. */
-export function StatGrid({ min, children }: StatGridProps) {
+export function StatGrid({ min = 170, children }: StatGridProps) {
 	return (
 		<div
-			className="stat-grid rise"
-			style={min !== undefined ? ({ "--stat-min": `${min}px` } as CSSProperties) : undefined}
+			style={{
+				display: "grid",
+				gridTemplateColumns: `repeat(auto-fit, minmax(${min}px, 1fr))`,
+				rowGap: 16,
+				columnGap: 24,
+			}}
 		>
 			{children}
 		</div>
@@ -69,13 +81,22 @@ export function StatGrid({ min, children }: StatGridProps) {
 
 /** Signed percentage change pill, green when the move is good news. */
 export function Delta({ change, good = "up" }: StatDelta) {
-	if (change === null || !Number.isFinite(change)) return <span className="delta">new</span>;
+	const { token } = theme.useToken();
+	const t = useT();
+	if (change === null || !Number.isFinite(change)) {
+		return (
+			<span style={{ color: token.colorTextTertiary, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+				{t("ui.delta.new")}
+			</span>
+		);
+	}
 	const rounded = Math.abs(change) < 0.0005 ? 0 : change;
-	const tone = rounded === 0 ? undefined : rounded > 0 === (good === "up") ? "good" : "bad";
+	const goodNews = rounded === 0 ? undefined : rounded > 0 === (good === "up");
+	const color = goodNews === undefined ? token.colorTextTertiary : goodNews ? token.colorSuccess : token.colorError;
 	const sign = rounded > 0 ? "+" : rounded < 0 ? "−" : "±";
 	const pct = Math.abs(rounded) * 100;
 	return (
-		<span className="delta" data-tone={tone}>
+		<span style={{ color, fontWeight: 550, fontSize: 12, whiteSpace: "nowrap" }}>
 			{sign}
 			{pct >= 100 ? pct.toFixed(0) : pct.toFixed(1)}%
 		</span>
